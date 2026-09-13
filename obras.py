@@ -736,33 +736,24 @@ def cadastro_de_obras():
                     )
                 ))
 
-                conn.commit()
+conn.commit()
 
-                st.success(
-                    "✅ Obra cadastrada com sucesso!"
-                )
+st.success("✅ Obra cadastrada com sucesso!")
 
-                # Limpa localização após salvar
-                st.session_state[
-                    "latitude_obra"
-                ] = None
+# ==========================================
+# LIMPAR DADOS DA LOCALIZAÇÃO
+# ==========================================
 
-                st.session_state[
-                    "longitude_obra"
-                ] = None
+st.session_state["latitude_obra"] = None
+st.session_state["longitude_obra"] = None
+st.session_state["endereco_obra"] = None
+st.session_state["dados_endereco_obra"] = {}
 
-                st.session_state[
-                    "endereco_obra"
-                ] = None
+# ==========================================
+# ATUALIZA A TELA
+# ==========================================
 
-                st.session_state[
-                    "dados_endereco_obra"
-                ] = {}
-
-            except Exception as e:
-
-                st.error(
-                    f"❌ Erro ao cadastrar obra: {e}"
+st.rerun()rro ao cadastrar obra: {e}"
                 )
 if __name__ == "__main__":
     main()
