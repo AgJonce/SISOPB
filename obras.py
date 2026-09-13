@@ -269,9 +269,9 @@ def cadastro_de_obras():
     st.title("🏗️ Cadastro de Nova Obra")
 
     # ==================================================
-    # ID DO CADASTRO
-    # Muda depois de salvar para limpar todos os campos
-    # ==================================================
+    if st.session_state.get("obra_salva", False):
+        st.success("✅ Obra registrada com sucesso!")
+        st.session_state["obra_salva"] = False
 
     if "cadastro_obra_id" not in st.session_state:
         st.session_state["cadastro_obra_id"] = 0
@@ -671,31 +671,19 @@ def cadastro_de_obras():
 
                 conn.commit()
 
-                # ==================================
-                # LIMPA LOCALIZAÇÃO
-                # ==================================
-
+                # Limpa localização
                 st.session_state["latitude_obra"] = None
                 st.session_state["longitude_obra"] = None
                 st.session_state["endereco_obra"] = None
                 st.session_state["dados_endereco_obra"] = {}
 
-                # ==================================
-                # LIMPA TODOS OS CAMPOS
-                # ==================================
-
+                # Limpa os campos da obra
                 st.session_state["cadastro_obra_id"] += 1
 
-                # Guarda mensagem para próxima tela
+                # Informa que salvou
                 st.session_state["obra_salva"] = True
 
-                # Recarrega
+                # Recarrega a tela
                 st.rerun()
-
-            except Exception as e:
-
-                st.error(
-                    f"❌ Erro ao cadastrar obra: {e}"
-                )
 if __name__ == "__main__":
     main()
