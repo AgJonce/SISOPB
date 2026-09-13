@@ -269,10 +269,20 @@ def cadastro_de_obras():
     st.title("🏗️ Cadastro de Nova Obra")
 
     # ==========================================
+    # CONTROLE DO FORMULÁRIO
+    # ==========================================
+
+    if "form_obra_id" not in st.session_state:
+        st.session_state["form_obra_id"] = 0
+
+    # ==========================================
     # INFORMAÇÕES DA OBRA
     # ==========================================
 
-    with st.form("form_cadastro_obra", clear_on_submit=True):
+    with st.form(
+        f"form_cadastro_obra_{st.session_state['form_obra_id']}",
+        clear_on_submit=True
+    ):
 
         st.subheader("📋 Informações da Obra")
 
@@ -322,7 +332,9 @@ def cadastro_de_obras():
                 ]
             )
 
-            art = st.text_input("📜 ART")
+            art = st.text_input(
+                "📜 ART"
+            )
 
             tipo_obra = st.selectbox(
                 "🏢 Tipo de Obra",
@@ -359,17 +371,9 @@ def cadastro_de_obras():
         )
 
     # ==========================================
-    # MAPA
+    # INICIALIZA LOCALIZAÇÃO
     # ==========================================
 
-    st.subheader("📍 Local da Obra")
-
-    st.info(
-        "🖱️ Clique no mapa exatamente no local da obra "
-        "para obter o endereço e as coordenadas."
-    )
-
-    # Inicializa localização
     if "latitude_obra" not in st.session_state:
         st.session_state["latitude_obra"] = None
 
@@ -383,8 +387,15 @@ def cadastro_de_obras():
         st.session_state["dados_endereco_obra"] = {}
 
     # ==========================================
-    # CRIA MAPA
+    # MAPA
     # ==========================================
+
+    st.subheader("📍 Local da Obra")
+
+    st.info(
+        "🖱️ Clique no mapa exatamente no local da obra "
+        "para obter rua, número, bairro, cidade e coordenadas."
+    )
 
     mapa = folium.Map(
         location=[
@@ -394,8 +405,10 @@ def cadastro_de_obras():
         zoom_start=15
     )
 
-    # Se já existe localização selecionada,
-    # coloca marcador no mapa
+    # ==========================================
+    # MARCADOR DO LOCAL SELECIONADO
+    # ==========================================
+
     if (
         st.session_state["latitude_obra"] is not None
         and st.session_state["longitude_obra"] is not None
@@ -418,7 +431,7 @@ def cadastro_de_obras():
         mapa,
         width=800,
         height=500,
-        key="mapa_cadastro_obra"
+        key=f"mapa_cadastro_obra_{st.session_state['form_obra_id']}"
     )
 
     # ==========================================
@@ -450,64 +463,87 @@ def cadastro_de_obras():
 
             if location:
 
-                endereco = location.raw.get(
+                endereco_dados = location.raw.get(
                     "address",
                     {}
                 )
 
                 # ==================================
-                # PEGA CADA PARTE DO ENDEREÇO
+                # RUA
                 # ==================================
 
-                rua = endereco.get(
+                rua = endereco_dados.get(
                     "road",
                     "Não informado"
                 )
 
-                numero = endereco.get(
+                # ==================================
+                # NÚMERO
+                # ==================================
+
+                numero = endereco_dados.get(
                     "house_number",
                     "Não informado"
                 )
 
-                bairro = endereco.get(
+                # ==================================
+                # BAIRRO
+                # ==================================
+
+                bairro = endereco_dados.get(
                     "suburb",
-                    endereco.get(
+                    endereco_dados.get(
                         "neighbourhood",
                         "Não informado"
                     )
                 )
 
-                cidade = endereco.get(
+                # ==================================
+                # CIDADE
+                # ==================================
+
+                cidade = endereco_dados.get(
                     "city",
-                    endereco.get(
+                    endereco_dados.get(
                         "town",
-                        endereco.get(
+                        endereco_dados.get(
                             "municipality",
                             "Não informado"
                         )
                     )
                 )
 
-                estado = endereco.get(
+                # ==================================
+                # ESTADO
+                # ==================================
+
+                estado = endereco_dados.get(
                     "state",
                     "Não informado"
                 )
 
-                pais = endereco.get(
+                # ==================================
+                # PAÍS
+                # ==================================
+
+                pais = endereco_dados.get(
                     "country",
                     "Brasil"
                 )
 
+                # ==================================
+                # ENDEREÇO COMPLETO
+                # ==================================
+
                 endereco_completo = location.address
 
-                # Guarda os dados
-                st.session_state[
-                    "endereco_obra"
-                ] = endereco_completo
+                # Guarda endereço completo
+                st.session_state["endereco_obra"] = (
+                    endereco_completo
+                )
 
-                st.session_state[
-                    "dados_endereco_obra"
-                ] = {
+                # Guarda informações separadas
+                st.session_state["dados_endereco_obra"] = {
 
                     "rua": rua,
                     "numero": numero,
@@ -519,23 +555,19 @@ def cadastro_de_obras():
 
         except Exception as e:
 
-            st.session_state[
-                "endereco_obra"
-            ] = "Endereço não localizado"
+            st.session_state["endereco_obra"] = (
+                "Endereço não localizado"
+            )
 
-            st.session_state[
-                "dados_endereco_obra"
-            ] = {}
+            st.session_state["dados_endereco_obra"] = {}
 
             st.warning(
                 f"⚠️ Não foi possível localizar "
                 f"o endereço: {e}"
             )
 
-        st.rerun()
-
     # ==========================================
-    # EXIBIR LOCAL SELECIONADO
+    # RECUPERA LOCALIZAÇÃO
     # ==========================================
 
     latitude = st.session_state[
@@ -553,6 +585,10 @@ def cadastro_de_obras():
     dados = st.session_state[
         "dados_endereco_obra"
     ]
+
+    # ==========================================
+    # EXIBE DADOS DO LOCAL
+    # ==========================================
 
     if latitude is not None and longitude is not None:
 
@@ -696,69 +732,67 @@ def cadastro_de_obras():
                     )
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
-
                     obra,
-
                     contrato,
-
-                    data_inicio.strftime(
-                        "%Y-%m-%d"
-                    ),
-
-                    data_entrega.strftime(
-                        "%Y-%m-%d"
-                    ),
-
+                    data_inicio.strftime("%Y-%m-%d"),
+                    data_entrega.strftime("%Y-%m-%d"),
                     recurso,
-
                     art,
-
                     tipo_responsabilidade,
-
                     latitude,
-
                     longitude,
-
                     endereco,
-
                     responsavel,
-
                     tipo_obra,
-
                     valor_obra,
-
                     situacao,
-
                     prazo,
-
-                    datetime.now().strftime(
-                        "%Y-%m-%d"
-                    )
+                    datetime.now().strftime("%Y-%m-%d")
                 ))
 
-conn.commit()
+                # Confirma gravação
+                conn.commit()
 
-st.success("✅ Obra cadastrada com sucesso!")
+                # ==================================
+                # LIMPA LOCALIZAÇÃO
+                # ==================================
 
-# ==========================================
-# LIMPAR DADOS DA LOCALIZAÇÃO
-# ==========================================
+                st.session_state[
+                    "latitude_obra"
+                ] = None
 
-st.session_state["latitude_obra"] = None
-st.session_state["longitude_obra"] = None
-st.session_state["endereco_obra"] = None
-st.session_state["dados_endereco_obra"] = {}
+                st.session_state[
+                    "longitude_obra"
+                ] = None
 
-# ==========================================
-# ATUALIZA A TELA
-# ==========================================
+                st.session_state[
+                    "endereco_obra"
+                ] = None
 
-st.rerun()
+                st.session_state[
+                    "dados_endereco_obra"
+                ] = {}
 
-        except Exception as e:
+                # ==================================
+                # MUDA A CHAVE DO FORMULÁRIO
+                # PARA LIMPAR OS CAMPOS
+                # ==================================
 
-            st.error(
-                f"❌ Erro ao cadastrar obra: {e}"
-            )
+                st.session_state[
+                    "form_obra_id"
+                ] += 1
+
+                st.success(
+                    "✅ Obra cadastrada com sucesso!"
+                )
+
+                # Atualiza a tela
+                st.rerun()
+
+            except Exception as e:
+
+                st.error(
+                    f"❌ Erro ao cadastrar obra: {e}"
+                )
 if __name__ == "__main__":
     main()
