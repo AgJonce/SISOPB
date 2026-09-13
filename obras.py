@@ -230,5 +230,4 @@ def cadastrar_usuario():
             st.warning("⚠️ Preencha todos os campos.")
 				
 if __name__ == "__main__":
-	exibir_mapa()
     main()
