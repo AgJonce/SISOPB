@@ -1,10 +1,10 @@
-import os
 import sqlite3
 import streamlit as st
 import pandas as pd
+import folium
+from datetime import datetime, timedelta
 from streamlit_folium import st_folium
 from geopy.geocoders import Nominatim
-
 conn = sqlite3.connect("obras.db",check_same_thread=False)
 cursor = conn.cursor()
 
@@ -26,6 +26,28 @@ cursor.execute("""
     "123",
     "Administrador"
 ))
+
+cursor.execute('''
+    CREATE TABLE IF NOT EXISTS obras (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        obra TEXT NOT NULL,
+        contrato TEXT,
+        data_inicio TEXT,
+        data_entrega TEXT,
+        recurso TEXT,
+        art TEXT,
+        tipo_responsabilidade TEXT,
+        latitude REAL,
+        longitude REAL,
+        endereco TEXT,
+        responsavel TEXT,
+        tipo_obra TEXT,
+        valor_obra REAL,
+        situacao TEXT,
+        prazo_dias INTEGER,
+        data_cadastro TEXT
+    )
+''')
 
 conn.commit()
 
@@ -228,6 +250,177 @@ def cadastrar_usuario():
 
         else:
             st.warning("⚠️ Preencha todos os campos.")
-				
+def cadastro_de_obras():
+    st.title("🏗️ Cadastro de Nova Obra")
+
+    with st.form("form_cadastro_obra", clear_on_submit=True):
+
+        st.subheader("📋 Informações da Obra")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            obra = st.text_input(
+                "🏗️ Nome da Obra",
+                placeholder="Ex: Construção da Escola XYZ"
+            )
+
+            contrato = st.text_input(
+                "📜 Número do Contrato",
+                placeholder="Ex: 1234-ABCD"
+            )
+
+            recurso = st.selectbox(
+                "💰 Recurso",
+                ["Federal", "Estadual", "Terceiros", "Outros"]
+            )
+
+            valor_obra = st.number_input(
+                "💵 Valor da Obra (R$)",
+                min_value=0.0,
+                format="%.2f"
+            )
+
+        with col2:
+            responsavel = st.text_input(
+                "👤 Responsável pela Obra"
+            )
+
+            tipo_responsabilidade = st.selectbox(
+                "👷 Tipo de Responsabilidade",
+                ["Engenheiro", "Arquiteto", "Técnico", "Outros"]
+            )
+
+            art = st.text_input("📜 ART")
+
+            tipo_obra = st.selectbox(
+                "🏢 Tipo de Obra",
+                ["Construção", "Reforma", "Manutenção", "Outros"]
+            )
+
+            prazo = st.number_input(
+                "📅 Prazo de Entrega (em dias)",
+                min_value=1,
+                step=1
+            )
+
+            data_inicio = st.date_input("📅 Data de Início")
+
+            data_entrega = data_inicio + timedelta(days=prazo)
+
+        situacao = st.selectbox(
+            "📊 Situação da Obra",
+            ["Em andamento", "Concluída", "Paralisada", "Planejada"]
+        )
+
+        st.subheader("📍 Local da Obra")
+
+        mapa = folium.Map(
+            location=[-20.7336, -42.0306],
+            zoom_start=15
+        )
+
+        map_data = st_folium(
+            mapa,
+            width=800,
+            height=500
+        )
+
+        latitude = None
+        longitude = None
+        endereco = "Não selecionado"
+
+        if map_data and map_data.get("last_clicked"):
+
+            latitude = map_data["last_clicked"]["lat"]
+            longitude = map_data["last_clicked"]["lng"]
+
+            try:
+                geolocator = get_geolocator()
+
+                location = geolocator.reverse(
+                    (latitude, longitude),
+                    language="pt",
+                    timeout=10,
+                    exactly_one=True
+                )
+
+                if location:
+                    endereco = location.address
+
+            except Exception:
+                endereco = "Endereço não localizado"
+
+            st.info(
+                f"**Coordenadas:** "
+                f"{latitude:.6f}, {longitude:.6f}"
+            )
+
+            st.info(f"**Endereço:** {endereco}")
+
+        salvar = st.form_submit_button("💾 Salvar Obra")
+
+    # ==========================
+    # SALVAR
+    # ==========================
+
+    if salvar:
+
+        if not obra:
+            st.warning("⚠️ Informe o nome da obra.")
+
+        elif not contrato:
+            st.warning("⚠️ Informe o número do contrato.")
+
+        elif latitude is None or longitude is None:
+            st.warning(
+                "⚠️ Clique no mapa para selecionar "
+                "a localização da obra."
+            )
+
+        else:
+
+            cursor.execute("""
+                INSERT INTO obras (
+                    obra,
+                    contrato,
+                    data_inicio,
+                    data_entrega,
+                    recurso,
+                    art,
+                    tipo_responsabilidade,
+                    latitude,
+                    longitude,
+                    endereco,
+                    responsavel,
+                    tipo_obra,
+                    valor_obra,
+                    situacao,
+                    prazo_dias,
+                    data_cadastro
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                obra,
+                contrato,
+                data_inicio.strftime("%Y-%m-%d"),
+                data_entrega.strftime("%Y-%m-%d"),
+                recurso,
+                art,
+                tipo_responsabilidade,
+                latitude,
+                longitude,
+                endereco,
+                responsavel,
+                tipo_obra,
+                valor_obra,
+                situacao,
+                prazo,
+                datetime.now().strftime("%Y-%m-%d")
+            ))
+
+            conn.commit()
+
+            st.success("✅ Obra cadastrada com sucesso!")
 if __name__ == "__main__":
     main()
