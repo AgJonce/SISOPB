@@ -51,7 +51,7 @@ def main ():
 			"Medições",
 			"Contabilidade",
 		]
-    elif funcao == "Financeiro":
+	elif funcao == "Financeiro":
         menu = [
 			"Financeiro 💰"
 		]
