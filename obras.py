@@ -105,32 +105,32 @@ def main ():
     escolha = st.sidebar.selectbox("📋 Menu", menu + ["🔓 Logout"])
 
     # Mapeamento de funcionalidades
-	if escolha == "Cadastro de Obras 🛎️":
-    	cadastro_de_obras()
+    if escolha == "Cadastro de Obras 🛎️":
+        cadastro_de_obras()
 
-	elif escolha == "Dashboard 📊":
-    	dashboard()
+    elif escolha == "Dashboard 📊":
+        dashboard()
 
-	elif escolha == "👨‍🔧 Cadastro de Funcionário":
-    	cadastrar_funcionario()
+    elif escolha == "👨‍🔧 Cadastro de Funcionário":
+        cadastrar_funcionario()
 
-	elif escolha == "Contabilidade":
-    	opcao = st.sidebar.radio(
-        	"🧰 Contas - Módulos:",
-        [
-            "🧹 Contabilidade",
-            "📦 Financeiro",
-        ]
-    )
+    elif escolha == "Contabilidade":
+        opcao = st.sidebar.radio(
+            "🧰 Contas - Módulos:",
+            [
+                "🧹 Contabilidade",
+                "📦 Financeiro"
+            ]
+        )
 
-    if opcao == "🧹 Contabilidade":
-        modulo_contabil()
+        if opcao == "🧹 Contabilidade":
+            modulo_contabil()
 
-    elif opcao == "📦 Financeiro":
-        modulo_financeiro()
+        elif opcao == "📦 Financeiro":
+            modulo_financeiro()
 
-elif escolha == "➕ Cadastrar Usuário":
-    cadastrar_usuario()
+    elif escolha == "➕ Cadastrar Usuário":
+        cadastrar_usuario()
 		
 def login():
     st.subheader("🔐 Login no Sistema")
