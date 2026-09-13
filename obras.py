@@ -32,6 +32,7 @@ def main ():
     st.sidebar.info(f"🔐 Função: {funcao}")
 
     # Menus por função
+    # Menus por função
     if funcao == "Administrador":
         menu = [
             "Cadastro de Obras 🛎️",
@@ -39,26 +40,30 @@ def main ():
             "Dashboard 📊",
             "👨‍🔧 Cadastro de Funcionário",
             "Financeiro 💰",
-			"Contabilidade",
-			"Medições",
+            "Contabilidade",
+            "Medições",
             "➕ Cadastrar Usuário"
         ]
+
     elif funcao == "Engenheiro":
-       menu = [
-			"Cadastro de Obras 🛎️", 
-			"Situação da Obra",
-			"Financeiro 💰",
-			"Medições",
-			"Contabilidade",
-		]
-	elif funcao == "Financeiro":
         menu = [
-			"Financeiro 💰"
-		]
-	elif funcao == "Contador":
+            "Cadastro de Obras 🛎️",
+            "Situação da Obra",
+            "Financeiro 💰",
+            "Medições",
+            "Contabilidade"
+        ]
+
+    elif funcao == "Financeiro":
         menu = [
-			"Contabilidade"
-		]
+            "Financeiro 💰"
+        ]
+
+    elif funcao == "Contador":
+        menu = [
+            "Contabilidade"
+        ]
+
     else:
         st.error("❌ Função não reconhecida. Contate o administrador.")
         return
