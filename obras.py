@@ -685,5 +685,6 @@ def cadastro_de_obras():
 
                 # Recarrega a tela
                 st.rerun()
+				
 if __name__ == "__main__":
     main()
