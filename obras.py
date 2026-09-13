@@ -153,6 +153,9 @@ def login():
                 st.error("🚫 Usuário ou senha inválidos.")
         else:
             st.warning("⚠️ Preencha todos os campos.")
+def get_geolocator():
+    return Nominatim(user_agent="SISOPB")
+	
 def exibir_mapa():
     # Localização inicial de Carangola
     carangola_location = [-20.7029, -42.0105]
