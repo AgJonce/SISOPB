@@ -709,67 +709,66 @@ def cadastro_de_obras():
 
         else:
 
-            try:
+             try:
 
                 cursor.execute("""
-        			INSERT INTO obras (
-            			obra,
-            			contrato,
-            			data_inicio,
-           			 	data_entrega,
-            			recurso,
-            			art,
-            			tipo_responsabilidade,
-            			latitude,
-            			longitude,
-            			endereco,
-            			responsavel,
-            			tipo_obra,
-            			valor_obra,
-            			situacao,
-            			prazo_dias,
-            			data_cadastro
-        			)
-        			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-   			 """, (
-        		obra,
-       		 	contrato,
-        		data_inicio.strftime("%Y-%m-%d"),
-        		data_entrega.strftime("%Y-%m-%d"),
-        		recurso,
-      	  		art,
-        		tipo_responsabilidade,
-        		latitude,
-        		longitude,
-        		endereco,
-        		responsavel,
-       			 tipo_obra,
-        		valor_obra,
-        		situacao,
-       			 prazo,
-        		datetime.now().strftime("%Y-%m-%d")
-    		))
+                    INSERT INTO obras (
+                        obra,
+                        contrato,
+                        data_inicio,
+                        data_entrega,
+                        recurso,
+                        art,
+                        tipo_responsabilidade,
+                        latitude,
+                        longitude,
+                        endereco,
+                        responsavel,
+                        tipo_obra,
+                        valor_obra,
+                        situacao,
+                        prazo_dias,
+                        data_cadastro
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    obra,
+                    contrato,
+                    data_inicio.strftime("%Y-%m-%d"),
+                    data_entrega.strftime("%Y-%m-%d"),
+                    recurso,
+                    art,
+                    tipo_responsabilidade,
+                    latitude,
+                    longitude,
+                    endereco,
+                    responsavel,
+                    tipo_obra,
+                    valor_obra,
+                    situacao,
+                    prazo,
+                    datetime.now().strftime("%Y-%m-%d")
+                ))
 
-   		 	conn.commit()
+                conn.commit()
 
-    # Limpar localização
-    		st.session_state["latitude_obra"] = None
-    		st.session_state["longitude_obra"] = None
-    		st.session_state["endereco_obra"] = None
-    		st.session_state["dados_endereco_obra"] = {}
+                st.success(
+                    "✅ Obra cadastrada com sucesso!"
+                )
 
-    # CRIA UM NOVO FORMULÁRIO
-    # Isso limpa os campos de informação da obra
-    		st.session_state["form_obra_id"] += 1
+                st.session_state["latitude_obra"] = None
+                st.session_state["longitude_obra"] = None
+                st.session_state["endereco_obra"] = None
+                st.session_state["dados_endereco_obra"] = {}
 
-		    st.success("✅ Obra cadastrada com sucesso!")
+                st.session_state["form_obra_id"] += 1
 
-    		st.rerun()
+                st.rerun()
 
-			except Exception as e:
+            except Exception as e:
 
-    		st.error(
-        		f"❌ Erro ao cadastrar obra: {e}"
-   			)
+                st.error(
+                    f"❌ Erro ao cadastrar obra: {e}"
+                )
 if __name__ == "__main__":
     main()
