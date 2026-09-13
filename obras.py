@@ -753,7 +753,12 @@ st.session_state["dados_endereco_obra"] = {}
 # ATUALIZA A TELA
 # ==========================================
 
-st.rerun()rro ao cadastrar obra: {e}"
-                )
+st.rerun()
+
+        except Exception as e:
+
+            st.error(
+                f"❌ Erro ao cadastrar obra: {e}"
+            )
 if __name__ == "__main__":
     main()
