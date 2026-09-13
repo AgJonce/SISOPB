@@ -48,7 +48,7 @@ def main ():
     elif funcao == "Financeiro":
         menu = ["Financeiro 💰",]
 	elif funcao == "Contador":
-		menu = ["Contabilidade",]
+        menu = ["Contabilidade",]
     else:
         st.error("❌ Função não reconhecida. Contate o administrador.")
         return
