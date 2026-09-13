@@ -16,6 +16,17 @@ cursor.execute('''
         funcao TEXT
     );
 ''')
+cursor.execute("""
+    INSERT OR IGNORE INTO usuarios (nome, usuario, senha, funcao)
+    VALUES (?, ?, ?, ?)
+""", (
+    "Administrador",
+    "admin",
+    "123",
+    "Administrador"
+))
+
+conn.commit()
 
 def main ():
     st.set_page_config(page_title="Sistemas de Obras Públicas ", page_icon="🏗️", layout="wide")
@@ -109,15 +120,6 @@ def login():
         else:
             st.warning("⚠️ Preencha todos os campos.")
 
-    st.markdown("---")
-    if st.button("➕ Criar Novo Usuário"):
-        st.session_state["tela_cadastro_usuario"] = True
-        st.rerun()
-
-    # Exibe a tela de cadastro se ativada
-    if st.session_state.get("tela_cadastro_usuario"):
-        cadastrar_usuario()
-
 def cadastrar_usuario():
     st.subheader("➕ Cadastrar Novo Usuário")
 
@@ -149,43 +151,6 @@ def cadastrar_usuario():
                 st.error("🚫 Nome de usuário já existe.")
         else:
             st.warning("⚠️ Preencha todos os campos.")
-def cadastrar_usuario():
-    st.subheader("➕ Cadastrar Novo Usuário")
-
-    with st.form("form_cadastro_usuario", clear_on_submit=True):
-
-        nome = st.text_input("Nome Completo")
-        usuario = st.text_input("Nome de Usuário")
-        senha = st.text_input("Senha", type="password")
-
-        funcao = st.selectbox(
-            "Função",
-            [
-                "Administrador",
-                "Contador",
-                "Engenheiro",
-                "Financeiro"
-            ]
-        )
-
-        cadastrar = st.form_submit_button("Cadastrar")
-
-    if cadastrar:
-        if nome and usuario and senha and funcao:
-            try:
-                cursor.execute("""
-                    INSERT INTO usuarios (nome, usuario, senha, funcao)
-                    VALUES (?, ?, ?, ?)
-                """, (nome, usuario, senha, funcao))
-
-                conn.commit()
-
-                st.success("✅ Usuário cadastrado com sucesso.")
-
-            except sqlite3.IntegrityError:
-                st.error("🚫 Nome de usuário já existe.")
-
-        else:
-            st.warning("⚠️ Preencha todos os campos.")				
+				
 if __name__ == "__main__":
     main()
