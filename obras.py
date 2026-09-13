@@ -44,11 +44,21 @@ def main ():
             "➕ Cadastrar Usuário"
         ]
     elif funcao == "Engenheiro":
-        menu = ["Cadastro de Obras 🛎️", "Situação da Obra","Financeiro 💰","Medições","Contabilidade",]
+       menu = [
+			"Cadastro de Obras 🛎️", 
+			"Situação da Obra",
+			"Financeiro 💰",
+			"Medições",
+			"Contabilidade",
+		]
     elif funcao == "Financeiro":
-        menu = ["Financeiro 💰",]
+        menu = [
+			"Financeiro 💰"
+		]
 	elif funcao == "Contador":
-        menu = ["Contabilidade",]
+        menu = [
+			"Contabilidade"
+		]
     else:
         st.error("❌ Função não reconhecida. Contate o administrador.")
         return
