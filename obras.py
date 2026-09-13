@@ -149,6 +149,43 @@ def cadastrar_usuario():
                 st.error("🚫 Nome de usuário já existe.")
         else:
             st.warning("⚠️ Preencha todos os campos.")
-				
+def cadastrar_usuario():
+    st.subheader("➕ Cadastrar Novo Usuário")
+
+    with st.form("form_cadastro_usuario", clear_on_submit=True):
+
+        nome = st.text_input("Nome Completo")
+        usuario = st.text_input("Nome de Usuário")
+        senha = st.text_input("Senha", type="password")
+
+        funcao = st.selectbox(
+            "Função",
+            [
+                "Administrador",
+                "Contador",
+                "Engenheiro",
+                "Financeiro"
+            ]
+        )
+
+        cadastrar = st.form_submit_button("Cadastrar")
+
+    if cadastrar:
+        if nome and usuario and senha and funcao:
+            try:
+                cursor.execute("""
+                    INSERT INTO usuarios (nome, usuario, senha, funcao)
+                    VALUES (?, ?, ?, ?)
+                """, (nome, usuario, senha, funcao))
+
+                conn.commit()
+
+                st.success("✅ Usuário cadastrado com sucesso.")
+
+            except sqlite3.IntegrityError:
+                st.error("🚫 Nome de usuário já existe.")
+
+        else:
+            st.warning("⚠️ Preencha todos os campos.")				
 if __name__ == "__main__":
     main()
