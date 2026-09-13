@@ -268,111 +268,128 @@ def cadastro_de_obras():
 
     st.title("🏗️ Cadastro de Nova Obra")
 
-    # ==========================================
-    # CONTROLE DO FORMULÁRIO
-    # ==========================================
+    # ==================================================
+    # ID DO CADASTRO
+    # Muda depois de salvar para limpar todos os campos
+    # ==================================================
 
-    if "form_obra_id" not in st.session_state:
-        st.session_state["form_obra_id"] = 0
+    if "cadastro_obra_id" not in st.session_state:
+        st.session_state["cadastro_obra_id"] = 0
 
-    # ==========================================
+    cadastro_id = st.session_state["cadastro_obra_id"]
+
+    # Mensagem após salvar
+    if st.session_state.get("obra_salva"):
+        st.success("✅ Obra cadastrada com sucesso!")
+        st.session_state["obra_salva"] = False
+
+    # ==================================================
     # INFORMAÇÕES DA OBRA
-    # ==========================================
+    # ==================================================
 
-    with st.form(
-        f"form_cadastro_obra_{st.session_state['form_obra_id']}",
-        clear_on_submit=True
-    ):
+    st.subheader("📋 Informações da Obra")
 
-        st.subheader("📋 Informações da Obra")
+    col1, col2 = st.columns(2)
 
-        col1, col2 = st.columns(2)
+    with col1:
 
-        with col1:
-
-            obra = st.text_input(
-                "🏗️ Nome da Obra",
-                placeholder="Ex: Construção da Escola XYZ"
-            )
-
-            contrato = st.text_input(
-                "📜 Número do Contrato",
-                placeholder="Ex: 1234-ABCD"
-            )
-
-            recurso = st.selectbox(
-                "💰 Recurso",
-                [
-                    "Federal",
-                    "Estadual",
-                    "Terceiros",
-                    "Outros"
-                ]
-            )
-
-            valor_obra = st.number_input(
-                "💵 Valor da Obra (R$)",
-                min_value=0.0,
-                format="%.2f"
-            )
-
-        with col2:
-
-            responsavel = st.text_input(
-                "👤 Responsável pela Obra"
-            )
-
-            tipo_responsabilidade = st.selectbox(
-                "👷 Tipo de Responsabilidade",
-                [
-                    "Engenheiro",
-                    "Arquiteto",
-                    "Técnico",
-                    "Outros"
-                ]
-            )
-
-            art = st.text_input(
-                "📜 ART"
-            )
-
-            tipo_obra = st.selectbox(
-                "🏢 Tipo de Obra",
-                [
-                    "Construção",
-                    "Reforma",
-                    "Manutenção",
-                    "Outros"
-                ]
-            )
-
-            prazo = st.number_input(
-                "📅 Prazo de Entrega (em dias)",
-                min_value=1,
-                step=1
-            )
-
-            data_inicio = st.date_input(
-                "📅 Data de Início"
-            )
-
-            data_entrega = data_inicio + timedelta(
-                days=prazo
-            )
-
-        situacao = st.selectbox(
-            "📊 Situação da Obra",
-            [
-                "Em andamento",
-                "Concluída",
-                "Paralisada",
-                "Planejada"
-            ]
+        obra = st.text_input(
+            "🏗️ Nome da Obra",
+            placeholder="Ex: Construção da Escola XYZ",
+            key=f"obra_{cadastro_id}"
         )
 
-    # ==========================================
-    # INICIALIZA LOCALIZAÇÃO
-    # ==========================================
+        contrato = st.text_input(
+            "📜 Número do Contrato",
+            placeholder="Ex: 1234-ABCD",
+            key=f"contrato_{cadastro_id}"
+        )
+
+        recurso = st.selectbox(
+            "💰 Recurso",
+            [
+                "Federal",
+                "Estadual",
+                "Terceiros",
+                "Outros"
+            ],
+            key=f"recurso_{cadastro_id}"
+        )
+
+        valor_obra = st.number_input(
+            "💵 Valor da Obra (R$)",
+            min_value=0.0,
+            format="%.2f",
+            key=f"valor_{cadastro_id}"
+        )
+
+    with col2:
+
+        responsavel = st.text_input(
+            "👤 Responsável pela Obra",
+            key=f"responsavel_{cadastro_id}"
+        )
+
+        tipo_responsabilidade = st.selectbox(
+            "👷 Tipo de Responsabilidade",
+            [
+                "Engenheiro",
+                "Arquiteto",
+                "Técnico",
+                "Outros"
+            ],
+            key=f"responsabilidade_{cadastro_id}"
+        )
+
+        art = st.text_input(
+            "📜 ART",
+            key=f"art_{cadastro_id}"
+        )
+
+        tipo_obra = st.selectbox(
+            "🏢 Tipo de Obra",
+            [
+                "Construção",
+                "Reforma",
+                "Manutenção",
+                "Outros"
+            ],
+            key=f"tipo_obra_{cadastro_id}"
+        )
+
+        prazo = st.number_input(
+            "📅 Prazo de Entrega (em dias)",
+            min_value=1,
+            step=1,
+            key=f"prazo_{cadastro_id}"
+        )
+
+        data_inicio = st.date_input(
+            "📅 Data de Início",
+            key=f"data_inicio_{cadastro_id}"
+        )
+
+        data_entrega = data_inicio + timedelta(days=prazo)
+
+        st.info(
+            f"📅 Previsão de entrega: "
+            f"{data_entrega.strftime('%d/%m/%Y')}"
+        )
+
+    situacao = st.selectbox(
+        "📊 Situação da Obra",
+        [
+            "Em andamento",
+            "Concluída",
+            "Paralisada",
+            "Planejada"
+        ],
+        key=f"situacao_{cadastro_id}"
+    )
+
+    # ==================================================
+    # ESTADO DA LOCALIZAÇÃO
+    # ==================================================
 
     if "latitude_obra" not in st.session_state:
         st.session_state["latitude_obra"] = None
@@ -386,29 +403,22 @@ def cadastro_de_obras():
     if "dados_endereco_obra" not in st.session_state:
         st.session_state["dados_endereco_obra"] = {}
 
-    # ==========================================
+    # ==================================================
     # MAPA
-    # ==========================================
+    # ==================================================
 
     st.subheader("📍 Local da Obra")
 
     st.info(
-        "🖱️ Clique no mapa exatamente no local da obra "
-        "para obter rua, número, bairro, cidade e coordenadas."
+        "🖱️ Clique no mapa exatamente no local da obra."
     )
 
     mapa = folium.Map(
-        location=[
-            -20.7336,
-            -42.0306
-        ],
+        location=[-20.7336, -42.0306],
         zoom_start=15
     )
 
-    # ==========================================
-    # MARCADOR DO LOCAL SELECIONADO
-    # ==========================================
-
+    # Marcador do local selecionado
     if (
         st.session_state["latitude_obra"] is not None
         and st.session_state["longitude_obra"] is not None
@@ -419,274 +429,181 @@ def cadastro_de_obras():
                 st.session_state["latitude_obra"],
                 st.session_state["longitude_obra"]
             ],
-            popup="📍 Local da Obra",
-            tooltip="Local selecionado",
-            icon=folium.Icon(
-                color="red",
-                icon="info-sign"
-            )
+            popup="Local da Obra",
+            tooltip="Local selecionado"
         ).add_to(mapa)
 
     map_data = st_folium(
         mapa,
         width=800,
         height=500,
-        key=f"mapa_cadastro_obra_{st.session_state['form_obra_id']}"
+        key=f"mapa_{cadastro_id}"
     )
 
-    # ==========================================
-    # QUANDO CLICAR NO MAPA
-    # ==========================================
+    # ==================================================
+    # LOCAL CLICADO
+    # ==================================================
 
     if map_data and map_data.get("last_clicked"):
 
         latitude = map_data["last_clicked"]["lat"]
         longitude = map_data["last_clicked"]["lng"]
 
-        # Guarda coordenadas
-        st.session_state["latitude_obra"] = latitude
-        st.session_state["longitude_obra"] = longitude
+        # Só consulta novamente se mudou o ponto
+        if (
+            latitude != st.session_state["latitude_obra"]
+            or longitude != st.session_state["longitude_obra"]
+        ):
 
-        try:
+            st.session_state["latitude_obra"] = latitude
+            st.session_state["longitude_obra"] = longitude
 
-            geolocator = get_geolocator()
+            try:
 
-            location = geolocator.reverse(
-                (
-                    latitude,
-                    longitude
-                ),
-                language="pt",
-                timeout=10,
-                exactly_one=True
-            )
+                geolocator = get_geolocator()
 
-            if location:
-
-                endereco_dados = location.raw.get(
-                    "address",
-                    {}
+                location = geolocator.reverse(
+                    (latitude, longitude),
+                    language="pt",
+                    timeout=10,
+                    exactly_one=True
                 )
 
-                # ==================================
-                # RUA
-                # ==================================
+                if location:
 
-                rua = endereco_dados.get(
-                    "road",
-                    "Não informado"
-                )
+                    dados_endereco = location.raw.get(
+                        "address",
+                        {}
+                    )
 
-                # ==================================
-                # NÚMERO
-                # ==================================
-
-                numero = endereco_dados.get(
-                    "house_number",
-                    "Não informado"
-                )
-
-                # ==================================
-                # BAIRRO
-                # ==================================
-
-                bairro = endereco_dados.get(
-                    "suburb",
-                    endereco_dados.get(
-                        "neighbourhood",
+                    rua = dados_endereco.get(
+                        "road",
                         "Não informado"
                     )
-                )
 
-                # ==================================
-                # CIDADE
-                # ==================================
+                    numero = dados_endereco.get(
+                        "house_number",
+                        "Não informado"
+                    )
 
-                cidade = endereco_dados.get(
-                    "city",
-                    endereco_dados.get(
-                        "town",
-                        endereco_dados.get(
-                            "municipality",
+                    bairro = dados_endereco.get(
+                        "suburb",
+                        dados_endereco.get(
+                            "neighbourhood",
                             "Não informado"
                         )
                     )
+
+                    cidade = dados_endereco.get(
+                        "city",
+                        dados_endereco.get(
+                            "town",
+                            dados_endereco.get(
+                                "municipality",
+                                "Não informado"
+                            )
+                        )
+                    )
+
+                    estado = dados_endereco.get(
+                        "state",
+                        "Não informado"
+                    )
+
+                    pais = dados_endereco.get(
+                        "country",
+                        "Brasil"
+                    )
+
+                    st.session_state["endereco_obra"] = (
+                        location.address
+                    )
+
+                    st.session_state["dados_endereco_obra"] = {
+                        "rua": rua,
+                        "numero": numero,
+                        "bairro": bairro,
+                        "cidade": cidade,
+                        "estado": estado,
+                        "pais": pais
+                    }
+
+            except Exception as e:
+
+                st.warning(
+                    f"⚠️ Não foi possível localizar "
+                    f"o endereço: {e}"
                 )
 
-                # ==================================
-                # ESTADO
-                # ==================================
+    # ==================================================
+    # MOSTRAR LOCALIZAÇÃO
+    # ==================================================
 
-                estado = endereco_dados.get(
-                    "state",
-                    "Não informado"
-                )
-
-                # ==================================
-                # PAÍS
-                # ==================================
-
-                pais = endereco_dados.get(
-                    "country",
-                    "Brasil"
-                )
-
-                # ==================================
-                # ENDEREÇO COMPLETO
-                # ==================================
-
-                endereco_completo = location.address
-
-                # Guarda endereço completo
-                st.session_state["endereco_obra"] = (
-                    endereco_completo
-                )
-
-                # Guarda informações separadas
-                st.session_state["dados_endereco_obra"] = {
-
-                    "rua": rua,
-                    "numero": numero,
-                    "bairro": bairro,
-                    "cidade": cidade,
-                    "estado": estado,
-                    "pais": pais
-                }
-
-        except Exception as e:
-
-            st.session_state["endereco_obra"] = (
-                "Endereço não localizado"
-            )
-
-            st.session_state["dados_endereco_obra"] = {}
-
-            st.warning(
-                f"⚠️ Não foi possível localizar "
-                f"o endereço: {e}"
-            )
-
-    # ==========================================
-    # RECUPERA LOCALIZAÇÃO
-    # ==========================================
-
-    latitude = st.session_state[
-        "latitude_obra"
-    ]
-
-    longitude = st.session_state[
-        "longitude_obra"
-    ]
-
-    endereco = st.session_state[
-        "endereco_obra"
-    ]
-
-    dados = st.session_state[
-        "dados_endereco_obra"
-    ]
-
-    # ==========================================
-    # EXIBE DADOS DO LOCAL
-    # ==========================================
+    latitude = st.session_state["latitude_obra"]
+    longitude = st.session_state["longitude_obra"]
+    endereco = st.session_state["endereco_obra"]
+    dados = st.session_state["dados_endereco_obra"]
 
     if latitude is not None and longitude is not None:
 
-        st.success(
-            "✅ Local da obra selecionado!"
-        )
-
-        st.subheader(
-            "📍 Informações do Local"
-        )
+        st.success("✅ Local selecionado")
 
         col1, col2, col3 = st.columns(3)
 
         with col1:
 
-            st.metric(
-                "🛣️ Rua",
-                dados.get(
-                    "rua",
-                    "Não informado"
-                )
+            st.write(
+                "🛣️ **Rua:**",
+                dados.get("rua", "Não informado")
             )
 
-            st.metric(
-                "🔢 Número",
-                dados.get(
-                    "numero",
-                    "Não informado"
-                )
+            st.write(
+                "🔢 **Número:**",
+                dados.get("numero", "Não informado")
             )
 
         with col2:
 
-            st.metric(
-                "🏘️ Bairro",
-                dados.get(
-                    "bairro",
-                    "Não informado"
-                )
+            st.write(
+                "🏘️ **Bairro:**",
+                dados.get("bairro", "Não informado")
             )
 
-            st.metric(
-                "🏙️ Cidade",
-                dados.get(
-                    "cidade",
-                    "Não informado"
-                )
+            st.write(
+                "🏙️ **Cidade:**",
+                dados.get("cidade", "Não informado")
             )
 
         with col3:
 
-            st.metric(
-                "🗺️ Estado",
-                dados.get(
-                    "estado",
-                    "Não informado"
-                )
+            st.write(
+                "🗺️ **Estado:**",
+                dados.get("estado", "Não informado")
             )
 
-            st.metric(
-                "🌎 País",
-                dados.get(
-                    "pais",
-                    "Brasil"
-                )
+            st.write(
+                "🌎 **País:**",
+                dados.get("pais", "Brasil")
             )
 
         st.info(
-            f"📌 **Coordenadas geográficas:** "
+            f"📌 Coordenadas: "
             f"{latitude:.6f}, {longitude:.6f}"
         )
 
         st.info(
-            f"🏠 **Endereço completo:** "
-            f"{endereco}"
+            f"🏠 Endereço: {endereco}"
         )
 
-    else:
+    # ==================================================
+    # SALVAR
+    # ==================================================
 
-        st.warning(
-            "📍 Nenhum local selecionado. "
-            "Clique no mapa para escolher o local da obra."
-        )
-
-    # ==========================================
-    # BOTÃO SALVAR
-    # ==========================================
-
-    salvar = st.button(
+    if st.button(
         "💾 Salvar Obra",
-        type="primary"
-    )
-
-    # ==========================================
-    # SALVAR NO BANCO
-    # ==========================================
-
-    if salvar:
+        type="primary",
+        key=f"salvar_{cadastro_id}"
+    ):
 
         if not obra:
 
@@ -703,8 +620,7 @@ def cadastro_de_obras():
         elif latitude is None or longitude is None:
 
             st.warning(
-                "⚠️ Clique no mapa para selecionar "
-                "a localização da obra."
+                "⚠️ Selecione o local da obra no mapa."
             )
 
         else:
@@ -730,7 +646,10 @@ def cadastro_de_obras():
                         prazo_dias,
                         data_cadastro
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (
+                        ?, ?, ?, ?, ?, ?, ?, ?,
+                        ?, ?, ?, ?, ?, ?, ?, ?
+                    )
                 """, (
                     obra,
                     contrato,
@@ -752,17 +671,25 @@ def cadastro_de_obras():
 
                 conn.commit()
 
-                st.success(
-                    "✅ Obra cadastrada com sucesso!"
-                )
+                # ==================================
+                # LIMPA LOCALIZAÇÃO
+                # ==================================
 
                 st.session_state["latitude_obra"] = None
                 st.session_state["longitude_obra"] = None
                 st.session_state["endereco_obra"] = None
                 st.session_state["dados_endereco_obra"] = {}
 
-                st.session_state["form_obra_id"] += 1
+                # ==================================
+                # LIMPA TODOS OS CAMPOS
+                # ==================================
 
+                st.session_state["cadastro_obra_id"] += 1
+
+                # Guarda mensagem para próxima tela
+                st.session_state["obra_salva"] = True
+
+                # Recarrega
                 st.rerun()
 
             except Exception as e:
