@@ -606,27 +606,16 @@ def cadastro_de_obras():
     ):
 
         if not obra:
-
-            st.warning(
-                "⚠️ Informe o nome da obra."
-            )
+            st.warning("⚠️ Informe o nome da obra.")
 
         elif not contrato:
-
-            st.warning(
-                "⚠️ Informe o número do contrato."
-            )
+            st.warning("⚠️ Informe o número do contrato.")
 
         elif latitude is None or longitude is None:
-
-            st.warning(
-                "⚠️ Selecione o local da obra no mapa."
-            )
+            st.warning("⚠️ Selecione o local da obra no mapa.")
 
         else:
-
             try:
-
                 cursor.execute("""
                     INSERT INTO obras (
                         obra,
@@ -646,10 +635,7 @@ def cadastro_de_obras():
                         prazo_dias,
                         data_cadastro
                     )
-                    VALUES (
-                        ?, ?, ?, ?, ?, ?, ?, ?,
-                        ?, ?, ?, ?, ?, ?, ?, ?
-                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     obra,
                     contrato,
@@ -671,20 +657,26 @@ def cadastro_de_obras():
 
                 conn.commit()
 
-                # Limpa localização
+                # Limpa a localização
                 st.session_state["latitude_obra"] = None
                 st.session_state["longitude_obra"] = None
                 st.session_state["endereco_obra"] = None
                 st.session_state["dados_endereco_obra"] = {}
 
-                # Limpa os campos da obra
+                # Troca o ID dos campos para eles nascerem vazios
                 st.session_state["cadastro_obra_id"] += 1
 
-                # Informa que salvou
+                # Guarda confirmação
                 st.session_state["obra_salva"] = True
 
                 # Recarrega a tela
                 st.rerun()
-				
+
+            except Exception as e:
+                st.error(
+                    f"❌ Erro ao cadastrar obra: {e}"
+                )
+
+		
 if __name__ == "__main__":
     main()
