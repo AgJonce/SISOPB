@@ -266,7 +266,49 @@ def cadastrar_usuario():
             st.warning("⚠️ Preencha todos os campos.")
 def cadastro_de_obras():
 
-    st.title("🏗️ Cadastro de Nova Obra")
+    st.title("🏗️ Gestão de Obras Públicas")
+
+    if "tela_obras" not in st.session_state:
+        st.session_state["tela_obras"] = "Incluir"
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        if st.button(
+            "➕ Incluir",
+            use_container_width=True
+        ):
+            st.session_state["tela_obras"] = "Incluir"
+            st.rerun()
+
+    with col2:
+        if st.button(
+            "🔎 Localizar",
+            use_container_width=True
+        ):
+            st.session_state["tela_obras"] = "Localizar"
+            st.rerun()
+
+    with col3:
+        if st.button(
+            "✏️ Alterar",
+            use_container_width=True
+        ):
+            st.session_state["tela_obras"] = "Alterar"
+            st.rerun()
+
+    st.markdown("---")
+
+    tela = st.session_state["tela_obras"]
+
+    if tela == "Incluir":
+        incluir_obra()
+
+    elif tela == "Localizar":
+        localizar_obra()
+
+    elif tela == "Alterar":
+        alterar_obra()
 
     # ==================================================
     if st.session_state.get("obra_salva", False):
@@ -677,6 +719,636 @@ def cadastro_de_obras():
                     f"❌ Erro ao cadastrar obra: {e}"
                 )
 
-		
+def alterar_obra():
+
+    st.subheader("✏️ Alterar Obra")
+
+    # ==========================================
+    # VERIFICAR OBRA SELECIONADA
+    # ==========================================
+
+    id_obra = st.session_state.get(
+        "obra_edicao_id"
+    )
+
+    if not id_obra:
+
+        st.warning(
+            "⚠️ Nenhuma obra foi selecionada."
+        )
+
+        st.info(
+            "🔎 Vá em Localizar, encontre a obra "
+            "e clique em Alterar Obra Selecionada."
+        )
+
+        if st.button(
+            "🔎 Ir para Localizar"
+        ):
+
+            st.session_state[
+                "tela_obras"
+            ] = "Localizar"
+
+            st.rerun()
+
+        return
+
+    # ==========================================
+    # BUSCAR OBRA
+    # ==========================================
+
+    cursor.execute("""
+        SELECT
+            id,
+            obra,
+            contrato,
+            data_inicio,
+            data_entrega,
+            recurso,
+            art,
+            tipo_responsabilidade,
+            latitude,
+            longitude,
+            endereco,
+            responsavel,
+            tipo_obra,
+            valor_obra,
+            situacao,
+            prazo_dias,
+            data_cadastro
+        FROM obras
+        WHERE id = ?
+    """, (
+        id_obra,
+    ))
+
+    dados = cursor.fetchone()
+
+    if not dados:
+
+        st.error(
+            "❌ Obra não encontrada."
+        )
+
+        return
+
+    # ==========================================
+    # DADOS
+    # ==========================================
+
+    nome_atual = dados[1]
+    contrato_atual = dados[2]
+    data_inicio_atual = dados[3]
+    recurso_atual = dados[5]
+    art_atual = dados[6]
+    responsabilidade_atual = dados[7]
+    endereco_atual = dados[10]
+    responsavel_atual = dados[11]
+    tipo_atual = dados[12]
+    valor_atual = dados[13]
+    situacao_atual = dados[14]
+    prazo_atual = dados[15]
+
+    st.info(
+        f"Editando obra #{id_obra} - {nome_atual}"
+    )
+
+    # ==========================================
+    # CONVERTER DATA
+    # ==========================================
+
+    try:
+
+        data_convertida = datetime.strptime(
+            data_inicio_atual,
+            "%Y-%m-%d"
+        ).date()
+
+    except Exception:
+
+        data_convertida = datetime.now().date()
+
+    # ==========================================
+    # CAMPOS
+    # ==========================================
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+
+        nome = st.text_input(
+            "🏗️ Nome da Obra",
+            value=nome_atual,
+            key=f"editar_nome_{id_obra}"
+        )
+
+        contrato = st.text_input(
+            "📜 Contrato",
+            value=contrato_atual or "",
+            key=f"editar_contrato_{id_obra}"
+        )
+
+        recursos = [
+            "Federal",
+            "Estadual",
+            "Terceiros",
+            "Outros"
+        ]
+
+        indice_recurso = (
+            recursos.index(recurso_atual)
+            if recurso_atual in recursos
+            else 0
+        )
+
+        recurso = st.selectbox(
+            "💰 Recurso",
+            recursos,
+            index=indice_recurso,
+            key=f"editar_recurso_{id_obra}"
+        )
+
+        valor = st.number_input(
+            "💵 Valor da Obra",
+            min_value=0.0,
+            value=float(valor_atual or 0),
+            format="%.2f",
+            key=f"editar_valor_{id_obra}"
+        )
+
+        responsavel = st.text_input(
+            "👤 Responsável",
+            value=responsavel_atual or "",
+            key=f"editar_responsavel_{id_obra}"
+        )
+
+    with col2:
+
+        responsabilidades = [
+            "Engenheiro",
+            "Arquiteto",
+            "Técnico",
+            "Outros"
+        ]
+
+        indice_responsabilidade = (
+            responsabilidades.index(
+                responsabilidade_atual
+            )
+            if responsabilidade_atual
+            in responsabilidades
+            else 0
+        )
+
+        tipo_responsabilidade = st.selectbox(
+            "👷 Tipo de Responsabilidade",
+            responsabilidades,
+            index=indice_responsabilidade,
+            key=f"editar_resp_tipo_{id_obra}"
+        )
+
+        art = st.text_input(
+            "📜 ART",
+            value=art_atual or "",
+            key=f"editar_art_{id_obra}"
+        )
+
+        tipos = [
+            "Construção",
+            "Reforma",
+            "Manutenção",
+            "Outros"
+        ]
+
+        indice_tipo = (
+            tipos.index(tipo_atual)
+            if tipo_atual in tipos
+            else 0
+        )
+
+        tipo_obra = st.selectbox(
+            "🏢 Tipo da Obra",
+            tipos,
+            index=indice_tipo,
+            key=f"editar_tipo_{id_obra}"
+        )
+
+        prazo = st.number_input(
+            "📅 Prazo em dias",
+            min_value=1,
+            value=int(prazo_atual or 1),
+            step=1,
+            key=f"editar_prazo_{id_obra}"
+        )
+
+        data_inicio = st.date_input(
+            "📅 Data de Início",
+            value=data_convertida,
+            key=f"editar_data_{id_obra}"
+        )
+
+        situacoes = [
+            "Em andamento",
+            "Concluída",
+            "Paralisada",
+            "Planejada"
+        ]
+
+        indice_situacao = (
+            situacoes.index(situacao_atual)
+            if situacao_atual in situacoes
+            else 0
+        )
+
+        situacao = st.selectbox(
+            "📊 Situação",
+            situacoes,
+            index=indice_situacao,
+            key=f"editar_situacao_{id_obra}"
+        )
+
+    # Calcula nova entrega
+    data_entrega = (
+        data_inicio
+        + timedelta(days=prazo)
+    )
+
+    st.info(
+        f"📅 Nova previsão de entrega: "
+        f"{data_entrega.strftime('%d/%m/%Y')}"
+    )
+
+    st.write(
+        f"📍 **Local atual:** "
+        f"{endereco_atual or 'Não informado'}"
+    )
+
+    # ==========================================
+    # SALVAR ALTERAÇÕES
+    # ==========================================
+
+    if st.button(
+        "💾 Salvar Alterações",
+        type="primary"
+    ):
+
+        if not nome:
+
+            st.warning(
+                "⚠️ Informe o nome da obra."
+            )
+
+            return
+
+        try:
+
+            cursor.execute("""
+                UPDATE obras
+
+                SET
+                    obra = ?,
+                    contrato = ?,
+                    data_inicio = ?,
+                    data_entrega = ?,
+                    recurso = ?,
+                    art = ?,
+                    tipo_responsabilidade = ?,
+                    responsavel = ?,
+                    tipo_obra = ?,
+                    valor_obra = ?,
+                    situacao = ?,
+                    prazo_dias = ?
+
+                WHERE id = ?
+            """, (
+                nome,
+                contrato,
+                data_inicio.strftime("%Y-%m-%d"),
+                data_entrega.strftime("%Y-%m-%d"),
+                recurso,
+                art,
+                tipo_responsabilidade,
+                responsavel,
+                tipo_obra,
+                valor,
+                situacao,
+                prazo,
+                id_obra
+            ))
+
+            conn.commit()
+
+            st.session_state[
+                "obra_alterada"
+            ] = True
+
+            st.rerun()
+
+        except Exception as e:
+
+            st.error(
+                f"❌ Erro ao alterar obra: {e}"
+            )
+
+    # ==========================================
+    # CONFIRMAÇÃO
+    # ==========================================
+
+    if st.session_state.get(
+        "obra_alterada",
+        False
+    ):
+
+        st.success(
+            "✅ Obra alterada com sucesso!"
+        )
+
+        st.session_state[
+            "obra_alterada"
+        ] = False
+def localizar_obra():
+
+    st.subheader("🔎 Localizar Obras")
+
+    st.write(
+        "Utilize os filtros abaixo para localizar "
+        "uma obra cadastrada."
+    )
+
+    # ==========================================
+    # FILTROS
+    # ==========================================
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+
+        filtro_nome = st.text_input(
+            "🏗️ Nome da Obra",
+            key="pesquisa_nome_obra"
+        )
+
+    with col2:
+
+        filtro_contrato = st.text_input(
+            "📜 Número do Contrato",
+            key="pesquisa_contrato_obra"
+        )
+
+    with col3:
+
+        filtro_situacao = st.selectbox(
+            "📊 Situação",
+            [
+                "Todas",
+                "Em andamento",
+                "Concluída",
+                "Paralisada",
+                "Planejada"
+            ],
+            key="pesquisa_situacao_obra"
+        )
+
+    col4, col5, col6 = st.columns(3)
+
+    with col4:
+
+        filtro_responsavel = st.text_input(
+            "👤 Responsável",
+            key="pesquisa_responsavel_obra"
+        )
+
+    with col5:
+
+        filtro_tipo = st.selectbox(
+            "🏢 Tipo de Obra",
+            [
+                "Todos",
+                "Construção",
+                "Reforma",
+                "Manutenção",
+                "Outros"
+            ],
+            key="pesquisa_tipo_obra"
+        )
+
+    with col6:
+
+        filtro_recurso = st.selectbox(
+            "💰 Recurso",
+            [
+                "Todos",
+                "Federal",
+                "Estadual",
+                "Terceiros",
+                "Outros"
+            ],
+            key="pesquisa_recurso_obra"
+        )
+
+    # ==========================================
+    # MONTAR SQL
+    # ==========================================
+
+    query = """
+        SELECT
+            id,
+            obra,
+            contrato,
+            responsavel,
+            tipo_obra,
+            recurso,
+            valor_obra,
+            situacao,
+            data_inicio,
+            data_entrega
+        FROM obras
+        WHERE 1 = 1
+    """
+
+    parametros = []
+
+    # Nome
+    if filtro_nome:
+
+        query += """
+            AND obra LIKE ?
+        """
+
+        parametros.append(
+            f"%{filtro_nome}%"
+        )
+
+    # Contrato
+    if filtro_contrato:
+
+        query += """
+            AND contrato LIKE ?
+        """
+
+        parametros.append(
+            f"%{filtro_contrato}%"
+        )
+
+    # Responsável
+    if filtro_responsavel:
+
+        query += """
+            AND responsavel LIKE ?
+        """
+
+        parametros.append(
+            f"%{filtro_responsavel}%"
+        )
+
+    # Situação
+    if filtro_situacao != "Todas":
+
+        query += """
+            AND situacao = ?
+        """
+
+        parametros.append(
+            filtro_situacao
+        )
+
+    # Tipo
+    if filtro_tipo != "Todos":
+
+        query += """
+            AND tipo_obra = ?
+        """
+
+        parametros.append(
+            filtro_tipo
+        )
+
+    # Recurso
+    if filtro_recurso != "Todos":
+
+        query += """
+            AND recurso = ?
+        """
+
+        parametros.append(
+            filtro_recurso
+        )
+
+    query += """
+        ORDER BY obra
+    """
+
+    # ==========================================
+    # EXECUTAR PESQUISA
+    # ==========================================
+
+    try:
+
+        cursor.execute(
+            query,
+            parametros
+        )
+
+        resultados = cursor.fetchall()
+
+    except Exception as e:
+
+        st.error(
+            f"❌ Erro ao pesquisar obras: {e}"
+        )
+
+        return
+
+    # ==========================================
+    # RESULTADOS
+    # ==========================================
+
+    if not resultados:
+
+        st.warning(
+            "⚠️ Nenhuma obra encontrada."
+        )
+
+        return
+
+    st.success(
+        f"🔎 {len(resultados)} obra(s) encontrada(s)."
+    )
+
+    # ==========================================
+    # DATAFRAME
+    # ==========================================
+
+    df = pd.DataFrame(
+        resultados,
+        columns=[
+            "ID",
+            "Obra",
+            "Contrato",
+            "Responsável",
+            "Tipo",
+            "Recurso",
+            "Valor",
+            "Situação",
+            "Início",
+            "Entrega"
+        ]
+    )
+
+    st.dataframe(
+        df,
+        use_container_width=True,
+        hide_index=True
+    )
+
+    # ==========================================
+    # SELECIONAR OBRA
+    # ==========================================
+
+    opcoes = {}
+
+    for resultado in resultados:
+
+        id_obra = resultado[0]
+        nome_obra = resultado[1]
+        contrato = resultado[2]
+
+        descricao = (
+            f"{id_obra} - "
+            f"{nome_obra} - "
+            f"Contrato: {contrato}"
+        )
+
+        opcoes[descricao] = id_obra
+
+    obra_selecionada = st.selectbox(
+        "🏗️ Selecione uma obra:",
+        list(opcoes.keys()),
+        key="obra_localizada"
+    )
+
+    # ==========================================
+    # BOTÃO ALTERAR
+    # ==========================================
+
+    if st.button(
+        "✏️ Alterar Obra Selecionada",
+        type="primary"
+    ):
+
+        id_obra = opcoes[
+            obra_selecionada
+        ]
+
+        st.session_state[
+            "obra_edicao_id"
+        ] = id_obra
+
+        st.session_state[
+            "tela_obras"
+        ] = "Alterar"
+
+        st.rerun()
 if __name__ == "__main__":
     main()
