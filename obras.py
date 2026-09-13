@@ -107,6 +107,8 @@ def main ():
     # Mapeamento de funcionalidades
     if escolha == "Dashboard 📊":
         dashboard()
+	elif escolha == "Cadastro de Obras 🛎️":
+    cadastro_de_obras()
     elif escolha == "👨‍🔧 Cadastro de Funcionário":
         cadastrar_funcionario()
     elif escolha == "Contabilidade":
