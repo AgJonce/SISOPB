@@ -709,7 +709,7 @@ def cadastro_de_obras():
 
         else:
 
-             try:
+            try:
 
                 cursor.execute("""
                     INSERT INTO obras (
