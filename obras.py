@@ -2,7 +2,8 @@ import os
 import sqlite3
 import streamlit as st
 import pandas as pd
-
+from streamlit_folium import st_folium
+from geopy.geocoders import Nominatim
 
 conn = sqlite3.connect("obras.db",check_same_thread=False)
 cursor = conn.cursor()
@@ -119,6 +120,63 @@ def login():
                 st.error("🚫 Usuário ou senha inválidos.")
         else:
             st.warning("⚠️ Preencha todos os campos.")
+def exibir_mapa():
+    # Localização inicial de Carangola
+    carangola_location = [-20.7029, -42.0105]
+
+    # Criação do mapa
+    mapa = folium.Map(
+        location=carangola_location,
+        zoom_start=15
+    )
+
+    # Exibir mapa no Streamlit
+    mapa_interativo = st_folium(
+        mapa,
+        width=725,
+        height=500
+    )
+
+    return mapa_interativo
+
+
+def obter_nome_rua_com_numero(lat, lon):
+    geolocator = Nominatim(
+        user_agent="sisopb"
+    )
+
+    location = geolocator.reverse(
+        (lat, lon),
+        language="pt",
+        timeout=10,
+        exactly_one=True
+    )
+
+    if location:
+        componentes_endereco = location.raw.get(
+            "address",
+            {}
+        )
+
+        numero = componentes_endereco.get(
+            "house_number",
+            "Número não disponível"
+        )
+
+        rua = componentes_endereco.get(
+            "road",
+            "Rua não disponível"
+        )
+
+        endereco = location.address
+
+        return rua, numero, endereco
+
+    return (
+        "Rua não encontrada",
+        "Número não encontrado",
+        "Endereço não encontrado"
+    )
 
 def cadastrar_usuario():
     st.subheader("➕ Cadastrar Novo Usuário")
@@ -172,4 +230,5 @@ def cadastrar_usuario():
             st.warning("⚠️ Preencha todos os campos.")
 				
 if __name__ == "__main__":
+	exibir_mapa()
     main()
