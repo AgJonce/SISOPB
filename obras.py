@@ -310,6 +310,7 @@ def cadastro_de_obras():
     elif tela == "Alterar":
         alterar_obra()
 
+def incluir_obra():
     # ==================================================
     if st.session_state.get("obra_salva", False):
         st.success("✅ Obra registrada com sucesso!")
