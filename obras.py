@@ -324,56 +324,51 @@ def cadastro_de_obras():
             ["Em andamento", "Concluída", "Paralisada", "Planejada"]
         )
 
-        st.subheader("📍 Local da Obra")
+st.subheader("📍 Local da Obra")
 
-        mapa = folium.Map(
-            location=[-20.7336, -42.0306],
-            zoom_start=15
+mapa = folium.Map(
+    location=[-20.7336, -42.0306],
+    zoom_start=15
+)
+
+map_data = st_folium(
+    mapa,
+    width=800,
+    height=500
+)
+
+latitude = None
+longitude = None
+endereco = "Não selecionado"
+
+if map_data and map_data.get("last_clicked"):
+
+    latitude = map_data["last_clicked"]["lat"]
+    longitude = map_data["last_clicked"]["lng"]
+
+    try:
+        geolocator = get_geolocator()
+
+        location = geolocator.reverse(
+            (latitude, longitude),
+            language="pt",
+            timeout=10,
+            exactly_one=True
         )
 
-        map_data = st_folium(
-            mapa,
-            width=800,
-            height=500
-        )
+        if location:
+            endereco = location.address
 
-        latitude = None
-        longitude = None
-        endereco = "Não selecionado"
+    except Exception:
+        endereco = "Endereço não localizado"
 
-        if map_data and map_data.get("last_clicked"):
+    st.info(
+        f"**Coordenadas:** "
+        f"{latitude:.6f}, {longitude:.6f}"
+    )
 
-            latitude = map_data["last_clicked"]["lat"]
-            longitude = map_data["last_clicked"]["lng"]
+    st.info(f"**Endereço:** {endereco}")
 
-            try:
-                geolocator = get_geolocator()
-
-                location = geolocator.reverse(
-                    (latitude, longitude),
-                    language="pt",
-                    timeout=10,
-                    exactly_one=True
-                )
-
-                if location:
-                    endereco = location.address
-
-            except Exception:
-                endereco = "Endereço não localizado"
-
-            st.info(
-                f"**Coordenadas:** "
-                f"{latitude:.6f}, {longitude:.6f}"
-            )
-
-            st.info(f"**Endereço:** {endereco}")
-
-        salvar = st.form_submit_button("💾 Salvar Obra")
-
-    # ==========================
-    # SALVAR
-    # ==========================
 
     if salvar:
 
