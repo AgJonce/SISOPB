@@ -1474,7 +1474,8 @@ def localizar_obra():
             # ======================================
             # ALTERAR
             # ======================================
-
+		if id_selecionado:
+			
 			if st.button(
     			"✏️ Alterar Obra Selecionada",
     			type="primary",
