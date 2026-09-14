@@ -1755,97 +1755,77 @@ def gerar_pdf_obra(id_obra):
         )
     )
 
-    # ==========================================
-    # ENDEREÇO
-    # ==========================================
-
-    localizacao_endereco = [
+    localizacao = [
         [
             carregar_icone("localizacao.png"),
             Paragraph(
                 "<b>Endereço</b>",
                 normal
             ),
-            Paragraph(
-                endereco or "Não informado",
-                normal
-            )
-        ]
-    ]
+            endereco or "Não informado"
+        ],
 
-    tabela_endereco = Table(
-        localizacao_endereco,
-        colWidths=[
-            1 * cm,
-            3.5 * cm,
-            12 * cm
-        ]
-    )
-
-    tabela_endereco.setStyle(
-        TableStyle([
-            ("GRID", (0, 0), (-1, -1), 0.5, colors.lightgrey),
-            ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ("TOPPADDING", (0, 0), (-1, -1), 8),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
-            ("LEFTPADDING", (0, 0), (-1, -1), 8),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 8)
-        ])
-    )
-
-    elementos.append(tabela_endereco)
-
-    elementos.append(
-        Spacer(1, 6)
-    )
-
-    # ==========================================
-    # COORDENADAS
-    # ==========================================
-
-    coordenadas = [
         [
+            "",
             Paragraph(
                 "<b>Latitude</b>",
                 normal
             ),
-            Paragraph(
-                str(latitude or "Não informado"),
-                normal
-            ),
+            str(latitude or "Não informado")
+        ],
+
+        [
+            "",
             Paragraph(
                 "<b>Longitude</b>",
                 normal
             ),
-            Paragraph(
-                str(longitude or "Não informado"),
-                normal
-            )
+            str(longitude or "Não informado")
         ]
     ]
 
-    tabela_coordenadas = Table(
-        coordenadas,
+    tabela_localizacao = Table(
+        localizacao,
         colWidths=[
+            0.7 * cm,
             2.5 * cm,
-            5.5 * cm,
-            2.5 * cm,
-            5.5 * cm
+            13.3 * cm
         ]
     )
 
-    tabela_coordenadas.setStyle(
+    tabela_localizacao.setStyle(
         TableStyle([
             ("GRID", (0, 0), (-1, -1), 0.5, colors.lightgrey),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
             ("TOPPADDING", (0, 0), (-1, -1), 7),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
-            ("LEFTPADDING", (0, 0), (-1, -1), 8),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 8)
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 7)
         ])
     )
 
-    elementos.append(tabela_coordenadas)
+    elementos.append(tabela_localizacao)
+
+    # ==========================================
+    # RODAPÉ
+    # ==========================================
+
+    elementos.append(Spacer(1, 30))
+
+    elementos.append(
+        Paragraph(
+            "Documento gerado pelo SISOPB - Sistema de Obras Públicas",
+            styles["Italic"]
+        )
+    )
+
+    # ==========================================
+    # GERAR
+    # ==========================================
+
+    pdf.build(elementos)
+
+    buffer.seek(0)
+
+    return buffer
 def imprimir_obra():
 
     st.subheader("🖨️ Impressão de Obras")
