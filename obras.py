@@ -1829,30 +1829,62 @@ def gerar_pdf_obra(id_obra):
     return buffer 
 def imprimir_obra():
 
-    st.subheader("🖨️ Imprimir Obra")
+    st.subheader("🖨️ Impressão de Obras")
 
     # ==========================================
     # BUSCAR OBRAS
     # ==========================================
 
-    cursor.execute("""
-        SELECT
-            id,
-            obra,
-            contrato,
-            situacao
-        FROM obras
-        ORDER BY obra
-    """)
+    try:
+        cursor.execute("""
+            SELECT
+                id,
+                obra,
+                contrato,
+                responsavel,
+                valor_obra,
+                situacao,
+                endereco
+            FROM obras
+            ORDER BY obra
+        """)
 
-    obras = cursor.fetchall()
+        obras = cursor.fetchall()
+
+    except Exception as e:
+        st.error(f"❌ Erro ao carregar obras: {e}")
+        return
 
     if not obras:
+        st.warning("⚠️ Nenhuma obra cadastrada.")
+        return
 
-        st.warning(
-            "⚠️ Nenhuma obra cadastrada."
-        )
+    # ==========================================
+    # FILTRO
+    # ==========================================
 
+    pesquisa = st.text_input(
+        "🔎 Pesquisar obra",
+        placeholder="Digite o nome da obra ou contrato"
+    )
+
+    obras_filtradas = []
+
+    for registro in obras:
+
+        id_obra = registro[0]
+        nome = registro[1] or ""
+        contrato = registro[2] or ""
+
+        if (
+            not pesquisa
+            or pesquisa.lower() in nome.lower()
+            or pesquisa.lower() in contrato.lower()
+        ):
+            obras_filtradas.append(registro)
+
+    if not obras_filtradas:
+        st.warning("⚠️ Nenhuma obra encontrada.")
         return
 
     # ==========================================
@@ -1861,16 +1893,15 @@ def imprimir_obra():
 
     opcoes = {}
 
-    for registro in obras:
+    for registro in obras_filtradas:
 
         id_obra = registro[0]
         nome = registro[1]
         contrato = registro[2]
-        situacao = registro[3]
+        situacao = registro[5]
 
         descricao = (
-            f"{id_obra} - "
-            f"{nome} | "
+            f"{id_obra} - {nome} | "
             f"Contrato: {contrato} | "
             f"{situacao}"
         )
@@ -1878,98 +1909,162 @@ def imprimir_obra():
         opcoes[descricao] = id_obra
 
     obra_escolhida = st.selectbox(
-        "🏗️ Selecione a obra:",
+        "🏗️ Selecione a obra",
         list(opcoes.keys())
     )
 
-    id_obra = opcoes[
-        obra_escolhida
-    ]
+    id_obra = opcoes[obra_escolhida]
 
     # ==========================================
-    # MOSTRAR RESUMO
+    # BUSCAR DADOS COMPLETOS
     # ==========================================
 
     cursor.execute("""
         SELECT
+            id,
             obra,
             contrato,
+            data_inicio,
+            data_entrega,
+            recurso,
+            art,
+            tipo_responsabilidade,
+            latitude,
+            longitude,
+            endereco,
             responsavel,
+            tipo_obra,
             valor_obra,
             situacao,
-            endereco
+            prazo_dias,
+            data_cadastro
         FROM obras
         WHERE id = ?
-    """, (
-        id_obra,
-    ))
+    """, (id_obra,))
 
     dados = cursor.fetchone()
 
-    if dados:
+    if not dados:
+        st.error("❌ Obra não encontrada.")
+        return
 
-        st.markdown("---")
+    # ==========================================
+    # DESEMPACOTAR
+    # ==========================================
 
-        st.subheader(
-            f"🏗️ {dados[0]}"
+    (
+        id_registro,
+        obra,
+        contrato,
+        data_inicio,
+        data_entrega,
+        recurso,
+        art,
+        tipo_responsabilidade,
+        latitude,
+        longitude,
+        endereco,
+        responsavel,
+        tipo_obra,
+        valor_obra,
+        situacao,
+        prazo_dias,
+        data_cadastro
+    ) = dados
+
+    # ==========================================
+    # PRÉVIA
+    # ==========================================
+
+    st.markdown("---")
+
+    st.subheader(f"🏗️ {obra}")
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.metric(
+            "💰 Valor da Obra",
+            f"R$ {float(valor_obra or 0):,.2f}"
         )
 
-        col1, col2 = st.columns(2)
+    with col2:
+        st.metric(
+            "📊 Situação",
+            situacao or "Não informado"
+        )
 
-        with col1:
+    with col3:
+        st.metric(
+            "📅 Prazo",
+            f"{prazo_dias or 0} dias"
+        )
 
-            st.write(
-                f"📜 **Contrato:** "
-                f"{dados[1]}"
-            )
+    st.markdown("### 📋 Informações Gerais")
 
-            st.write(
-                f"👤 **Responsável:** "
-                f"{dados[2]}"
-            )
+    col1, col2 = st.columns(2)
 
-            st.write(
-                f"📊 **Situação:** "
-                f"{dados[4]}"
-            )
+    with col1:
+        st.write(f"📜 **Contrato:** {contrato or 'Não informado'}")
+        st.write(f"👤 **Responsável:** {responsavel or 'Não informado'}")
+        st.write(f"👷 **Responsabilidade:** {tipo_responsabilidade or 'Não informado'}")
+        st.write(f"📄 **ART:** {art or 'Não informado'}")
 
-        with col2:
+    with col2:
+        st.write(f"🏢 **Tipo da Obra:** {tipo_obra or 'Não informado'}")
+        st.write(f"💰 **Recurso:** {recurso or 'Não informado'}")
+        st.write(f"📅 **Início:** {data_inicio or 'Não informado'}")
+        st.write(f"📅 **Entrega:** {data_entrega or 'Não informado'}")
 
-            valor = float(
-                dados[3] or 0
-            )
+    st.markdown("### 📍 Localização")
 
-            st.write(
-                f"💰 **Valor:** "
-                f"R$ {valor:,.2f}"
-            )
+    st.write(
+        f"🏠 **Endereço:** "
+        f"{endereco or 'Não informado'}"
+    )
 
-            st.write(
-                f"📍 **Local:** "
-                f"{dados[5]}"
-            )
+    if latitude is not None and longitude is not None:
+        st.write(
+            f"🌎 **Coordenadas:** "
+            f"{latitude}, {longitude}"
+        )
+
+    st.markdown("---")
 
     # ==========================================
     # GERAR PDF
     # ==========================================
 
-    pdf = gerar_pdf_obra(
-        id_obra
-    )
+    try:
 
-    if pdf:
+        pdf = gerar_pdf_obra(id_obra)
 
-        nome_arquivo = (
-            f"obra_{id_obra}.pdf"
-        )
+        if pdf:
 
-        st.download_button(
-            label="🖨️ Gerar / Baixar PDF",
-            data=pdf,
-            file_name=nome_arquivo,
-            mime="application/pdf",
-            type="primary",
-            use_container_width=True
+            nome_limpo = (
+                obra
+                .replace(" ", "_")
+                .replace("/", "_")
+                .replace("\\", "_")
+            )
+
+            nome_arquivo = (
+                f"{id_obra}_{nome_limpo}.pdf"
+            )
+
+            st.download_button(
+                label="🖨️ Gerar / Baixar PDF da Obra",
+                data=pdf,
+                file_name=nome_arquivo,
+                mime="application/pdf",
+                type="primary",
+                use_container_width=True
+            )
+
+    except Exception as e:
+
+        st.error(
+            f"❌ Erro ao gerar PDF: {e}"
         )
 if __name__ == "__main__":
     main()
