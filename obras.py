@@ -1789,7 +1789,7 @@ def gerar_pdf_obra(id_obra):
         colWidths=[
             0.7 * cm,
             2.5 * cm,
-            13.3 * cm
+            14.8 * cm
         ]
     )
 
