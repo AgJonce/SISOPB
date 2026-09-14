@@ -11,3 +11,4 @@ PyPDF2
 cryptography
 reportlab
 Plotly
+streamlit-aggrid
