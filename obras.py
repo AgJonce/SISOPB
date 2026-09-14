@@ -1040,9 +1040,38 @@ def alterar_obra():
 
             conn.commit()
 
-            st.session_state[
-                "obra_alterada"
-            ] = True
+            # ==========================================
+            # LIMPAR DADOS DA ALTERAÇÃO
+            # ==========================================
+
+            # Remove a obra que estava sendo editada
+            if "obra_edicao_id" in st.session_state:
+                del st.session_state["obra_edicao_id"]
+
+            # ==========================================
+            # LIMPAR CAMPOS DA TELA INCLUIR
+            # ==========================================
+
+            # Gera novos campos vazios no cadastro
+            if "cadastro_obra_id" not in st.session_state:
+                st.session_state["cadastro_obra_id"] = 0
+
+            st.session_state["cadastro_obra_id"] += 1
+
+            # Limpa localização
+            st.session_state["latitude_obra"] = None
+            st.session_state["longitude_obra"] = None
+            st.session_state["endereco_obra"] = None
+            st.session_state["dados_endereco_obra"] = {}
+
+            # ==========================================
+            # VOLTAR PARA INCLUIR
+            # ==========================================
+
+            st.session_state["tela_obras"] = "Incluir"
+
+            # Mensagem para aparecer na tela Incluir
+            st.session_state["obra_alterada_sucesso"] = True
 
             st.rerun()
 
