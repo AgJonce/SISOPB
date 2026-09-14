@@ -5,7 +5,12 @@ import folium
 from streamlit_folium import st_folium
 from geopy.geocoders import Nominatim
 from datetime import datetime, timedelta
-from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
+from st_aggrid import (
+    AgGrid,
+    GridOptionsBuilder,
+    GridUpdateMode,
+    JsCode
+)
 conn = sqlite3.connect("obras.db",check_same_thread=False)
 cursor = conn.cursor()
 
@@ -1263,12 +1268,11 @@ def localizar_obra():
     # CONFIGURAÇÃO DO AGGRID
     # ==========================================
 
-    gb = GridOptionsBuilder.from_dataframe(df)
+    # ==========================================
+    # CONFIGURAÇÃO DA TABELA
+    # ==========================================
 
-    gb.configure_selection(
-        selection_mode="single",
-        use_checkbox=False
-    )
+    gb = GridOptionsBuilder.from_dataframe(df)
 
     gb.configure_default_column(
         sortable=True,
@@ -1276,31 +1280,55 @@ def localizar_obra():
         resizable=True
     )
 
+    gb.configure_selection(
+        selection_mode="single",
+        use_checkbox=False
+    )
+
     grid_options = gb.build()
 
     # ==========================================
-    # GRID
+    # DUPLO CLIQUE
+    # ==========================================
+
+    duplo_clique = JsCode("""
+        function(params) {
+
+            // Remove seleção anterior
+            params.api.deselectAll();
+
+            // Seleciona a linha que recebeu duplo clique
+            params.node.setSelected(true);
+        }
+    """)
+
+    grid_options["onCellDoubleClicked"] = duplo_clique
+
+    # ==========================================
+    # EXIBIR TABELA
     # ==========================================
 
     grid_response = AgGrid(
         df,
         gridOptions=grid_options,
         update_mode=GridUpdateMode.SELECTION_CHANGED,
+        allow_unsafe_jscode=True,
         fit_columns_on_grid_load=True,
         height=350,
         key="grid_localizar_obras"
     )
 
     # ==========================================
-    # LINHA SELECIONADA
+    # OBTER LINHA SELECIONADA
     # ==========================================
 
-    selecionadas = grid_response.get(
-        "selected_rows"
-    )
+    selecionadas = grid_response.get("selected_rows")
+
+    id_obra = None
 
     if selecionadas is not None:
 
+        # Algumas versões retornam DataFrame
         if isinstance(selecionadas, pd.DataFrame):
 
             if not selecionadas.empty:
@@ -1309,10 +1337,7 @@ def localizar_obra():
                     selecionadas.iloc[0]["ID"]
                 )
 
-                st.session_state[
-                    "obra_selecionada_localizar"
-                ] = id_obra
-
+        # Outras versões retornam lista
         elif isinstance(selecionadas, list):
 
             if len(selecionadas) > 0:
@@ -1321,12 +1346,22 @@ def localizar_obra():
                     selecionadas[0]["ID"]
                 )
 
-                st.session_state[
-                    "obra_selecionada_localizar"
-                ] = id_obra
+    # Guarda a obra selecionada
+    if id_obra is not None:
 
+        st.session_state[
+            "obra_selecionada_localizar"
+        ] = id_obra
     # ==========================================
     # MOSTRAR OBRA SELECIONADA
+    # ==========================================
+
+    id_selecionado = st.session_state.get(
+        "obra_selecionada_localizar"
+    )
+
+    # ==========================================
+    # OBRA SELECIONADA
     # ==========================================
 
     id_selecionado = st.session_state.get(
@@ -1337,10 +1372,17 @@ def localizar_obra():
 
         cursor.execute("""
             SELECT
+                id,
                 obra,
                 contrato,
                 responsavel,
-                situacao
+                tipo_obra,
+                recurso,
+                valor_obra,
+                situacao,
+                data_inicio,
+                data_entrega,
+                endereco
             FROM obras
             WHERE id = ?
         """, (
@@ -1351,34 +1393,79 @@ def localizar_obra():
 
         if registro:
 
-            st.success(
-                f"🏗️ Obra selecionada: {registro[0]}"
+            st.markdown("---")
+
+            st.subheader(
+                f"🏗️ {registro[1]}"
             )
 
-            col1, col2 = st.columns(2)
+            col1, col2, col3 = st.columns(3)
 
             with col1:
+
                 st.write(
-                    f"**Contrato:** {registro[1]}"
+                    f"**Código:** {registro[0]}"
                 )
 
                 st.write(
-                    f"**Responsável:** {registro[2]}"
+                    f"**Contrato:** {registro[2]}"
+                )
+
+                st.write(
+                    f"**Responsável:** "
+                    f"{registro[3] or 'Não informado'}"
                 )
 
             with col2:
+
                 st.write(
-                    f"**Situação:** {registro[3]}"
+                    f"**Tipo:** "
+                    f"{registro[4] or 'Não informado'}"
                 )
+
+                st.write(
+                    f"**Recurso:** "
+                    f"{registro[5] or 'Não informado'}"
+                )
+
+                st.write(
+                    f"**Situação:** "
+                    f"{registro[7] or 'Não informado'}"
+                )
+
+            with col3:
+
+                valor = registro[6] or 0
+
+                st.write(
+                    f"**Valor:** "
+                    f"R$ {valor:,.2f}"
+                )
+
+                st.write(
+                    f"**Início:** "
+                    f"{registro[8] or 'Não informado'}"
+                )
+
+                st.write(
+                    f"**Entrega:** "
+                    f"{registro[9] or 'Não informado'}"
+                )
+
+            st.write(
+                f"📍 **Local:** "
+                f"{registro[10] or 'Não informado'}"
+            )
 
             # ======================================
             # ALTERAR
             # ======================================
 
             if st.button(
-                "✏️ Alterar Obra",
+                "✏️ Alterar esta Obra",
                 type="primary",
-                use_container_width=True
+                use_container_width=True,
+                key="btn_alterar_obra_localizada"
             ):
 
                 st.session_state[
