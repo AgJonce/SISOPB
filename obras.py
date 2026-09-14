@@ -312,9 +312,15 @@ def cadastro_de_obras():
 
 def incluir_obra():
     # ==================================================
-    if st.session_state.get("obra_salva", False):
-        st.success("✅ Obra registrada com sucesso!")
-        st.session_state["obra_salva"] = False
+    if st.session_state.get(
+        "obra_alterada_sucesso",
+        False
+    ):
+        st.success("✅ Obra alterada com sucesso!")
+
+        st.session_state[
+            "obra_alterada_sucesso"
+        ] = False
 
     if "cadastro_obra_id" not in st.session_state:
         st.session_state["cadastro_obra_id"] = 0
@@ -1040,9 +1046,39 @@ def alterar_obra():
 
             conn.commit()
 
-            st.session_state[
-                "obra_alterada"
-            ] = True
+            # ==========================================
+            # LIMPAR OBRA QUE ESTAVA SENDO ALTERADA
+            # ==========================================
+
+            if "obra_edicao_id" in st.session_state:
+                del st.session_state["obra_edicao_id"]
+
+            # ==========================================
+            # LIMPAR LOCALIZAÇÃO
+            # ==========================================
+
+            st.session_state["latitude_obra"] = None
+            st.session_state["longitude_obra"] = None
+            st.session_state["endereco_obra"] = None
+            st.session_state["dados_endereco_obra"] = {}
+
+            # ==========================================
+            # LIMPAR CAMPOS DA TELA INCLUIR
+            # ==========================================
+
+            if "cadastro_obra_id" not in st.session_state:
+                st.session_state["cadastro_obra_id"] = 0
+
+            st.session_state["cadastro_obra_id"] += 1
+
+            # ==========================================
+            # VOLTAR PARA TELA INCLUIR
+            # ==========================================
+
+            st.session_state["tela_obras"] = "Incluir"
+
+            # Mensagem para aparecer depois do rerun
+            st.session_state["obra_alterada_sucesso"] = True
 
             st.rerun()
 
@@ -1051,23 +1087,6 @@ def alterar_obra():
             st.error(
                 f"❌ Erro ao alterar obra: {e}"
             )
-
-    # ==========================================
-    # CONFIRMAÇÃO
-    # ==========================================
-
-    if st.session_state.get(
-        "obra_alterada",
-        False
-    ):
-
-        st.success(
-            "✅ Obra alterada com sucesso!"
-        )
-
-        st.session_state[
-            "obra_alterada"
-        ] = False
 def localizar_obra():
 
     st.subheader("🔎 Localizar Obras")
