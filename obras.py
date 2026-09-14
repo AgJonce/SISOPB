@@ -5,6 +5,7 @@ import folium
 from streamlit_folium import st_folium
 from geopy.geocoders import Nominatim
 from datetime import datetime, timedelta
+from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 conn = sqlite3.connect("obras.db",check_same_thread=False)
 cursor = conn.cursor()
 
