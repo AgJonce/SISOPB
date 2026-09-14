@@ -1474,19 +1474,18 @@ def localizar_obra():
             # ======================================
             # ALTERAR
             # ======================================
-		if id_selecionado:
-			
-			if st.button(
-    			"✏️ Alterar Obra Selecionada",
-    			type="primary",
-    			use_container_width=True,
-    			key="btn_alterar_obra_localizada"
-			):
 
-    			st.session_state["obra_edicao_id"] = id_selecionado
-    			st.session_state["tela_obras"] = "AlterarInterno"
+    if id_selecionado:
 
-    			st.rerun()
+        if st.button(
+            "✏️ Alterar Obra Selecionada",
+            type="primary",
+            use_container_width=True,
+            key="btn_alterar_obra_localizada"
+        ):
+            st.session_state["obra_edicao_id"] = id_selecionado
+            st.session_state["tela_obras"] = "AlterarInterno"
+            st.rerun()
 def gerar_pdf_obra(id_obra):
 
     cursor.execute("""
