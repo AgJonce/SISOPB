@@ -358,6 +358,10 @@ def cadastro_de_obras():
     # QUAL TELA MOSTRAR
     # ==========================================
 
+    # ==========================================
+    # QUAL TELA MOSTRAR
+    # ==========================================
+
     tela = st.session_state.get(
         "tela_obras",
         "Principal"
@@ -367,32 +371,30 @@ def cadastro_de_obras():
     # PRINCIPAL
     # ==========================================
 
-	if tela == "Principal":
+    if tela == "Principal":
 
-    	if st.session_state.get(
-        	"obra_cadastrada_sucesso",
-        	False
-    	):
+        if st.session_state.get(
+            "obra_cadastrada_sucesso",
+            False
+        ):
+            st.success(
+                "✅ Obra cadastrada com sucesso!"
+            )
 
-        	st.success(
-            	"✅ Obra cadastrada com sucesso!"
-        	)
+            st.session_state[
+                "obra_cadastrada_sucesso"
+            ] = False
 
-        	st.session_state[
-            	"obra_cadastrada_sucesso"
-        	] = False
+        else:
+            st.info(
+                "Selecione uma opção acima para continuar."
+            )
 
-    	else:
-
-        	st.info(
-            	"Selecione uma opção acima para continuar."
-        	)
     # ==========================================
     # INCLUIR
     # ==========================================
 
     elif tela == "Incluir":
-
         incluir_obra()
 
     # ==========================================
@@ -400,7 +402,6 @@ def cadastro_de_obras():
     # ==========================================
 
     elif tela == "Localizar":
-
         localizar_obra()
 
     # ==========================================
@@ -408,17 +409,13 @@ def cadastro_de_obras():
     # ==========================================
 
     elif tela == "Imprimir":
-
         imprimir_obra()
 
     # ==========================================
     # ALTERAR
-    # Essa opção NÃO aparece nos botões.
-    # Só é chamada através do Localizar.
     # ==========================================
 
     elif tela == "AlterarInterno":
-
         alterar_obra()
 def incluir_obra():
     # ==================================================
