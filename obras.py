@@ -11,6 +11,19 @@ from st_aggrid import (
     GridUpdateMode,
     JsCode
 )
+from io import BytesIO
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import cm
+from reportlab.platypus import (
+    SimpleDocTemplate,
+    Paragraph,
+    Spacer,
+    Table,
+    TableStyle,
+    Image
+)
 conn = sqlite3.connect("obras.db",check_same_thread=False)
 cursor = conn.cursor()
 
@@ -297,10 +310,10 @@ def cadastro_de_obras():
 
     with col3:
         if st.button(
-            "✏️ Alterar",
+            "🖨️ Imprimir",
             use_container_width=True
         ):
-            st.session_state["tela_obras"] = "Alterar"
+            st.session_state["tela_obras"] = "Imprimir"
             st.rerun()
 
     st.markdown("---")
@@ -313,8 +326,8 @@ def cadastro_de_obras():
     elif tela == "Localizar":
         localizar_obra()
 
-    elif tela == "Alterar":
-        alterar_obra()
+    elif tela == "Imprimir":
+        imprimir_obra()
 
 def incluir_obra():
     # ==================================================
@@ -1477,5 +1490,490 @@ def localizar_obra():
                 ] = "Alterar"
 
                 st.rerun()
+def gerar_pdf_obra(id_obra):
+
+    cursor.execute("""
+        SELECT
+            id,
+            obra,
+            contrato,
+            data_inicio,
+            data_entrega,
+            recurso,
+            art,
+            tipo_responsabilidade,
+            latitude,
+            longitude,
+            endereco,
+            responsavel,
+            tipo_obra,
+            valor_obra,
+            situacao,
+            prazo_dias,
+            data_cadastro
+        FROM obras
+        WHERE id = ?
+    """, (id_obra,))
+
+    dados = cursor.fetchone()
+
+    if not dados:
+        return None
+
+    # ==========================================
+    # DADOS
+    # ==========================================
+
+    (
+        id_registro,
+        obra,
+        contrato,
+        data_inicio,
+        data_entrega,
+        recurso,
+        art,
+        tipo_responsabilidade,
+        latitude,
+        longitude,
+        endereco,
+        responsavel,
+        tipo_obra,
+        valor_obra,
+        situacao,
+        prazo_dias,
+        data_cadastro
+    ) = dados
+
+    # ==========================================
+    # PDF EM MEMÓRIA
+    # ==========================================
+
+    buffer = BytesIO()
+
+    pdf = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        rightMargin=1.5 * cm,
+        leftMargin=1.5 * cm,
+        topMargin=1.5 * cm,
+        bottomMargin=1.5 * cm
+    )
+
+    elementos = []
+
+    styles = getSampleStyleSheet()
+
+    titulo = ParagraphStyle(
+        "TituloSISOPB",
+        parent=styles["Title"],
+        fontSize=20,
+        spaceAfter=15,
+        alignment=1
+    )
+
+    subtitulo = ParagraphStyle(
+        "SubtituloSISOPB",
+        parent=styles["Heading2"],
+        fontSize=13,
+        spaceBefore=10,
+        spaceAfter=8
+    )
+
+    normal = styles["BodyText"]
+
+    # ==========================================
+    # CABEÇALHO
+    # ==========================================
+
+    elementos.append(
+        Paragraph(
+            "SISOPB - Sistema de Obras Públicas",
+            titulo
+        )
+    )
+
+    elementos.append(
+        Paragraph(
+            f"<b>Ficha da Obra Nº {id_registro}</b>",
+            styles["Heading2"]
+        )
+    )
+
+    elementos.append(Spacer(1, 10))
+
+    # ==========================================
+    # FUNÇÃO PARA ÍCONE
+    # ==========================================
+
+    def carregar_icone(nome):
+
+        caminho = f"assets/{nome}"
+
+        if os.path.exists(caminho):
+            return Image(
+                caminho,
+                width=0.6 * cm,
+                height=0.6 * cm
+            )
+
+        return ""
+
+    # ==========================================
+    # INFORMAÇÕES PRINCIPAIS
+    # ==========================================
+
+    tabela_principal = [
+
+        [
+            carregar_icone("obra.png"),
+            Paragraph(
+                "<b>Nome da Obra</b>",
+                normal
+            ),
+            obra or "Não informado"
+        ],
+
+        [
+            carregar_icone("contrato.png"),
+            Paragraph(
+                "<b>Contrato</b>",
+                normal
+            ),
+            contrato or "Não informado"
+        ],
+
+        [
+            carregar_icone("responsavel.png"),
+            Paragraph(
+                "<b>Responsável</b>",
+                normal
+            ),
+            responsavel or "Não informado"
+        ],
+
+        [
+            carregar_icone("situacao.png"),
+            Paragraph(
+                "<b>Situação</b>",
+                normal
+            ),
+            situacao or "Não informado"
+        ],
+
+        [
+            carregar_icone("dinheiro.png"),
+            Paragraph(
+                "<b>Valor da Obra</b>",
+                normal
+            ),
+            f"R$ {float(valor_obra or 0):,.2f}"
+        ]
+    ]
+
+    tabela = Table(
+        tabela_principal,
+        colWidths=[
+            1 * cm,
+            4.5 * cm,
+            11 * cm
+        ]
+    )
+
+    tabela.setStyle(
+        TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), colors.whitesmoke),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.lightgrey),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("TOPPADDING", (0, 0), (-1, -1), 7),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 7)
+        ])
+    )
+
+    elementos.append(tabela)
+
+    elementos.append(Spacer(1, 15))
+
+    # ==========================================
+    # DADOS TÉCNICOS
+    # ==========================================
+
+    elementos.append(
+        Paragraph(
+            "Informações Técnicas",
+            subtitulo
+        )
+    )
+
+    dados_tecnicos = [
+
+        ["Tipo da Obra", tipo_obra or "Não informado"],
+
+        [
+            "Tipo de Responsabilidade",
+            tipo_responsabilidade or "Não informado"
+        ],
+
+        ["ART", art or "Não informado"],
+
+        ["Recurso", recurso or "Não informado"],
+
+        ["Prazo", f"{prazo_dias or 0} dias"],
+
+        ["Data de Início", data_inicio or "Não informado"],
+
+        ["Data de Entrega", data_entrega or "Não informado"],
+
+        ["Data de Cadastro", data_cadastro or "Não informado"]
+    ]
+
+    tabela_tecnica = Table(
+        dados_tecnicos,
+        colWidths=[
+            6 * cm,
+            10.5 * cm
+        ]
+    )
+
+    tabela_tecnica.setStyle(
+        TableStyle([
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.lightgrey),
+            ("BACKGROUND", (0, 0), (0, -1), colors.whitesmoke),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("TOPPADDING", (0, 0), (-1, -1), 6),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 6)
+        ])
+    )
+
+    elementos.append(tabela_tecnica)
+
+    elementos.append(Spacer(1, 15))
+
+    # ==========================================
+    # LOCALIZAÇÃO
+    # ==========================================
+
+    elementos.append(
+        Paragraph(
+            "Localização da Obra",
+            subtitulo
+        )
+    )
+
+    localizacao = [
+
+        [
+            carregar_icone("localizacao.png"),
+            Paragraph(
+                "<b>Endereço</b>",
+                normal
+            ),
+            endereco or "Não informado"
+        ],
+
+        [
+            "",
+            Paragraph(
+                "<b>Latitude</b>",
+                normal
+            ),
+            str(latitude or "Não informado")
+        ],
+
+        [
+            "",
+            Paragraph(
+                "<b>Longitude</b>",
+                normal
+            ),
+            str(longitude or "Não informado")
+        ]
+    ]
+
+    tabela_localizacao = Table(
+        localizacao,
+        colWidths=[
+            1 * cm,
+            3.5 * cm,
+            12 * cm
+        ]
+    )
+
+    tabela_localizacao.setStyle(
+        TableStyle([
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.lightgrey),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("TOPPADDING", (0, 0), (-1, -1), 7),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 7)
+        ])
+    )
+
+    elementos.append(tabela_localizacao)
+
+    # ==========================================
+    # RODAPÉ
+    # ==========================================
+
+    elementos.append(Spacer(1, 30))
+
+    elementos.append(
+        Paragraph(
+            "Documento gerado pelo SISOPB - Sistema de Obras Públicas",
+            styles["Italic"]
+        )
+    )
+
+    # ==========================================
+    # GERAR
+    # ==========================================
+
+    pdf.build(elementos)
+
+    buffer.seek(0)
+
+    return buffer 
+def imprimir_obra():
+
+    st.subheader("🖨️ Imprimir Obra")
+
+    # ==========================================
+    # BUSCAR OBRAS
+    # ==========================================
+
+    cursor.execute("""
+        SELECT
+            id,
+            obra,
+            contrato,
+            situacao
+        FROM obras
+        ORDER BY obra
+    """)
+
+    obras = cursor.fetchall()
+
+    if not obras:
+
+        st.warning(
+            "⚠️ Nenhuma obra cadastrada."
+        )
+
+        return
+
+    # ==========================================
+    # SELEÇÃO
+    # ==========================================
+
+    opcoes = {}
+
+    for registro in obras:
+
+        id_obra = registro[0]
+        nome = registro[1]
+        contrato = registro[2]
+        situacao = registro[3]
+
+        descricao = (
+            f"{id_obra} - "
+            f"{nome} | "
+            f"Contrato: {contrato} | "
+            f"{situacao}"
+        )
+
+        opcoes[descricao] = id_obra
+
+    obra_escolhida = st.selectbox(
+        "🏗️ Selecione a obra:",
+        list(opcoes.keys())
+    )
+
+    id_obra = opcoes[
+        obra_escolhida
+    ]
+
+    # ==========================================
+    # MOSTRAR RESUMO
+    # ==========================================
+
+    cursor.execute("""
+        SELECT
+            obra,
+            contrato,
+            responsavel,
+            valor_obra,
+            situacao,
+            endereco
+        FROM obras
+        WHERE id = ?
+    """, (
+        id_obra,
+    ))
+
+    dados = cursor.fetchone()
+
+    if dados:
+
+        st.markdown("---")
+
+        st.subheader(
+            f"🏗️ {dados[0]}"
+        )
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+
+            st.write(
+                f"📜 **Contrato:** "
+                f"{dados[1]}"
+            )
+
+            st.write(
+                f"👤 **Responsável:** "
+                f"{dados[2]}"
+            )
+
+            st.write(
+                f"📊 **Situação:** "
+                f"{dados[4]}"
+            )
+
+        with col2:
+
+            valor = float(
+                dados[3] or 0
+            )
+
+            st.write(
+                f"💰 **Valor:** "
+                f"R$ {valor:,.2f}"
+            )
+
+            st.write(
+                f"📍 **Local:** "
+                f"{dados[5]}"
+            )
+
+    # ==========================================
+    # GERAR PDF
+    # ==========================================
+
+    pdf = gerar_pdf_obra(
+        id_obra
+    )
+
+    if pdf:
+
+        nome_arquivo = (
+            f"obra_{id_obra}.pdf"
+        )
+
+        st.download_button(
+            label="🖨️ Gerar / Baixar PDF",
+            data=pdf,
+            file_name=nome_arquivo,
+            mime="application/pdf",
+            type="primary",
+            use_container_width=True
+        )
 if __name__ == "__main__":
     main()
