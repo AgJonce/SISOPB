@@ -79,6 +79,21 @@ cursor.execute('''
 
 conn.commit()
 
+cursor.execute("""
+    CREATE TABLE IF NOT EXISTS itens (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        codigo TEXT UNIQUE NOT NULL,
+        descricao TEXT NOT NULL,
+        unidade TEXT NOT NULL,
+        categoria TEXT,
+        observacao TEXT,
+        ativo INTEGER DEFAULT 1,
+        data_cadastro TEXT
+    )
+""")
+
+conn.commit()
+
 def main ():
     st.set_page_config(page_title="Sistemas de Obras Públicas ", page_icon="🏗️", layout="wide")
     st.title("🏗️SISOPB")
@@ -181,9 +196,259 @@ def login():
                 st.error("🚫 Usuário ou senha inválidos.")
         else:
             st.warning("⚠️ Preencha todos os campos.")
+
 def get_geolocator():
     return Nominatim(user_agent="SISOPB")
-	
+
+def cadastrar_item():
+
+    st.subheader("🧱 Cadastro de Materiais e Serviços")
+
+    st.caption(
+        "Cadastre materiais e serviços para reutilizá-los "
+        "em diferentes obras."
+    )
+
+    st.markdown("---")
+
+    # ==========================================
+    # GERAR PRÓXIMO CÓDIGO
+    # ==========================================
+
+    cursor.execute("""
+        SELECT COALESCE(MAX(id), 0) + 1
+        FROM itens
+    """)
+
+    proximo_numero = cursor.fetchone()[0]
+
+    codigo_automatico = f"ITEM{proximo_numero:05d}"
+
+    # ==========================================
+    # FORMULÁRIO
+    # ==========================================
+
+    with st.form(
+        "form_cadastro_item",
+        clear_on_submit=True
+    ):
+
+        col1, col2 = st.columns([1, 3])
+
+        with col1:
+
+            codigo = st.text_input(
+                "🔢 Código",
+                value=codigo_automatico,
+                disabled=True
+            )
+
+        with col2:
+
+            descricao = st.text_input(
+                "📝 Descrição do Item",
+                placeholder="Ex: Areia lavada"
+            )
+
+        col3, col4 = st.columns(2)
+
+        with col3:
+
+            unidade = st.selectbox(
+                "📏 Unidade",
+                [
+                    "UN",
+                    "M",
+                    "M²",
+                    "M³",
+                    "KG",
+                    "T",
+                    "L",
+                    "SC",
+                    "CX",
+                    "PCT",
+                    "H",
+                    "VB"
+                ]
+            )
+
+        with col4:
+
+            categoria = st.selectbox(
+                "📂 Categoria",
+                [
+                    "Material",
+                    "Serviço",
+                    "Equipamento",
+                    "Mão de Obra",
+                    "Outros"
+                ]
+            )
+
+        observacao = st.text_area(
+            "📝 Observação",
+            placeholder="Informações adicionais sobre o item..."
+        )
+
+        salvar = st.form_submit_button(
+            "💾 Salvar Item",
+            type="primary",
+            use_container_width=True
+        )
+
+    # ==========================================
+    # SALVAR
+    # ==========================================
+
+    if salvar:
+
+        if not descricao.strip():
+
+            st.warning(
+                "⚠️ Informe a descrição do item."
+            )
+
+        else:
+
+            try:
+
+                cursor.execute("""
+                    INSERT INTO itens (
+                        codigo,
+                        descricao,
+                        unidade,
+                        categoria,
+                        observacao,
+                        ativo,
+                        data_cadastro
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    codigo_automatico,
+                    descricao.strip(),
+                    unidade,
+                    categoria,
+                    observacao.strip(),
+                    1,
+                    datetime.now().strftime("%Y-%m-%d")
+                ))
+
+                conn.commit()
+
+                st.session_state[
+                    "item_cadastrado_sucesso"
+                ] = True
+
+                st.rerun()
+
+            except sqlite3.IntegrityError:
+
+                st.error(
+                    "❌ Já existe um item com esse código."
+                )
+
+            except Exception as e:
+
+                st.error(
+                    f"❌ Erro ao cadastrar item: {e}"
+                )
+
+    # ==========================================
+    # CONFIRMAÇÃO
+    # ==========================================
+
+    if st.session_state.get(
+        "item_cadastrado_sucesso",
+        False
+    ):
+
+        st.success(
+            "✅ Item cadastrado com sucesso!"
+        )
+
+        st.session_state[
+            "item_cadastrado_sucesso"
+        ] = False
+
+    # ==========================================
+    # ITENS JÁ CADASTRADOS
+    # ==========================================
+
+    st.markdown("---")
+
+    st.markdown("### 📋 Itens Cadastrados")
+
+    pesquisa = st.text_input(
+        "🔎 Pesquisar item",
+        placeholder="Código ou descrição..."
+    )
+
+    try:
+
+        if pesquisa:
+
+            cursor.execute("""
+                SELECT
+                    codigo,
+                    descricao,
+                    unidade,
+                    categoria
+                FROM itens
+                WHERE ativo = 1
+                AND (
+                    codigo LIKE ?
+                    OR descricao LIKE ?
+                )
+                ORDER BY descricao
+            """, (
+                f"%{pesquisa}%",
+                f"%{pesquisa}%"
+            ))
+
+        else:
+
+            cursor.execute("""
+                SELECT
+                    codigo,
+                    descricao,
+                    unidade,
+                    categoria
+                FROM itens
+                WHERE ativo = 1
+                ORDER BY descricao
+            """)
+
+        registros = cursor.fetchall()
+
+        if registros:
+
+            df_itens = pd.DataFrame(
+                registros,
+                columns=[
+                    "Código",
+                    "Descrição",
+                    "Unidade",
+                    "Categoria"
+                ]
+            )
+
+            st.dataframe(
+                df_itens,
+                use_container_width=True,
+                hide_index=True
+            )
+
+        else:
+
+            st.info(
+                "Nenhum item cadastrado."
+            )
+
+    except Exception as e:
+
+        st.error(
+            f"❌ Erro ao carregar itens: {e}"
+        )	
 def exibir_mapa():
     # Localização inicial de Carangola
     carangola_location = [-20.7029, -42.0105]
@@ -351,7 +616,17 @@ def cadastro_de_obras():
             st.session_state["tela_obras"] = "Imprimir"
 
             st.rerun()
+    with col4:
 
+        if st.button(
+            "🧱 Itens",
+            use_container_width=True,
+            key="btn_itens_obra"
+        ):
+
+            st.session_state["tela_obras"] = "Itens"
+
+            st.rerun()
     st.markdown("---")
 
     # ==========================================
@@ -417,6 +692,10 @@ def cadastro_de_obras():
 
     elif tela == "AlterarInterno":
         alterar_obra()
+		
+    elif tela == "Itens":
+        cadastrar_item()
+
 def incluir_obra():
     # ==================================================
     if st.session_state.get(
