@@ -1,21 +1,30 @@
+import os
 import sqlite3
 import streamlit as st
 import pandas as pd
 import folium
+
 from streamlit_folium import st_folium
 from geopy.geocoders import Nominatim
 from datetime import datetime, timedelta
+
 from st_aggrid import (
     AgGrid,
     GridOptionsBuilder,
     GridUpdateMode,
     JsCode
 )
+
 from io import BytesIO
+
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.styles import (
+    getSampleStyleSheet,
+    ParagraphStyle
+)
 from reportlab.lib.units import cm
+
 from reportlab.platypus import (
     SimpleDocTemplate,
     Paragraph,
