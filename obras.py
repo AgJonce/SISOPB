@@ -338,6 +338,9 @@ def cadastro_de_obras():
     elif tela == "Imprimir":
         imprimir_obra()
 
+	elif tela == "AlterarInterno":
+    	alterar_obra()
+
 def incluir_obra():
     # ==================================================
     if st.session_state.get(
@@ -758,35 +761,25 @@ def alterar_obra():
 
     st.subheader("✏️ Alterar Obra")
 
-    # ==========================================
-    # VERIFICAR OBRA SELECIONADA
-    # ==========================================
+    # Pega o ID da obra escolhida na tela Localizar
+    id_obra = st.session_state.get("obra_edicao_id")
 
-    id_obra = st.session_state.get(
-        "obra_edicao_id"
-    )
+    # Se nenhuma obra foi selecionada
+    if id_obra is None:
+        st.warning("⚠️ Nenhuma obra foi selecionada para alteração.")
+        return
 
-    if not id_obra:
+    # Busca a obra no banco
+    cursor.execute("""
+        SELECT *
+        FROM obras
+        WHERE id = ?
+    """, (id_obra,))
 
-        st.warning(
-            "⚠️ Nenhuma obra foi selecionada."
-        )
+    dados = cursor.fetchone()
 
-        st.info(
-            "🔎 Vá em Localizar, encontre a obra "
-            "e clique em Alterar Obra Selecionada."
-        )
-
-        if st.button(
-            "🔎 Ir para Localizar"
-        ):
-
-            st.session_state[
-                "tela_obras"
-            ] = "Localizar"
-
-            st.rerun()
-
+    if dados is None:
+        st.error("❌ Obra não encontrada no banco de dados.")
         return
 
     # ==========================================
@@ -1483,22 +1476,17 @@ def localizar_obra():
             # ALTERAR
             # ======================================
 
-            if st.button(
-                "✏️ Alterar esta Obra",
-                type="primary",
-                use_container_width=True,
-                key="btn_alterar_obra_localizada"
-            ):
+			if st.button(
+    			"✏️ Alterar Obra Selecionada",
+    			type="primary",
+    			use_container_width=True,
+    			key="btn_alterar_obra_localizada"
+			):
 
-                st.session_state[
-                    "obra_edicao_id"
-                ] = id_selecionado
+    			st.session_state["obra_edicao_id"] = id_selecionado
+    			st.session_state["tela_obras"] = "AlterarInterno"
 
-                st.session_state[
-                    "tela_obras"
-                ] = "Alterar"
-
-                st.rerun()
+    			st.rerun()
 def gerar_pdf_obra(id_obra):
 
     cursor.execute("""
