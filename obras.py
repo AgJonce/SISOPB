@@ -811,22 +811,25 @@ def incluir_obra():
                     datetime.now().strftime("%Y-%m-%d")
                 ))
 
-                conn.commit()
-				
-# Guarda a mensagem para mostrar depois
-				st.session_state["obra_cadastrada_sucesso"] = True
+            conn.commit()
 
-# Fecha a tela de inclusão
-				st.session_state["tela_obras"] = "Principal"
+            # Guarda a confirmação
+            st.session_state["obra_cadastrada_sucesso"] = True
 
-# Limpa informações temporárias
-				st.session_state.pop("latitude_obra", None)
-				st.session_state.pop("longitude_obra", None)
-				st.session_state.pop("endereco_obra", None)
-				st.session_state.pop("dados_endereco_obra", None)
+            # Fecha os campos de Incluir
+            st.session_state["tela_obras"] = "Principal"
 
-# Atualiza a tela
-				st.rerun()
+            # Limpa dados temporários da localização
+            st.session_state.pop("latitude_obra", None)
+            st.session_state.pop("longitude_obra", None)
+            st.session_state.pop("endereco_obra", None)
+            st.session_state.pop("dados_endereco_obra", None)
+
+            # Reinicia a tela
+            st.rerun()
+
+        except Exception as e:
+            st.error(f"❌ Erro ao cadastrar obra: {e}")
 
 def alterar_obra():
 
