@@ -1204,7 +1204,7 @@ def localizar_obra():
         )
 
     # Situação
-    if filtro_situacao != " ":
+    if filtro_situacao != "Todos":
 
         query += """
             AND situacao = ?
