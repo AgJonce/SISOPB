@@ -296,54 +296,114 @@ def cadastro_de_obras():
 
     st.title("🏗️ Gestão de Obras Públicas")
 
+    # ==========================================
+    # TELA PADRÃO
+    # ==========================================
+
     if "tela_obras" not in st.session_state:
         st.session_state["tela_obras"] = "Principal"
+
+    # ==========================================
+    # BOTÕES
+    # ==========================================
 
     col1, col2, col3 = st.columns(3)
 
     with col1:
+
         if st.button(
             "➕ Incluir",
-            use_container_width=True
+            use_container_width=True,
+            key="btn_incluir_obra"
         ):
+
             st.session_state["tela_obras"] = "Incluir"
+
             st.rerun()
 
     with col2:
+
         if st.button(
             "🔎 Localizar",
-            use_container_width=True
+            use_container_width=True,
+            key="btn_localizar_obra"
         ):
+
             st.session_state["tela_obras"] = "Localizar"
+
+            # Limpa seleção anterior
+            st.session_state.pop(
+                "obra_selecionada_localizar",
+                None
+            )
+
             st.rerun()
 
     with col3:
+
         if st.button(
             "🖨️ Imprimir",
-            use_container_width=True
+            use_container_width=True,
+            key="btn_imprimir_obra"
         ):
+
             st.session_state["tela_obras"] = "Imprimir"
+
             st.rerun()
 
     st.markdown("---")
 
-    tela = st.session_state["tela_obras"]
+    # ==========================================
+    # QUAL TELA MOSTRAR
+    # ==========================================
+
+    tela = st.session_state.get(
+        "tela_obras",
+        "Principal"
+    )
+
+    # ==========================================
+    # PRINCIPAL
+    # ==========================================
 
     if tela == "Principal":
+
         st.info(
             "Selecione uma opção acima para continuar."
         )
 
+    # ==========================================
+    # INCLUIR
+    # ==========================================
+
     elif tela == "Incluir":
+
         incluir_obra()
 
+    # ==========================================
+    # LOCALIZAR
+    # ==========================================
+
     elif tela == "Localizar":
+
         localizar_obra()
 
+    # ==========================================
+    # IMPRIMIR
+    # ==========================================
+
     elif tela == "Imprimir":
+
         imprimir_obra()
 
+    # ==========================================
+    # ALTERAR
+    # Essa opção NÃO aparece nos botões.
+    # Só é chamada através do Localizar.
+    # ==========================================
+
     elif tela == "AlterarInterno":
+
         alterar_obra()
 def incluir_obra():
     # ==================================================
@@ -2070,5 +2130,183 @@ def imprimir_obra():
         st.error(
             f"❌ Erro ao gerar PDF: {e}"
         )
+
+def main():
+
+    st.set_page_config(
+        page_title="Sistemas de Obras Públicas",
+        page_icon="🏗️",
+        layout="wide"
+    )
+
+    st.title("🏗️ SISOPB")
+    st.markdown("---")
+
+    # ==========================================
+    # LOGIN
+    # ==========================================
+
+    if "usuario_logado" not in st.session_state:
+        st.warning("Faça login para acessar o sistema.")
+        login()
+        return
+
+    funcao = st.session_state.get(
+        "funcao_usuario",
+        ""
+    )
+
+    st.sidebar.success(
+        f"👤 Usuário: {st.session_state['usuario_logado']}"
+    )
+
+    st.sidebar.info(
+        f"🔐 Função: {funcao}"
+    )
+
+    # ==========================================
+    # MENUS POR FUNÇÃO
+    # ==========================================
+
+    if funcao == "Administrador":
+
+        menu = [
+            "Cadastro de Obras 🛎️",
+            "Situação da Obra",
+            "Dashboard 📊",
+            "👨‍🔧 Cadastro de Funcionário",
+            "Financeiro 💰",
+            "Contabilidade",
+            "Medições",
+            "➕ Cadastrar Usuário"
+        ]
+
+    elif funcao == "Engenheiro":
+
+        menu = [
+            "Cadastro de Obras 🛎️",
+            "Situação da Obra",
+            "Financeiro 💰",
+            "Medições",
+            "Contabilidade"
+        ]
+
+    elif funcao == "Financeiro":
+
+        menu = [
+            "Financeiro 💰"
+        ]
+
+    elif funcao == "Contador":
+
+        menu = [
+            "Contabilidade"
+        ]
+
+    else:
+
+        st.error(
+            "❌ Função não reconhecida. "
+            "Contate o administrador."
+        )
+
+        return
+
+    # ==========================================
+    # MENU LATERAL
+    # ==========================================
+
+    escolha = st.sidebar.selectbox(
+        "📋 Menu",
+        menu + ["🔓 Logout"]
+    )
+
+    # ==========================================
+    # DETECTAR TROCA DE MENU
+    # ==========================================
+
+    menu_anterior = st.session_state.get(
+        "ultimo_menu"
+    )
+
+    if menu_anterior != escolha:
+
+        # Entrou novamente em Cadastro de Obras
+        if escolha == "Cadastro de Obras 🛎️":
+
+            # Volta para tela inicial
+            st.session_state["tela_obras"] = "Principal"
+
+            # Limpa obra em edição
+            st.session_state.pop(
+                "obra_edicao_id",
+                None
+            )
+
+            # Limpa obra localizada
+            st.session_state.pop(
+                "obra_selecionada_localizar",
+                None
+            )
+
+        # IMPORTANTE:
+        # salva antes de chamar qualquer função
+        st.session_state["ultimo_menu"] = escolha
+
+    # ==========================================
+    # ABRIR TELAS
+    # ==========================================
+
+    if escolha == "Cadastro de Obras 🛎️":
+
+        cadastro_de_obras()
+
+    elif escolha == "Dashboard 📊":
+
+        dashboard()
+
+    elif escolha == "👨‍🔧 Cadastro de Funcionário":
+
+        cadastrar_funcionario()
+
+    elif escolha == "Financeiro 💰":
+
+        modulo_financeiro()
+
+    elif escolha == "Contabilidade":
+
+        modulo_contabil()
+
+    elif escolha == "Medições":
+
+        medicoes()
+
+    elif escolha == "➕ Cadastrar Usuário":
+
+        cadastrar_usuario()
+
+    elif escolha == "🔓 Logout":
+
+        st.session_state.pop(
+            "usuario_logado",
+            None
+        )
+
+        st.session_state.pop(
+            "funcao_usuario",
+            None
+        )
+
+        st.session_state.pop(
+            "ultimo_menu",
+            None
+        )
+
+        st.session_state.pop(
+            "tela_obras",
+            None
+        )
+
+        st.rerun()
 if __name__ == "__main__":
     main()
