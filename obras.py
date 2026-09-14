@@ -338,9 +338,8 @@ def cadastro_de_obras():
     elif tela == "Imprimir":
         imprimir_obra()
 
-	elif tela == "AlterarInterno":
-    	alterar_obra()
-
+    elif tela == "AlterarInterno":
+        alterar_obra()
 def incluir_obra():
     # ==================================================
     if st.session_state.get(
