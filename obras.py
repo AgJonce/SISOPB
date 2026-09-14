@@ -292,6 +292,7 @@ def cadastrar_usuario():
 
         else:
             st.warning("⚠️ Preencha todos os campos.")
+
 def cadastro_de_obras():
 
     st.title("🏗️ Gestão de Obras Públicas")
@@ -366,12 +367,26 @@ def cadastro_de_obras():
     # PRINCIPAL
     # ==========================================
 
-    if tela == "Principal":
+	if tela == "Principal":
 
-        st.info(
-            "Selecione uma opção acima para continuar."
-        )
+    	if st.session_state.get(
+        	"obra_cadastrada_sucesso",
+        	False
+    	):
 
+        	st.success(
+            	"✅ Obra cadastrada com sucesso!"
+        	)
+
+        	st.session_state[
+            	"obra_cadastrada_sucesso"
+        	] = False
+
+    	else:
+
+        	st.info(
+            	"Selecione uma opção acima para continuar."
+        	)
     # ==========================================
     # INCLUIR
     # ==========================================
@@ -800,26 +815,21 @@ def incluir_obra():
                 ))
 
                 conn.commit()
+				
+# Guarda a mensagem para mostrar depois
+				st.session_state["obra_cadastrada_sucesso"] = True
 
-                # Limpa a localização
-                st.session_state["latitude_obra"] = None
-                st.session_state["longitude_obra"] = None
-                st.session_state["endereco_obra"] = None
-                st.session_state["dados_endereco_obra"] = {}
+# Fecha a tela de inclusão
+				st.session_state["tela_obras"] = "Principal"
 
-                # Troca o ID dos campos para eles nascerem vazios
-                st.session_state["cadastro_obra_id"] += 1
+# Limpa informações temporárias
+				st.session_state.pop("latitude_obra", None)
+				st.session_state.pop("longitude_obra", None)
+				st.session_state.pop("endereco_obra", None)
+				st.session_state.pop("dados_endereco_obra", None)
 
-                # Guarda confirmação
-                st.session_state["obra_salva"] = True
-
-                # Recarrega a tela
-                st.rerun()
-
-            except Exception as e:
-                st.error(
-                    f"❌ Erro ao cadastrar obra: {e}"
-                )
+# Atualiza a tela
+				st.rerun()
 
 def alterar_obra():
 
