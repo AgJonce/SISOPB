@@ -1091,11 +1091,6 @@ def localizar_obra():
 
     st.subheader("🔎 Localizar Obras")
 
-    st.write(
-        "Utilize os filtros abaixo para localizar "
-        "uma obra cadastrada."
-    )
-
     # ==========================================
     # FILTROS
     # ==========================================
@@ -1103,21 +1098,18 @@ def localizar_obra():
     col1, col2, col3 = st.columns(3)
 
     with col1:
-
         filtro_nome = st.text_input(
             "🏗️ Nome da Obra",
-            key="pesquisa_nome_obra"
+            key="filtro_nome_obra"
         )
 
     with col2:
-
         filtro_contrato = st.text_input(
-            "📜 Número do Contrato",
-            key="pesquisa_contrato_obra"
+            "📜 Contrato",
+            key="filtro_contrato_obra"
         )
 
     with col3:
-
         filtro_situacao = st.selectbox(
             "📊 Situação",
             [
@@ -1127,22 +1119,20 @@ def localizar_obra():
                 "Paralisada",
                 "Planejada"
             ],
-            key="pesquisa_situacao_obra"
+            key="filtro_situacao_obra"
         )
 
     col4, col5, col6 = st.columns(3)
 
     with col4:
-
         filtro_responsavel = st.text_input(
             "👤 Responsável",
-            key="pesquisa_responsavel_obra"
+            key="filtro_responsavel_obra"
         )
 
     with col5:
-
         filtro_tipo = st.selectbox(
-            "🏢 Tipo de Obra",
+            "🏢 Tipo",
             [
                 "Todos",
                 "Construção",
@@ -1150,11 +1140,10 @@ def localizar_obra():
                 "Manutenção",
                 "Outros"
             ],
-            key="pesquisa_tipo_obra"
+            key="filtro_tipo_obra"
         )
 
     with col6:
-
         filtro_recurso = st.selectbox(
             "💰 Recurso",
             [
@@ -1164,11 +1153,11 @@ def localizar_obra():
                 "Terceiros",
                 "Outros"
             ],
-            key="pesquisa_recurso_obra"
+            key="filtro_recurso_obra"
         )
 
     # ==========================================
-    # MONTAR SQL
+    # SQL
     # ==========================================
 
     query = """
@@ -1189,79 +1178,31 @@ def localizar_obra():
 
     parametros = []
 
-    # Nome
     if filtro_nome:
+        query += " AND obra LIKE ?"
+        parametros.append(f"%{filtro_nome}%")
 
-        query += """
-            AND obra LIKE ?
-        """
-
-        parametros.append(
-            f"%{filtro_nome}%"
-        )
-
-    # Contrato
     if filtro_contrato:
+        query += " AND contrato LIKE ?"
+        parametros.append(f"%{filtro_contrato}%")
 
-        query += """
-            AND contrato LIKE ?
-        """
-
-        parametros.append(
-            f"%{filtro_contrato}%"
-        )
-
-    # Responsável
     if filtro_responsavel:
+        query += " AND responsavel LIKE ?"
+        parametros.append(f"%{filtro_responsavel}%")
 
-        query += """
-            AND responsavel LIKE ?
-        """
-
-        parametros.append(
-            f"%{filtro_responsavel}%"
-        )
-
-    # Situação
     if filtro_situacao != "Todas":
+        query += " AND situacao = ?"
+        parametros.append(filtro_situacao)
 
-        query += """
-            AND situacao = ?
-        """
-
-        parametros.append(
-            filtro_situacao
-        )
-
-    # Tipo
     if filtro_tipo != "Todos":
+        query += " AND tipo_obra = ?"
+        parametros.append(filtro_tipo)
 
-        query += """
-            AND tipo_obra = ?
-        """
-
-        parametros.append(
-            filtro_tipo
-        )
-
-    # Recurso
     if filtro_recurso != "Todos":
+        query += " AND recurso = ?"
+        parametros.append(filtro_recurso)
 
-        query += """
-            AND recurso = ?
-        """
-
-        parametros.append(
-            filtro_recurso
-        )
-
-    query += """
-        ORDER BY obra
-    """
-
-    # ==========================================
-    # EXECUTAR PESQUISA
-    # ==========================================
+    query += " ORDER BY obra"
 
     try:
 
@@ -1275,13 +1216,13 @@ def localizar_obra():
     except Exception as e:
 
         st.error(
-            f"❌ Erro ao pesquisar obras: {e}"
+            f"❌ Erro ao localizar obras: {e}"
         )
 
         return
 
     # ==========================================
-    # RESULTADOS
+    # SEM RESULTADOS
     # ==========================================
 
     if not resultados:
@@ -1291,10 +1232,6 @@ def localizar_obra():
         )
 
         return
-
-    st.success(
-        f"🔎 {len(resultados)} obra(s) encontrada(s)."
-    )
 
     # ==========================================
     # DATAFRAME
@@ -1316,59 +1253,141 @@ def localizar_obra():
         ]
     )
 
-    st.dataframe(
+    st.caption(
+        f"{len(df)} obra(s) encontrada(s). "
+        "Dê dois cliques na obra desejada."
+    )
+
+    # ==========================================
+    # CONFIGURAÇÃO DO AGGRID
+    # ==========================================
+
+    gb = GridOptionsBuilder.from_dataframe(df)
+
+    gb.configure_selection(
+        selection_mode="single",
+        use_checkbox=False
+    )
+
+    gb.configure_default_column(
+        sortable=True,
+        filter=True,
+        resizable=True
+    )
+
+    grid_options = gb.build()
+
+    # ==========================================
+    # GRID
+    # ==========================================
+
+    grid_response = AgGrid(
         df,
-        use_container_width=True,
-        hide_index=True
+        gridOptions=grid_options,
+        update_mode=GridUpdateMode.SELECTION_CHANGED,
+        fit_columns_on_grid_load=True,
+        height=350,
+        key="grid_localizar_obras"
     )
 
     # ==========================================
-    # SELECIONAR OBRA
+    # LINHA SELECIONADA
     # ==========================================
 
-    opcoes = {}
-
-    for resultado in resultados:
-
-        id_obra = resultado[0]
-        nome_obra = resultado[1]
-        contrato = resultado[2]
-
-        descricao = (
-            f"{id_obra} - "
-            f"{nome_obra} - "
-            f"Contrato: {contrato}"
-        )
-
-        opcoes[descricao] = id_obra
-
-    obra_selecionada = st.selectbox(
-        "🏗️ Selecione uma obra:",
-        list(opcoes.keys()),
-        key="obra_localizada"
+    selecionadas = grid_response.get(
+        "selected_rows"
     )
 
+    if selecionadas is not None:
+
+        if isinstance(selecionadas, pd.DataFrame):
+
+            if not selecionadas.empty:
+
+                id_obra = int(
+                    selecionadas.iloc[0]["ID"]
+                )
+
+                st.session_state[
+                    "obra_selecionada_localizar"
+                ] = id_obra
+
+        elif isinstance(selecionadas, list):
+
+            if len(selecionadas) > 0:
+
+                id_obra = int(
+                    selecionadas[0]["ID"]
+                )
+
+                st.session_state[
+                    "obra_selecionada_localizar"
+                ] = id_obra
+
     # ==========================================
-    # BOTÃO ALTERAR
+    # MOSTRAR OBRA SELECIONADA
     # ==========================================
 
-    if st.button(
-        "✏️ Alterar Obra Selecionada",
-        type="primary"
-    ):
+    id_selecionado = st.session_state.get(
+        "obra_selecionada_localizar"
+    )
 
-        id_obra = opcoes[
-            obra_selecionada
-        ]
+    if id_selecionado:
 
-        st.session_state[
-            "obra_edicao_id"
-        ] = id_obra
+        cursor.execute("""
+            SELECT
+                obra,
+                contrato,
+                responsavel,
+                situacao
+            FROM obras
+            WHERE id = ?
+        """, (
+            id_selecionado,
+        ))
 
-        st.session_state[
-            "tela_obras"
-        ] = "Alterar"
+        registro = cursor.fetchone()
 
-        st.rerun()
+        if registro:
+
+            st.success(
+                f"🏗️ Obra selecionada: {registro[0]}"
+            )
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.write(
+                    f"**Contrato:** {registro[1]}"
+                )
+
+                st.write(
+                    f"**Responsável:** {registro[2]}"
+                )
+
+            with col2:
+                st.write(
+                    f"**Situação:** {registro[3]}"
+                )
+
+            # ======================================
+            # ALTERAR
+            # ======================================
+
+            if st.button(
+                "✏️ Alterar Obra",
+                type="primary",
+                use_container_width=True
+            ):
+
+                st.session_state[
+                    "obra_edicao_id"
+                ] = id_selecionado
+
+                st.session_state[
+                    "tela_obras"
+                ] = "Alterar"
+
+                st.rerun()
 if __name__ == "__main__":
     main()
