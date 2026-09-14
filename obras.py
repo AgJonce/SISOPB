@@ -296,8 +296,12 @@ def cadastro_de_obras():
 
     st.title("🏗️ Gestão de Obras Públicas")
 
+    # ==========================================
+    # TELA INICIAL
+    # ==========================================
+
     if "tela_obras" not in st.session_state:
-        st.session_state["tela_obras"] = "Incluir"
+        st.session_state["tela_obras"] = "Principal"
 
     col1, col2, col3 = st.columns(3)
 
@@ -329,14 +333,43 @@ def cadastro_de_obras():
 
     tela = st.session_state["tela_obras"]
 
-    if tela == "Incluir":
+    # ==========================================
+    # TELA PRINCIPAL
+    # ==========================================
+
+    if tela == "Principal":
+
+        st.subheader("🏗️ Obras Públicas")
+
+        st.info(
+            "Selecione uma das opções acima para "
+            "incluir, localizar ou imprimir uma obra."
+        )
+
+    # ==========================================
+    # INCLUIR
+    # ==========================================
+
+    elif tela == "Incluir":
         incluir_obra()
+
+    # ==========================================
+    # LOCALIZAR
+    # ==========================================
 
     elif tela == "Localizar":
         localizar_obra()
 
+    # ==========================================
+    # IMPRIMIR
+    # ==========================================
+
     elif tela == "Imprimir":
         imprimir_obra()
+
+    # ==========================================
+    # ALTERAÇÃO INTERNA
+    # ==========================================
 
     elif tela == "AlterarInterno":
         alterar_obra()
