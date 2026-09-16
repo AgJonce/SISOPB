@@ -217,30 +217,45 @@ def get_geolocator():
 
 def incluir_item_obra():
 
-    st.subheader("🧱 Incluir Item na Obra")
+    st.subheader("🧱 Inclusão de Itens da Obra")
 
     # ==========================================
     # BUSCAR OBRAS
     # ==========================================
 
-    cursor.execute("""
-        SELECT
-            id,
-            obra,
-            contrato
-        FROM obras
-        ORDER BY obra
-    """)
+    try:
+        cursor.execute("""
+            SELECT
+                id,
+                obra,
+                contrato,
+                responsavel,
+                valor_obra
+            FROM obras
+            ORDER BY obra
+        """)
 
-    obras = cursor.fetchall()
+        obras = cursor.fetchall()
+
+    except Exception as e:
+        st.error(f"❌ Erro ao carregar obras: {e}")
+        return
 
     if not obras:
         st.warning("⚠️ Nenhuma obra cadastrada.")
         return
 
+    # ==========================================
+    # SELECIONAR OBRA
+    # ==========================================
+
     opcoes_obras = {}
 
-    for id_obra, nome_obra, contrato in obras:
+    for registro in obras:
+
+        id_obra = registro[0]
+        nome_obra = registro[1]
+        contrato = registro[2]
 
         texto = (
             f"{id_obra} - {nome_obra} | "
@@ -251,15 +266,133 @@ def incluir_item_obra():
 
     obra_escolhida = st.selectbox(
         "🏗️ Selecione a Obra",
-        list(opcoes_obras.keys())
+        list(opcoes_obras.keys()),
+        key="item_obra_selecionada"
     )
 
     obra_id = opcoes_obras[obra_escolhida]
 
+    # ==========================================
+    # DADOS DA OBRA SELECIONADA
+    # ==========================================
+
+    cursor.execute("""
+        SELECT
+            obra,
+            contrato,
+            responsavel,
+            valor_obra
+        FROM obras
+        WHERE id = ?
+    """, (obra_id,))
+
+    dados_obra = cursor.fetchone()
+
+    if not dados_obra:
+        st.error("❌ Obra não encontrada.")
+        return
+
+    nome_obra = dados_obra[0]
+    contrato = dados_obra[1]
+    responsavel = dados_obra[2]
+    valor_obra = float(dados_obra[3] or 0)
+
+    # ==========================================
+    # SOMAR ITENS JÁ VINCULADOS
+    # ==========================================
+
+    cursor.execute("""
+        SELECT COALESCE(SUM(valor_total), 0)
+        FROM itens_obra
+        WHERE obra_id = ?
+    """, (obra_id,))
+
+    valor_utilizado = float(
+        cursor.fetchone()[0] or 0
+    )
+
+    # ==========================================
+    # CALCULAR SALDO
+    # ==========================================
+
+    saldo_disponivel = (
+        valor_obra - valor_utilizado
+    )
+
+    # ==========================================
+    # FORMATADOR DE MOEDA
+    # ==========================================
+
+    def moeda(valor):
+
+        return (
+            f"R$ {float(valor):,.2f}"
+            .replace(",", "X")
+            .replace(".", ",")
+            .replace("X", ".")
+        )
+
+    # ==========================================
+    # INFORMAÇÕES DA OBRA
+    # ==========================================
+
+    st.markdown("### 🏗️ Informações da Obra")
+
+    with st.container(border=True):
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.markdown(
+                f"**🏗️ Obra:** {nome_obra}"
+            )
+
+            st.markdown(
+                f"**📜 Contrato:** "
+                f"{contrato or 'Não informado'}"
+            )
+
+        with col2:
+            st.markdown(
+                f"**👤 Responsável:** "
+                f"{responsavel or 'Não informado'}"
+            )
+
+            st.markdown(
+                f"**💰 Valor da Obra:** "
+                f"{moeda(valor_obra)}"
+            )
+
+    # ==========================================
+    # CONTROLE FINANCEIRO DOS ITENS
+    # ==========================================
+
+    st.markdown("### 💰 Controle dos Itens")
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.metric(
+            "Valor da Obra",
+            moeda(valor_obra)
+        )
+
+    with col2:
+        st.metric(
+            "Valor Utilizado",
+            moeda(valor_utilizado)
+        )
+
+    with col3:
+        st.metric(
+            "Saldo Disponível",
+            moeda(saldo_disponivel)
+        )
+
     st.markdown("---")
 
     # ==========================================
-    # GERAR CÓDIGO AUTOMÁTICO
+    # GERAR CÓDIGO DO ITEM
     # ==========================================
 
     cursor.execute("""
@@ -272,32 +405,31 @@ def incluir_item_obra():
     codigo = f"ITEM{proximo_numero:05d}"
 
     # ==========================================
-    # DADOS DO ITEM
+    # CADASTRO DO ITEM
     # ==========================================
 
-    st.markdown("### 📦 Dados do Item")
+    st.markdown("### 📦 Novo Item")
 
     col1, col2 = st.columns([1, 3])
 
     with col1:
-
         st.text_input(
             "🔢 Código",
             value=codigo,
-            disabled=True
+            disabled=True,
+            key="codigo_novo_item"
         )
 
     with col2:
-
         descricao = st.text_input(
-            "📝 Descrição do Item",
-            placeholder="Ex: Areia lavada"
+            "📝 Descrição",
+            placeholder="Ex: Areia lavada",
+            key="descricao_novo_item"
         )
 
     col3, col4 = st.columns(2)
 
     with col3:
-
         unidade = st.selectbox(
             "📏 Unidade",
             [
@@ -313,11 +445,11 @@ def incluir_item_obra():
                 "PCT",
                 "H",
                 "VB"
-            ]
+            ],
+            key="unidade_novo_item"
         )
 
     with col4:
-
         categoria = st.selectbox(
             "📂 Categoria",
             [
@@ -326,52 +458,91 @@ def incluir_item_obra():
                 "Equipamento",
                 "Mão de Obra",
                 "Outros"
-            ]
+            ],
+            key="categoria_novo_item"
         )
 
     # ==========================================
-    # DADOS DO ITEM NA OBRA
+    # QUANTIDADE E VALOR
     # ==========================================
-
-    st.markdown("### 🏗️ Dados do Item na Obra")
 
     col5, col6 = st.columns(2)
 
     with col5:
-
         quantidade = st.number_input(
             "📦 Quantidade",
             min_value=0.0,
-            step=1.0
+            step=1.0,
+            key="quantidade_novo_item"
         )
 
     with col6:
-
         valor_unitario = st.number_input(
-            "💰 Valor Unitário (R$)",
+            "💵 Valor Unitário (R$)",
             min_value=0.0,
-            format="%.2f"
+            format="%.2f",
+            key="valor_novo_item"
         )
 
-    valor_total = quantidade * valor_unitario
-
-    st.metric(
-        "💵 Valor Total",
-        f"R$ {valor_total:,.2f}"
-    )
-
-    observacao = st.text_area(
-        "📝 Observação"
+    valor_total = (
+        quantidade * valor_unitario
     )
 
     # ==========================================
-    # SALVAR ITEM + VÍNCULO
+    # PRÉVIA DO VALOR
+    # ==========================================
+
+    novo_saldo = (
+        saldo_disponivel - valor_total
+    )
+
+    col7, col8 = st.columns(2)
+
+    with col7:
+        st.metric(
+            "💵 Total do Item",
+            moeda(valor_total)
+        )
+
+    with col8:
+
+        if novo_saldo >= 0:
+            st.metric(
+                "💰 Saldo após inclusão",
+                moeda(novo_saldo)
+            )
+
+        else:
+            st.metric(
+                "⚠️ Valor excedente",
+                moeda(abs(novo_saldo))
+            )
+
+    # ==========================================
+    # ALERTA ANTES DE SALVAR
+    # ==========================================
+
+    if valor_total > saldo_disponivel:
+
+        st.error(
+            "❌ O valor deste item ultrapassa o "
+            "saldo disponível da obra."
+        )
+
+    observacao = st.text_area(
+        "📝 Observação",
+        key="observacao_novo_item"
+    )
+
+    # ==========================================
+    # SALVAR
     # ==========================================
 
     if st.button(
         "💾 Salvar Item na Obra",
         type="primary",
-        use_container_width=True
+        use_container_width=True,
+        key="salvar_item_obra"
     ):
 
         if not descricao.strip():
@@ -383,20 +554,34 @@ def incluir_item_obra():
         elif quantidade <= 0:
 
             st.warning(
-                "⚠️ Informe uma quantidade maior que zero."
+                "⚠️ Informe uma quantidade "
+                "maior que zero."
+            )
+
+        elif valor_unitario <= 0:
+
+            st.warning(
+                "⚠️ Informe o valor unitário."
+            )
+
+        elif valor_total > saldo_disponivel:
+
+            st.error(
+                "❌ Item não incluído. "
+                "O valor total do item ultrapassa "
+                "o saldo disponível da obra."
             )
 
         else:
 
             try:
 
-                # ----------------------------------
-                # VERIFICA SE ITEM JÁ EXISTE
-                # ----------------------------------
+                # ==================================
+                # PROCURA ITEM JÁ CADASTRADO
+                # ==================================
 
                 cursor.execute("""
-                    SELECT
-                        id
+                    SELECT id
                     FROM itens
                     WHERE LOWER(descricao) = LOWER(?)
                     AND unidade = ?
@@ -407,21 +592,17 @@ def incluir_item_obra():
 
                 item_existente = cursor.fetchone()
 
-                # ----------------------------------
-                # SE JÁ EXISTE, REUTILIZA
-                # ----------------------------------
-
-                # ----------------------------------
-                # SE O ITEM JÁ EXISTE, REUTILIZA
-                # ----------------------------------
+                # ==================================
+                # ITEM EXISTENTE
+                # ==================================
 
                 if item_existente:
 
                     item_id = item_existente[0]
 
-                # ----------------------------------
-                # SE NÃO EXISTE, CADASTRA NOVO
-                # ----------------------------------
+                # ==================================
+                # NOVO ITEM
+                # ==================================
 
                 else:
 
@@ -443,14 +624,16 @@ def incluir_item_obra():
                         categoria,
                         observacao.strip(),
                         1,
-                        datetime.now().strftime("%Y-%m-%d")
+                        datetime.now().strftime(
+                            "%Y-%m-%d"
+                        )
                     ))
 
                     item_id = cursor.lastrowid
 
-                # ----------------------------------
-                # VINCULA O ITEM À OBRA
-                # ----------------------------------
+                # ==================================
+                # VINCULAR ITEM À OBRA
+                # ==================================
 
                 cursor.execute("""
                     INSERT INTO itens_obra (
@@ -471,37 +654,6 @@ def incluir_item_obra():
                     observacao.strip()
                 ))
 
-                # ==================================
-                # SOMA TODOS OS ITENS DA OBRA
-                # ==================================
-
-                cursor.execute("""
-                    SELECT COALESCE(SUM(valor_total), 0)
-                    FROM itens_obra
-                    WHERE obra_id = ?
-                """, (
-                    obra_id,
-                ))
-
-                novo_valor_obra = cursor.fetchone()[0]
-
-                # ==================================
-                # ATUALIZA O VALOR TOTAL DA OBRA
-                # ==================================
-
-                cursor.execute("""
-                    UPDATE obras
-                    SET valor_obra = ?
-                    WHERE id = ?
-                """, (
-                    novo_valor_obra,
-                    obra_id
-                ))
-
-                # ==================================
-                # SALVA
-                # ==================================
-
                 conn.commit()
 
                 st.session_state[
@@ -517,6 +669,7 @@ def incluir_item_obra():
                 st.error(
                     f"❌ Erro ao salvar item: {e}"
                 )
+
     # ==========================================
     # CONFIRMAÇÃO
     # ==========================================
@@ -527,7 +680,7 @@ def incluir_item_obra():
     ):
 
         st.success(
-            "✅ Item cadastrado e vinculado à obra com sucesso!"
+            "✅ Item vinculado à obra com sucesso!"
         )
 
         st.session_state[
@@ -535,12 +688,12 @@ def incluir_item_obra():
         ] = False
 
     # ==========================================
-    # ITENS DA OBRA SELECIONADA
+    # ITENS VINCULADOS
     # ==========================================
 
     st.markdown("---")
 
-    st.subheader("📋 Itens Vinculados à Obra")
+    st.subheader("📋 Itens da Obra")
 
     cursor.execute("""
         SELECT
@@ -551,16 +704,11 @@ def incluir_item_obra():
             io.valor_unitario,
             io.valor_total
         FROM itens_obra io
-
         INNER JOIN itens i
             ON i.id = io.item_id
-
         WHERE io.obra_id = ?
-
         ORDER BY i.descricao
-    """, (
-        obra_id,
-    ))
+    """, (obra_id,))
 
     itens_vinculados = cursor.fetchall()
 
@@ -589,64 +737,6 @@ def incluir_item_obra():
         st.info(
             "Nenhum item vinculado a esta obra."
         )
-def exibir_mapa():
-    # Localização inicial de Carangola
-    carangola_location = [-20.7029, -42.0105]
-
-    # Criação do mapa
-    mapa = folium.Map(
-        location=carangola_location,
-        zoom_start=15
-    )
-
-    # Exibir mapa no Streamlit
-    mapa_interativo = st_folium(
-        mapa,
-        width=725,
-        height=500
-    )
-
-    return mapa_interativo
-
-
-def obter_nome_rua_com_numero(lat, lon):
-    geolocator = Nominatim(
-        user_agent="sisopb"
-    )
-
-    location = geolocator.reverse(
-        (lat, lon),
-        language="pt",
-        timeout=10,
-        exactly_one=True
-    )
-
-    if location:
-        componentes_endereco = location.raw.get(
-            "address",
-            {}
-        )
-
-        numero = componentes_endereco.get(
-            "house_number",
-            "Número não disponível"
-        )
-
-        rua = componentes_endereco.get(
-            "road",
-            "Rua não disponível"
-        )
-
-        endereco = location.address
-
-        return rua, numero, endereco
-
-    return (
-        "Rua não encontrada",
-        "Número não encontrado",
-        "Endereço não encontrado"
-    )
-
 def cadastrar_usuario():
     st.subheader("➕ Cadastrar Novo Usuário")
 
