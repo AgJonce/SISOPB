@@ -411,15 +411,42 @@ def incluir_item_obra():
                 # SE JÁ EXISTE, REUTILIZA
                 # ----------------------------------
 
+                # ----------------------------------
+                # SE O ITEM JÁ EXISTE, REUTILIZA
+                # ----------------------------------
+
                 if item_existente:
 
                     item_id = item_existente[0]
 
                 # ----------------------------------
-                # SENÃO, CADASTRA NOVO
+                # SE NÃO EXISTE, CADASTRA NOVO
                 # ----------------------------------
 
                 else:
+
+                    cursor.execute("""
+                        INSERT INTO itens (
+                            codigo,
+                            descricao,
+                            unidade,
+                            categoria,
+                            observacao,
+                            ativo,
+                            data_cadastro
+                        )
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """, (
+                        codigo,
+                        descricao.strip(),
+                        unidade,
+                        categoria,
+                        observacao.strip(),
+                        1,
+                        datetime.now().strftime("%Y-%m-%d")
+                    ))
+
+                    item_id = cursor.lastrowid
 
                 # ----------------------------------
                 # VINCULA O ITEM À OBRA
@@ -459,7 +486,7 @@ def incluir_item_obra():
                 novo_valor_obra = cursor.fetchone()[0]
 
                 # ==================================
-                # ATUALIZA O VALOR DA OBRA
+                # ATUALIZA O VALOR TOTAL DA OBRA
                 # ==================================
 
                 cursor.execute("""
@@ -472,7 +499,7 @@ def incluir_item_obra():
                 ))
 
                 # ==================================
-                # SALVA TUDO
+                # SALVA
                 # ==================================
 
                 conn.commit()
@@ -490,7 +517,6 @@ def incluir_item_obra():
                 st.error(
                     f"❌ Erro ao salvar item: {e}"
                 )
-
     # ==========================================
     # CONFIRMAÇÃO
     # ==========================================
