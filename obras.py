@@ -421,29 +421,6 @@ def incluir_item_obra():
 
                 else:
 
-                    cursor.execute("""
-                        INSERT INTO itens (
-                            codigo,
-                            descricao,
-                            unidade,
-                            categoria,
-                            observacao,
-                            ativo,
-                            data_cadastro
-                        )
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
-                    """, (
-                        codigo,
-                        descricao.strip(),
-                        unidade,
-                        categoria,
-                        observacao.strip(),
-                        1,
-                        datetime.now().strftime("%Y-%m-%d")
-                    ))
-
-                    item_id = cursor.lastrowid
-
                 # ----------------------------------
                 # VINCULA O ITEM À OBRA
                 # ----------------------------------
@@ -466,6 +443,37 @@ def incluir_item_obra():
                     valor_total,
                     observacao.strip()
                 ))
+
+                # ==================================
+                # SOMA TODOS OS ITENS DA OBRA
+                # ==================================
+
+                cursor.execute("""
+                    SELECT COALESCE(SUM(valor_total), 0)
+                    FROM itens_obra
+                    WHERE obra_id = ?
+                """, (
+                    obra_id,
+                ))
+
+                novo_valor_obra = cursor.fetchone()[0]
+
+                # ==================================
+                # ATUALIZA O VALOR DA OBRA
+                # ==================================
+
+                cursor.execute("""
+                    UPDATE obras
+                    SET valor_obra = ?
+                    WHERE id = ?
+                """, (
+                    novo_valor_obra,
+                    obra_id
+                ))
+
+                # ==================================
+                # SALVA TUDO
+                # ==================================
 
                 conn.commit()
 
