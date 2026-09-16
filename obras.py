@@ -254,12 +254,12 @@ def incluir_item_obra():
     for registro in obras:
 
         id_obra = registro[0]
-        nome_obra = registro[1]
-        contrato = registro[2]
+        nome_obra_lista = registro[1]
+        contrato_lista = registro[2]
 
         texto = (
-            f"{id_obra} - {nome_obra} | "
-            f"Contrato: {contrato}"
+            f"{id_obra} - {nome_obra_lista} | "
+            f"Contrato: {contrato_lista}"
         )
 
         opcoes_obras[texto] = id_obra
@@ -273,20 +273,29 @@ def incluir_item_obra():
     obra_id = opcoes_obras[obra_escolhida]
 
     # ==========================================
-    # DADOS DA OBRA SELECIONADA
+    # BUSCAR DADOS DA OBRA
     # ==========================================
 
-    cursor.execute("""
-        SELECT
-            obra,
-            contrato,
-            responsavel,
-            valor_obra
-        FROM obras
-        WHERE id = ?
-    """, (obra_id,))
+    try:
+        cursor.execute("""
+            SELECT
+                obra,
+                contrato,
+                responsavel,
+                valor_obra
+            FROM obras
+            WHERE id = ?
+        """, (
+            obra_id,
+        ))
 
-    dados_obra = cursor.fetchone()
+        dados_obra = cursor.fetchone()
+
+    except Exception as e:
+        st.error(
+            f"❌ Erro ao carregar dados da obra: {e}"
+        )
+        return
 
     if not dados_obra:
         st.error("❌ Obra não encontrada.")
@@ -301,18 +310,28 @@ def incluir_item_obra():
     # SOMAR ITENS JÁ VINCULADOS
     # ==========================================
 
-    cursor.execute("""
-        SELECT COALESCE(SUM(valor_total), 0)
-        FROM itens_obra
-        WHERE obra_id = ?
-    """, (obra_id,))
+    try:
+        cursor.execute("""
+            SELECT
+                COALESCE(SUM(valor_total), 0)
+            FROM itens_obra
+            WHERE obra_id = ?
+        """, (
+            obra_id,
+        ))
 
-    valor_utilizado = float(
-        cursor.fetchone()[0] or 0
-    )
+        valor_utilizado = float(
+            cursor.fetchone()[0] or 0
+        )
+
+    except Exception as e:
+        st.error(
+            f"❌ Erro ao calcular itens da obra: {e}"
+        )
+        return
 
     # ==========================================
-    # CALCULAR SALDO
+    # SALDO DISPONÍVEL
     # ==========================================
 
     saldo_disponivel = (
@@ -320,7 +339,7 @@ def incluir_item_obra():
     )
 
     # ==========================================
-    # FORMATADOR DE MOEDA
+    # FUNÇÃO PARA FORMATAR MOEDA
     # ==========================================
 
     def moeda(valor):
@@ -340,9 +359,10 @@ def incluir_item_obra():
 
     with st.container(border=True):
 
-        col1, col2 = st.columns(2)
+        col_info1, col_info2 = st.columns(2)
 
-        with col1:
+        with col_info1:
+
             st.markdown(
                 f"**🏗️ Obra:** {nome_obra}"
             )
@@ -352,7 +372,8 @@ def incluir_item_obra():
                 f"{contrato or 'Não informado'}"
             )
 
-        with col2:
+        with col_info2:
+
             st.markdown(
                 f"**👤 Responsável:** "
                 f"{responsavel or 'Não informado'}"
@@ -364,72 +385,94 @@ def incluir_item_obra():
             )
 
     # ==========================================
-    # CONTROLE FINANCEIRO DOS ITENS
+    # CONTROLE DOS ITENS
     # ==========================================
 
     st.markdown("### 💰 Controle dos Itens")
 
-    col1, col2, col3 = st.columns(3)
+    col_valor1, col_valor2, col_valor3 = st.columns(3)
 
-    with col1:
-        st.metric(
-            "Valor da Obra",
-            moeda(valor_obra)
-        )
+    with col_valor1:
 
-    with col2:
-        st.metric(
-            "Valor Utilizado",
-            moeda(valor_utilizado)
-        )
+        with st.container(border=True):
 
-    with col3:
-        st.metric(
-            "Saldo Disponível",
-            moeda(saldo_disponivel)
-        )
+            st.caption("💰 VALOR DA OBRA")
+
+            st.markdown(
+                f"##### {moeda(valor_obra)}"
+            )
+
+    with col_valor2:
+
+        with st.container(border=True):
+
+            st.caption("📦 VALOR UTILIZADO")
+
+            st.markdown(
+                f"##### {moeda(valor_utilizado)}"
+            )
+
+    with col_valor3:
+
+        with st.container(border=True):
+
+            st.caption("💵 SALDO DISPONÍVEL")
+
+            st.markdown(
+                f"##### {moeda(saldo_disponivel)}"
+            )
 
     st.markdown("---")
 
     # ==========================================
-    # GERAR CÓDIGO DO ITEM
+    # GERAR CÓDIGO AUTOMÁTICO
     # ==========================================
 
-    cursor.execute("""
-        SELECT COALESCE(MAX(id), 0) + 1
-        FROM itens
-    """)
+    try:
+        cursor.execute("""
+            SELECT
+                COALESCE(MAX(id), 0) + 1
+            FROM itens
+        """)
 
-    proximo_numero = cursor.fetchone()[0]
+        proximo_numero = cursor.fetchone()[0]
+
+    except Exception:
+        proximo_numero = 1
 
     codigo = f"ITEM{proximo_numero:05d}"
 
     # ==========================================
-    # CADASTRO DO ITEM
+    # NOVO ITEM
     # ==========================================
 
     st.markdown("### 📦 Novo Item")
 
-    col1, col2 = st.columns([1, 3])
+    col_item1, col_item2 = st.columns(
+        [1, 3]
+    )
 
-    with col1:
+    with col_item1:
+
         st.text_input(
             "🔢 Código",
             value=codigo,
             disabled=True,
-            key="codigo_novo_item"
+            key=f"codigo_item_visual_{codigo}"
         )
 
-    with col2:
+    with col_item2:
+
         descricao = st.text_input(
             "📝 Descrição",
             placeholder="Ex: Areia lavada",
             key="descricao_novo_item"
         )
 
-    col3, col4 = st.columns(2)
+    col_item3, col_item4 = st.columns(2)
 
-    with col3:
+    with col_item3:
+
         unidade = st.selectbox(
             "📏 Unidade",
             [
@@ -449,7 +492,8 @@ def incluir_item_obra():
             key="unidade_novo_item"
         )
 
-    with col4:
+    with col_item4:
+
         categoria = st.selectbox(
             "📂 Categoria",
             [
@@ -466,9 +510,10 @@ def incluir_item_obra():
     # QUANTIDADE E VALOR
     # ==========================================
 
-    col5, col6 = st.columns(2)
+    col_item5, col_item6 = st.columns(2)
 
-    with col5:
+    with col_item5:
+
         quantidade = st.number_input(
             "📦 Quantidade",
             min_value=0.0,
@@ -476,7 +521,8 @@ def incluir_item_obra():
             key="quantidade_novo_item"
         )
 
-    with col6:
+    with col_item6:
+
         valor_unitario = st.number_input(
             "💵 Valor Unitário (R$)",
             min_value=0.0,
@@ -484,58 +530,91 @@ def incluir_item_obra():
             key="valor_novo_item"
         )
 
+    # ==========================================
+    # CALCULAR TOTAL DO ITEM
+    # ==========================================
+
     valor_total = (
         quantidade * valor_unitario
     )
-
-    # ==========================================
-    # PRÉVIA DO VALOR
-    # ==========================================
 
     novo_saldo = (
         saldo_disponivel - valor_total
     )
 
-    col7, col8 = st.columns(2)
+    # ==========================================
+    # RESUMO DO NOVO ITEM
+    # ==========================================
 
-    with col7:
-        st.metric(
-            "💵 Total do Item",
-            moeda(valor_total)
-        )
+    col_total1, col_total2 = st.columns(2)
 
-    with col8:
+    with col_total1:
 
-        if novo_saldo >= 0:
-            st.metric(
-                "💰 Saldo após inclusão",
-                moeda(novo_saldo)
+        with st.container(border=True):
+
+            st.caption(
+                "💵 TOTAL DO ITEM"
             )
 
-        else:
-            st.metric(
-                "⚠️ Valor excedente",
-                moeda(abs(novo_saldo))
+            st.markdown(
+                f"##### {moeda(valor_total)}"
             )
+
+    with col_total2:
+
+        with st.container(border=True):
+
+            if novo_saldo >= 0:
+
+                st.caption(
+                    "💰 SALDO APÓS INCLUSÃO"
+                )
+
+                st.markdown(
+                    f"##### {moeda(novo_saldo)}"
+                )
+
+            else:
+
+                st.caption(
+                    "⚠️ VALOR EXCEDENTE"
+                )
+
+                st.markdown(
+                    f"##### {moeda(abs(novo_saldo))}"
+                )
 
     # ==========================================
-    # ALERTA ANTES DE SALVAR
+    # ALERTA DE SALDO
     # ==========================================
 
     if valor_total > saldo_disponivel:
 
         st.error(
-            "❌ O valor deste item ultrapassa o "
-            "saldo disponível da obra."
+            "❌ O valor deste item ultrapassa "
+            "o saldo disponível da obra."
         )
+
+    elif valor_total > 0:
+
+        st.success(
+            f"✅ Após incluir este item, "
+            f"o saldo da obra será "
+            f"{moeda(novo_saldo)}."
+        )
+
+    # ==========================================
+    # OBSERVAÇÃO
+    # ==========================================
 
     observacao = st.text_area(
         "📝 Observação",
+        placeholder="Informações adicionais sobre o item...",
         key="observacao_novo_item"
     )
 
     # ==========================================
-    # SALVAR
+    # BOTÃO SALVAR
     # ==========================================
 
     if st.button(
@@ -544,6 +623,10 @@ def incluir_item_obra():
         use_container_width=True,
         key="salvar_item_obra"
     ):
+
+        # ======================================
+        # VALIDAÇÕES
+        # ======================================
 
         if not descricao.strip():
 
@@ -577,11 +660,12 @@ def incluir_item_obra():
             try:
 
                 # ==================================
-                # PROCURA ITEM JÁ CADASTRADO
+                # VERIFICAR SE ITEM JÁ EXISTE
                 # ==================================
 
                 cursor.execute("""
-                    SELECT id
+                    SELECT
+                        id
                     FROM itens
                     WHERE LOWER(descricao) = LOWER(?)
                     AND unidade = ?
@@ -593,7 +677,7 @@ def incluir_item_obra():
                 item_existente = cursor.fetchone()
 
                 # ==================================
-                # ITEM EXISTENTE
+                # REUTILIZAR ITEM EXISTENTE
                 # ==================================
 
                 if item_existente:
@@ -601,7 +685,7 @@ def incluir_item_obra():
                     item_id = item_existente[0]
 
                 # ==================================
-                # NOVO ITEM
+                # CADASTRAR NOVO ITEM
                 # ==================================
 
                 else:
@@ -632,6 +716,42 @@ def incluir_item_obra():
                     item_id = cursor.lastrowid
 
                 # ==================================
+                # SEGUNDA VALIDAÇÃO DO SALDO
+                # ==================================
+                # Recalcula antes do INSERT para
+                # garantir que o saldo continua
+                # disponível.
+
+                cursor.execute("""
+                    SELECT
+                        COALESCE(SUM(valor_total), 0)
+                    FROM itens_obra
+                    WHERE obra_id = ?
+                """, (
+                    obra_id,
+                ))
+
+                utilizado_atual = float(
+                    cursor.fetchone()[0] or 0
+                )
+
+                saldo_atual = (
+                    valor_obra - utilizado_atual
+                )
+
+                if valor_total > saldo_atual:
+
+                    conn.rollback()
+
+                    st.error(
+                        "❌ Item não incluído. "
+                        "O valor ultrapassa o saldo "
+                        "atual disponível da obra."
+                    )
+
+                    return
+
+                # ==================================
                 # VINCULAR ITEM À OBRA
                 # ==================================
 
@@ -654,11 +774,51 @@ def incluir_item_obra():
                     observacao.strip()
                 ))
 
+                # ==================================
+                # SALVAR NO BANCO
+                # ==================================
+
                 conn.commit()
+
+                # ==================================
+                # MENSAGEM DE SUCESSO
+                # ==================================
 
                 st.session_state[
                     "item_obra_salvo"
                 ] = True
+
+                # ==================================
+                # LIMPAR CAMPOS
+                # ==========================================
+
+                st.session_state[
+                    "descricao_novo_item"
+                ] = ""
+
+                st.session_state[
+                    "quantidade_novo_item"
+                ] = 0.0
+
+                st.session_state[
+                    "valor_novo_item"
+                ] = 0.0
+
+                st.session_state[
+                    "observacao_novo_item"
+                ] = ""
+
+                st.session_state[
+                    "unidade_novo_item"
+                ] = "UN"
+
+                st.session_state[
+                    "categoria_novo_item"
+                ] = "Material"
+
+                # ==================================
+                # ATUALIZAR TELA
+                # ==================================
 
                 st.rerun()
 
@@ -680,7 +840,8 @@ def incluir_item_obra():
     ):
 
         st.success(
-            "✅ Item vinculado à obra com sucesso!"
+            "✅ Item cadastrado e vinculado "
+            "à obra com sucesso!"
         )
 
         st.session_state[
@@ -688,29 +849,48 @@ def incluir_item_obra():
         ] = False
 
     # ==========================================
-    # ITENS VINCULADOS
+    # ITENS VINCULADOS À OBRA
     # ==========================================
 
     st.markdown("---")
 
-    st.subheader("📋 Itens da Obra")
+    st.subheader("📋 Itens Vinculados à Obra")
 
-    cursor.execute("""
-        SELECT
-            i.codigo,
-            i.descricao,
-            i.unidade,
-            io.quantidade,
-            io.valor_unitario,
-            io.valor_total
-        FROM itens_obra io
-        INNER JOIN itens i
-            ON i.id = io.item_id
-        WHERE io.obra_id = ?
-        ORDER BY i.descricao
-    """, (obra_id,))
+    try:
 
-    itens_vinculados = cursor.fetchall()
+        cursor.execute("""
+            SELECT
+                i.codigo,
+                i.descricao,
+                i.unidade,
+                io.quantidade,
+                io.valor_unitario,
+                io.valor_total
+            FROM itens_obra io
+
+            INNER JOIN itens i
+                ON i.id = io.item_id
+
+            WHERE io.obra_id = ?
+
+            ORDER BY i.descricao
+        """, (
+            obra_id,
+        ))
+
+        itens_vinculados = cursor.fetchall()
+
+    except Exception as e:
+
+        st.error(
+            f"❌ Erro ao carregar itens: {e}"
+        )
+
+        itens_vinculados = []
+
+    # ==========================================
+    # TABELA
+    # ==========================================
 
     if itens_vinculados:
 
@@ -726,11 +906,65 @@ def incluir_item_obra():
             ]
         )
 
+        # Formatação apenas para exibição
+        df_exibicao = df.copy()
+
+        df_exibicao[
+            "Valor Unitário"
+        ] = df_exibicao[
+            "Valor Unitário"
+        ].apply(moeda)
+
+        df_exibicao[
+            "Valor Total"
+        ] = df_exibicao[
+            "Valor Total"
+        ].apply(moeda)
+
         st.dataframe(
-            df,
+            df_exibicao,
             use_container_width=True,
             hide_index=True
         )
+
+        # ==========================================
+        # RESUMO FINAL
+        # ==========================================
+
+        total_itens = sum(
+            float(item[5] or 0)
+            for item in itens_vinculados
+        )
+
+        saldo_final = (
+            valor_obra - total_itens
+        )
+
+        col_resumo1, col_resumo2 = st.columns(2)
+
+        with col_resumo1:
+
+            with st.container(border=True):
+
+                st.caption(
+                    "📦 TOTAL DOS ITENS"
+                )
+
+                st.markdown(
+                    f"##### {moeda(total_itens)}"
+                )
+
+        with col_resumo2:
+
+            with st.container(border=True):
+
+                st.caption(
+                    "💰 SALDO RESTANTE DA OBRA"
+                )
+
+                st.markdown(
+                    f"##### {moeda(saldo_final)}"
+                )
 
     else:
 
