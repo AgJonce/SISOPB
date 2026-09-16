@@ -446,183 +446,120 @@ def incluir_item_obra():
     # NOVO ITEM
     # ==========================================
 
+    # ==========================================
+    # NOVO ITEM
+    # ==========================================
+
     st.markdown("### 📦 Novo Item")
 
-    col_item1, col_item2 = st.columns(
-        [1, 3]
-    )
-
-    with col_item1:
-
-        st.text_input(
-            "🔢 Código",
-            value=codigo,
-            disabled=True,
-            key=f"codigo_item_visual_{codigo}"
-        )
-
-    with col_item2:
-
-        descricao = st.text_input(
-            "📝 Descrição",
-            placeholder="Ex: Areia lavada",
-            key="descricao_novo_item"
-        )
-
-    col_item3, col_item4 = st.columns(2)
-
-    with col_item3:
-
-        unidade = st.selectbox(
-            "📏 Unidade",
-            [
-                "UN",
-                "M",
-                "M²",
-                "M³",
-                "KG",
-                "T",
-                "L",
-                "SC",
-                "CX",
-                "PCT",
-                "H",
-                "VB"
-            ],
-            key="unidade_novo_item"
-        )
-
-    with col_item4:
-
-        categoria = st.selectbox(
-            "📂 Categoria",
-            [
-                "Material",
-                "Serviço",
-                "Equipamento",
-                "Mão de Obra",
-                "Outros"
-            ],
-            key="categoria_novo_item"
-        )
-
-    # ==========================================
-    # QUANTIDADE E VALOR
-    # ==========================================
-
-    col_item5, col_item6 = st.columns(2)
-
-    with col_item5:
-
-        quantidade = st.number_input(
-            "📦 Quantidade",
-            min_value=0.0,
-            step=1.0,
-            key="quantidade_novo_item"
-        )
-
-    with col_item6:
-
-        valor_unitario = st.number_input(
-            "💵 Valor Unitário (R$)",
-            min_value=0.0,
-            format="%.2f",
-            key="valor_novo_item"
-        )
-
-    # ==========================================
-    # CALCULAR TOTAL DO ITEM
-    # ==========================================
-
-    valor_total = (
-        quantidade * valor_unitario
-    )
-
-    novo_saldo = (
-        saldo_disponivel - valor_total
-    )
-
-    # ==========================================
-    # RESUMO DO NOVO ITEM
-    # ==========================================
-
-    col_total1, col_total2 = st.columns(2)
-
-    with col_total1:
-
-        with st.container(border=True):
-
-            st.caption(
-                "💵 TOTAL DO ITEM"
-            )
-
-            st.markdown(
-                f"##### {moeda(valor_total)}"
-            )
-
-    with col_total2:
-
-        with st.container(border=True):
-
-            if novo_saldo >= 0:
-
-                st.caption(
-                    "💰 SALDO APÓS INCLUSÃO"
-                )
-
-                st.markdown(
-                    f"##### {moeda(novo_saldo)}"
-                )
-
-            else:
-
-                st.caption(
-                    "⚠️ VALOR EXCEDENTE"
-                )
-
-                st.markdown(
-                    f"##### {moeda(abs(novo_saldo))}"
-                )
-
-    # ==========================================
-    # ALERTA DE SALDO
-    # ==========================================
-
-    if valor_total > saldo_disponivel:
-
-        st.error(
-            "❌ O valor deste item ultrapassa "
-            "o saldo disponível da obra."
-        )
-
-    elif valor_total > 0:
-
-        st.success(
-            f"✅ Após incluir este item, "
-            f"o saldo da obra será "
-            f"{moeda(novo_saldo)}."
-        )
-
-    # ==========================================
-    # OBSERVAÇÃO
-    # ==========================================
-
-    observacao = st.text_area(
-        "📝 Observação",
-        placeholder="Informações adicionais sobre o item...",
-        key="observacao_novo_item"
-    )
-
-    # ==========================================
-    # BOTÃO SALVAR
-    # ==========================================
-
-    if st.button(
-        "💾 Salvar Item na Obra",
-        type="primary",
-        use_container_width=True,
-        key="salvar_item_obra"
+    # O FORM limpa automaticamente depois do submit
+    with st.form(
+        "form_novo_item_obra",
+        clear_on_submit=True
     ):
+
+        col_item1, col_item2 = st.columns([1, 3])
+
+        with col_item1:
+            st.text_input(
+                "🔢 Código",
+                value=codigo,
+                disabled=True
+            )
+
+        with col_item2:
+            descricao = st.text_input(
+                "📝 Descrição",
+                placeholder="Ex: Areia lavada"
+            )
+
+        # ==========================================
+        # UNIDADE E CATEGORIA
+        # ==========================================
+
+        col_item3, col_item4 = st.columns(2)
+
+        with col_item3:
+            unidade = st.selectbox(
+                "📏 Unidade",
+                [
+                    "UN",
+                    "M",
+                    "M²",
+                    "M³",
+                    "KG",
+                    "T",
+                    "L",
+                    "SC",
+                    "CX",
+                    "PCT",
+                    "H",
+                    "VB"
+                ]
+            )
+
+        with col_item4:
+            categoria = st.selectbox(
+                "📂 Categoria",
+                [
+                    "Material",
+                    "Serviço",
+                    "Equipamento",
+                    "Mão de Obra",
+                    "Outros"
+                ]
+            )
+
+        # ==========================================
+        # QUANTIDADE E VALOR
+        # ==========================================
+
+        col_item5, col_item6 = st.columns(2)
+
+        with col_item5:
+            quantidade = st.number_input(
+                "📦 Quantidade",
+                min_value=0.0,
+                step=1.0
+            )
+
+        with col_item6:
+            valor_unitario = st.number_input(
+                "💵 Valor Unitário (R$)",
+                min_value=0.0,
+                format="%.2f"
+            )
+
+        # ==========================================
+        # OBSERVAÇÃO
+        # ==========================================
+
+        observacao = st.text_area(
+            "📝 Observação",
+            placeholder="Informações adicionais sobre o item..."
+        )
+
+        # ==========================================
+        # SALVAR
+        # ==========================================
+
+        salvar_item = st.form_submit_button(
+            "💾 Salvar Item na Obra",
+            type="primary",
+            use_container_width=True
+        )
+
+    # ==========================================
+    # VALOR TOTAL DO ITEM
+    # ==========================================
+
+    valor_total = quantidade * valor_unitario
+
+    # ==========================================
+    # PROCESSAR SALVAMENTO
+    # ==========================================
+
+    if salvar_item:
 
         # ======================================
         # VALIDAÇÕES
@@ -637,8 +574,7 @@ def incluir_item_obra():
         elif quantidade <= 0:
 
             st.warning(
-                "⚠️ Informe uma quantidade "
-                "maior que zero."
+                "⚠️ Informe uma quantidade maior que zero."
             )
 
         elif valor_unitario <= 0:
@@ -660,12 +596,11 @@ def incluir_item_obra():
             try:
 
                 # ==================================
-                # VERIFICAR SE ITEM JÁ EXISTE
+                # VERIFICA SE O ITEM JÁ EXISTE
                 # ==================================
 
                 cursor.execute("""
-                    SELECT
-                        id
+                    SELECT id
                     FROM itens
                     WHERE LOWER(descricao) = LOWER(?)
                     AND unidade = ?
@@ -677,7 +612,7 @@ def incluir_item_obra():
                 item_existente = cursor.fetchone()
 
                 # ==================================
-                # REUTILIZAR ITEM EXISTENTE
+                # ITEM JÁ EXISTE
                 # ==================================
 
                 if item_existente:
@@ -685,7 +620,7 @@ def incluir_item_obra():
                     item_id = item_existente[0]
 
                 # ==================================
-                # CADASTRAR NOVO ITEM
+                # CADASTRA NOVO ITEM
                 # ==================================
 
                 else:
@@ -708,19 +643,14 @@ def incluir_item_obra():
                         categoria,
                         observacao.strip(),
                         1,
-                        datetime.now().strftime(
-                            "%Y-%m-%d"
-                        )
+                        datetime.now().strftime("%Y-%m-%d")
                     ))
 
                     item_id = cursor.lastrowid
 
                 # ==================================
-                # SEGUNDA VALIDAÇÃO DO SALDO
+                # RECALCULA O SALDO ANTES DE SALVAR
                 # ==================================
-                # Recalcula antes do INSERT para
-                # garantir que o saldo continua
-                # disponível.
 
                 cursor.execute("""
                     SELECT
@@ -739,6 +669,10 @@ def incluir_item_obra():
                     valor_obra - utilizado_atual
                 )
 
+                # ==================================
+                # VALIDA NOVAMENTE
+                # ==================================
+
                 if valor_total > saldo_atual:
 
                     conn.rollback()
@@ -746,13 +680,13 @@ def incluir_item_obra():
                     st.error(
                         "❌ Item não incluído. "
                         "O valor ultrapassa o saldo "
-                        "atual disponível da obra."
+                        "disponível da obra."
                     )
 
                     return
 
                 # ==================================
-                # VINCULAR ITEM À OBRA
+                # VINCULA O ITEM À OBRA
                 # ==================================
 
                 cursor.execute("""
@@ -774,51 +708,15 @@ def incluir_item_obra():
                     observacao.strip()
                 ))
 
-                # ==================================
-                # SALVAR NO BANCO
-                # ==================================
-
                 conn.commit()
 
                 # ==================================
-                # MENSAGEM DE SUCESSO
+                # CONFIRMAÇÃO
                 # ==================================
 
                 st.session_state[
                     "item_obra_salvo"
                 ] = True
-
-                # ==================================
-                # LIMPAR CAMPOS
-                # ==========================================
-
-                st.session_state[
-                    "descricao_novo_item"
-                ] = ""
-
-                st.session_state[
-                    "quantidade_novo_item"
-                ] = 0.0
-
-                st.session_state[
-                    "valor_novo_item"
-                ] = 0.0
-
-                st.session_state[
-                    "observacao_novo_item"
-                ] = ""
-
-                st.session_state[
-                    "unidade_novo_item"
-                ] = "UN"
-
-                st.session_state[
-                    "categoria_novo_item"
-                ] = "Material"
-
-                # ==================================
-                # ATUALIZAR TELA
-                # ==================================
 
                 st.rerun()
 
