@@ -214,6 +214,292 @@ def login():
 
 def get_geolocator():
     return Nominatim(user_agent="SISOPB")
+def excluir_item_obra():
+
+    st.subheader("🗑️ Excluir Item da Obra")
+
+    # ==========================================
+    # PEGAR ITEM SELECIONADO
+    # ==========================================
+
+    id_vinculo = st.session_state.get(
+        "item_obra_edicao_id"
+    )
+
+    if not id_vinculo:
+
+        st.warning(
+            "⚠️ Nenhum item selecionado."
+        )
+
+        if st.button(
+            "⬅️ Voltar",
+            use_container_width=True,
+            key="voltar_exclusao_sem_item"
+        ):
+
+            st.session_state[
+                "modo_item_obra"
+            ] = "lista"
+
+            st.rerun()
+
+        return
+
+    # ==========================================
+    # BUSCAR DADOS DO ITEM
+    # ==========================================
+
+    try:
+
+        cursor.execute("""
+            SELECT
+                io.id,
+                io.obra_id,
+                i.codigo,
+                i.descricao,
+                i.unidade,
+                io.quantidade,
+                io.valor_unitario,
+                io.valor_total,
+                o.obra,
+                o.contrato
+            FROM itens_obra io
+
+            INNER JOIN itens i
+                ON i.id = io.item_id
+
+            INNER JOIN obras o
+                ON o.id = io.obra_id
+
+            WHERE io.id = ?
+        """, (
+            id_vinculo,
+        ))
+
+        registro = cursor.fetchone()
+
+    except Exception as e:
+
+        st.error(
+            f"❌ Erro ao carregar item: {e}"
+        )
+
+        return
+
+    if not registro:
+
+        st.error(
+            "❌ Registro não encontrado."
+        )
+
+        return
+
+    # ==========================================
+    # DADOS
+    # ==========================================
+
+    codigo = registro[2]
+    descricao = registro[3]
+    unidade = registro[4]
+
+    quantidade = float(
+        registro[5] or 0
+    )
+
+    valor_unitario = float(
+        registro[6] or 0
+    )
+
+    valor_total = float(
+        registro[7] or 0
+    )
+
+    nome_obra = registro[8]
+    contrato = registro[9]
+
+    # ==========================================
+    # FORMATAR MOEDA
+    # ==========================================
+
+    def moeda(valor):
+
+        return (
+            f"R$ {float(valor):,.2f}"
+            .replace(",", "X")
+            .replace(".", ",")
+            .replace("X", ".")
+        )
+
+    # ==========================================
+    # MOSTRAR OBRA
+    # ==========================================
+
+    st.markdown(
+        "### 🏗️ Obra"
+    )
+
+    with st.container(
+        border=True
+    ):
+
+        st.markdown(
+            f"**🏗️ Obra:** {nome_obra}"
+        )
+
+        st.markdown(
+            f"**📜 Contrato:** "
+            f"{contrato or 'Não informado'}"
+        )
+
+    # ==========================================
+    # MOSTRAR ITEM
+    # ==========================================
+
+    st.markdown(
+        "### 📦 Item que será excluído"
+    )
+
+    with st.container(
+        border=True
+    ):
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+
+            st.markdown(
+                f"**🔢 Código:** {codigo}"
+            )
+
+            st.markdown(
+                f"**📝 Descrição:** {descricao}"
+            )
+
+            st.markdown(
+                f"**📏 Unidade:** {unidade}"
+            )
+
+        with col2:
+
+            st.markdown(
+                f"**📦 Quantidade:** "
+                f"{quantidade}"
+            )
+
+            st.markdown(
+                f"**💵 Valor Unitário:** "
+                f"{moeda(valor_unitario)}"
+            )
+
+            st.markdown(
+                f"**💰 Valor Total:** "
+                f"{moeda(valor_total)}"
+            )
+
+    # ==========================================
+    # AVISO
+    # ==========================================
+
+    st.warning(
+        "⚠️ Ao excluir este registro, "
+        f"{moeda(valor_total)} será liberado "
+        "novamente no saldo da obra."
+    )
+
+    st.info(
+        "O item continuará no cadastro geral "
+        "de itens. Apenas o vínculo deste item "
+        "com esta obra será excluído."
+    )
+
+    # ==========================================
+    # CONFIRMAÇÃO
+    # ==========================================
+
+    confirmar = st.checkbox(
+        "Confirmo que desejo excluir este item.",
+        key=f"confirmar_exclusao_item_{id_vinculo}"
+    )
+
+    # ==========================================
+    # BOTÕES
+    # ==========================================
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+
+        if st.button(
+            "⬅️ Cancelar",
+            use_container_width=True,
+            key=f"cancelar_exclusao_{id_vinculo}"
+        ):
+
+            st.session_state[
+                "modo_item_obra"
+            ] = "lista"
+
+            st.session_state.pop(
+                "item_obra_edicao_id",
+                None
+            )
+
+            st.rerun()
+
+    with col2:
+
+        excluir = st.button(
+            "🗑️ Excluir Item",
+            type="primary",
+            use_container_width=True,
+            disabled=not confirmar,
+            key=f"confirmar_excluir_{id_vinculo}"
+        )
+
+    # ==========================================
+    # EXCLUIR
+    # ==========================================
+
+    if excluir:
+
+        try:
+
+            cursor.execute("""
+                DELETE FROM itens_obra
+                WHERE id = ?
+            """, (
+                id_vinculo,
+            ))
+
+            conn.commit()
+
+            # ==================================
+            # LIMPAR SELEÇÃO
+            # ==================================
+
+            st.session_state.pop(
+                "item_obra_edicao_id",
+                None
+            )
+
+            st.session_state[
+                "modo_item_obra"
+            ] = "lista"
+
+            st.session_state[
+                "item_excluido_sucesso"
+            ] = True
+
+            st.rerun()
+
+        except Exception as e:
+
+            conn.rollback()
+
+            st.error(
+                f"❌ Erro ao excluir item: {e}"
+            )
 def alterar_item_obra():
 
     st.subheader("✏️ Alterar Item da Obra")
@@ -724,7 +1010,10 @@ def incluir_item_obra():
     if st.session_state["modo_item_obra"] == "alterar":
         alterar_item_obra()
         return
-
+		
+    if st.session_state["modo_item_obra"] == "excluir":
+        excluir_item_obra()
+        return
     # ==========================================
     # MENSAGEM DE ALTERAÇÃO
     # ==========================================
@@ -742,6 +1031,18 @@ def incluir_item_obra():
             "item_alterado_sucesso"
         ] = False
 
+    if st.session_state.get(
+        "item_excluido_sucesso",
+        False
+    ):
+
+        st.success(
+            "✅ Item excluído da obra com sucesso!"
+        )
+
+        st.session_state[
+            "item_excluido_sucesso"
+        ] = False	
     # ==========================================
     # LISTA TEMPORÁRIA
     # ==========================================
@@ -1850,32 +2151,60 @@ def incluir_item_obra():
         if item_para_alterar:
 
             st.info(
-                "✏️ Item selecionado. "
-                "Clique em Alterar Item para "
-                "corrigir o registro."
+                "📦 Item selecionado. "
+                "Escolha uma ação abaixo."
             )
 
-            if st.button(
-                "✏️ Alterar Item Selecionado",
-                type="primary",
-                use_container_width=True,
-                key=(
-                    f"alterar_item_"
-                    f"{item_para_alterar}"
-                )
-            ):
+            col_alterar, col_excluir = st.columns(2)
 
-                st.session_state[
-                    "modo_item_obra"
-                ] = "alterar"
+            # ==================================
+            # ALTERAR
+            # ==================================
 
-                st.rerun()
+            with col_alterar:
+
+                if st.button(
+                    "✏️ Alterar Item",
+                    type="primary",
+                    use_container_width=True,
+                    key=(
+                        f"alterar_item_"
+                        f"{item_para_alterar}"
+                    )
+                ):
+
+                    st.session_state[
+                        "modo_item_obra"
+                    ] = "alterar"
+
+                    st.rerun()
+
+            # ==================================
+            # EXCLUIR
+            # ==================================
+
+            with col_excluir:
+
+                if st.button(
+                    "🗑️ Excluir Item",
+                    use_container_width=True,
+                    key=(
+                        f"excluir_item_"
+                        f"{item_para_alterar}"
+                    )
+                ):
+
+                    st.session_state[
+                        "modo_item_obra"
+                    ] = "excluir"
+
+                    st.rerun()
 
         else:
 
             st.caption(
-                "Selecione o item na tabela "
-                "que deseja alterar."
+                "Selecione um item na tabela "
+                "para alterar ou excluir."
             )
 
         # ======================================
