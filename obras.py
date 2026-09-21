@@ -1327,30 +1327,68 @@ def incluir_item_obra():
     # PRÓXIMO CÓDIGO
     # =====================================================
 
+    # =====================================================
+    # PRÓXIMO CÓDIGO DISPONÍVEL
+    # =====================================================
+
     try:
 
+        # Pega os códigos que realmente estão sendo
+        # utilizados em itens vinculados às obras.
         cursor.execute("""
-            SELECT
-                COALESCE(MAX(id), 0) + 1
-            FROM itens
+            SELECT DISTINCT
+                i.codigo
+            FROM itens i
+
+            INNER JOIN itens_obra io
+                ON io.item_id = i.id
+
+            WHERE i.codigo LIKE 'ITEM%'
         """)
 
-        proximo_numero = cursor.fetchone()[0]
+        codigos_usados = {
+            registro[0]
+            for registro in cursor.fetchall()
+        }
+
+        # Também considera os itens que foram adicionados
+        # temporariamente e ainda não foram salvos.
+        for item in st.session_state[
+            "itens_temporarios_obra"
+        ]:
+
+            codigo_temp = item.get(
+                "codigo_visual"
+            )
+
+            if codigo_temp:
+                codigos_usados.add(
+                    codigo_temp
+                )
+
+        # Procura o primeiro código livre:
+        # ITEM00001, ITEM00002, ITEM00003...
+        numero = 1
+
+        while True:
+
+            codigo_teste = (
+                f"ITEM{numero:05d}"
+            )
+
+            if codigo_teste not in codigos_usados:
+
+                codigo_visual = (
+                    codigo_teste
+                )
+
+                break
+
+            numero += 1
 
     except Exception:
 
-        proximo_numero = 1
-
-    quantidade_temporaria = len(
-        st.session_state[
-            "itens_temporarios_obra"
-        ]
-    )
-
-    codigo_visual = (
-        f"ITEM"
-        f"{proximo_numero + quantidade_temporaria:05d}"
-    )
+        codigo_visual = "ITEM00001"
 
     # =====================================================
     # NOVO ITEM
@@ -1763,30 +1801,33 @@ def incluir_item_obra():
                         else:
 
                             # =============================
-                            # GERAR CÓDIGO
+                            # GERAR PRIMEIRO CÓDIGO LIVRE
                             # =============================
 
-                            cursor.execute("""
-                                SELECT
-                                    COALESCE(
-                                        MAX(id),
-                                        0
-                                    ) + 1
-                                FROM itens
-                            """)
+                            numero_item = 1
 
-                            numero_item = (
-                                cursor.fetchone()[0]
-                            )
+                            while True:
 
-                            codigo_item = (
-                                f"ITEM"
-                                f"{numero_item:05d}"
-                            )
+                                codigo_item = (
+                                    f"ITEM{numero_item:05d}"
+                                )
 
-                            # =============================
-                            # CADASTRAR ITEM
-                            # =============================
+                                cursor.execute("""
+                                    SELECT id
+                                    FROM itens
+                                    WHERE codigo = ?
+                                """, (
+                                    codigo_item,
+                                ))
+
+                                codigo_existente = (
+                                    cursor.fetchone()
+                                )
+
+                                if not codigo_existente:
+                                    break
+
+                                numero_item += 1
 
                             cursor.execute("""
                                 INSERT INTO itens (
