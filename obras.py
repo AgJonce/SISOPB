@@ -2803,22 +2803,33 @@ def incluir_obra():
                         {}
                     )
 
-                    rua = dados_endereco.get(
-                        "road",
-                        "Não informado"
+                    rua = (
+                        dados_endereco.get("road")
+                        or dados_endereco.get("pedestrian")
+                        or dados_endereco.get("residential")
+                        or "Não informado"
                     )
 
-                    numero = dados_endereco.get(
-                        "house_number",
-                        "Não informado"
+                    numero = (
+                        dados_endereco.get("house_number")
+                        or "Não informado"
                     )
 
-                    bairro = dados_endereco.get(
-                        "suburb",
-                        dados_endereco.get(
-                            "neighbourhood",
-                            "Não informado"
-                        )
+                    bairro = (
+                        dados_endereco.get("suburb")
+                        or dados_endereco.get("neighbourhood")
+                        or dados_endereco.get("quarter")
+                        or dados_endereco.get("city_district")
+                        or dados_endereco.get("district")
+                        or "Não informado"
+                    )
+
+                    cidade = (
+                        dados_endereco.get("city")
+                        or dados_endereco.get("town")
+                        or dados_endereco.get("municipality")
+                        or dados_endereco.get("village")
+                        or "Não informado"
                     )
 
                     cidade = dados_endereco.get(
