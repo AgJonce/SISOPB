@@ -214,23 +214,549 @@ def login():
 
 def get_geolocator():
     return Nominatim(user_agent="SISOPB")
+def alterar_item_obra():
 
+    st.subheader("✏️ Alterar Item da Obra")
+
+    # ==========================================
+    # PEGAR ITEM SELECIONADO
+    # ==========================================
+
+    id_vinculo = st.session_state.get(
+        "item_obra_edicao_id"
+    )
+
+    if not id_vinculo:
+        st.warning(
+            "⚠️ Nenhum item selecionado."
+        )
+
+        if st.button(
+            "⬅️ Voltar",
+            use_container_width=True,
+            key="voltar_sem_item"
+        ):
+            st.session_state[
+                "modo_item_obra"
+            ] = "lista"
+
+            st.rerun()
+
+        return
+
+    # ==========================================
+    # BUSCAR ITEM + OBRA
+    # ==========================================
+
+    try:
+
+        cursor.execute("""
+            SELECT
+                io.id,
+                io.obra_id,
+                io.item_id,
+                i.codigo,
+                i.descricao,
+                i.unidade,
+                i.categoria,
+                io.quantidade,
+                io.valor_unitario,
+                io.valor_total,
+                io.observacao,
+                o.obra,
+                o.contrato,
+                o.responsavel,
+                o.valor_obra
+            FROM itens_obra io
+
+            INNER JOIN itens i
+                ON i.id = io.item_id
+
+            INNER JOIN obras o
+                ON o.id = io.obra_id
+
+            WHERE io.id = ?
+        """, (
+            id_vinculo,
+        ))
+
+        registro = cursor.fetchone()
+
+    except Exception as e:
+
+        st.error(
+            f"❌ Erro ao carregar item: {e}"
+        )
+
+        return
+
+    if not registro:
+
+        st.error(
+            "❌ Registro não encontrado."
+        )
+
+        return
+
+    # ==========================================
+    # DADOS
+    # ==========================================
+
+    obra_id = registro[1]
+
+    codigo = registro[3]
+    descricao = registro[4]
+    unidade = registro[5]
+    categoria = registro[6]
+
+    quantidade_atual = float(
+        registro[7] or 0
+    )
+
+    valor_unitario_atual = float(
+        registro[8] or 0
+    )
+
+    valor_total_atual = float(
+        registro[9] or 0
+    )
+
+    observacao_atual = (
+        registro[10] or ""
+    )
+
+    nome_obra = registro[11]
+    contrato = registro[12]
+    responsavel = registro[13]
+
+    valor_obra = float(
+        registro[14] or 0
+    )
+
+    # ==========================================
+    # MOEDA
+    # ==========================================
+
+    def moeda(valor):
+
+        return (
+            f"R$ {float(valor):,.2f}"
+            .replace(",", "X")
+            .replace(".", ",")
+            .replace("X", ".")
+        )
+
+    # ==========================================
+    # CALCULAR OUTROS ITENS
+    # ==========================================
+
+    try:
+
+        cursor.execute("""
+            SELECT
+                COALESCE(
+                    SUM(valor_total),
+                    0
+                )
+            FROM itens_obra
+
+            WHERE obra_id = ?
+            AND id <> ?
+        """, (
+            obra_id,
+            id_vinculo
+        ))
+
+        valor_outros_itens = float(
+            cursor.fetchone()[0] or 0
+        )
+
+    except Exception as e:
+
+        st.error(
+            f"❌ Erro ao calcular saldo: {e}"
+        )
+
+        return
+
+    # Quanto este item pode valer no máximo
+    limite_item = (
+        valor_obra
+        - valor_outros_itens
+    )
+
+    # ==========================================
+    # INFORMAÇÕES DA OBRA
+    # ==========================================
+
+    st.markdown(
+        "### 🏗️ Informações da Obra"
+    )
+
+    with st.container(border=True):
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+
+            st.markdown(
+                f"**🏗️ Obra:** {nome_obra}"
+            )
+
+            st.markdown(
+                f"**📜 Contrato:** "
+                f"{contrato or 'Não informado'}"
+            )
+
+        with col2:
+
+            st.markdown(
+                f"**👤 Responsável:** "
+                f"{responsavel or 'Não informado'}"
+            )
+
+            st.markdown(
+                f"**💰 Valor da Obra:** "
+                f"{moeda(valor_obra)}"
+            )
+
+    # ==========================================
+    # ITEM SELECIONADO
+    # ==========================================
+
+    st.markdown(
+        "### 📦 Item Selecionado"
+    )
+
+    with st.container(border=True):
+
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+
+            st.markdown(
+                f"**Código:** {codigo}"
+            )
+
+        with col2:
+
+            st.markdown(
+                f"**Descrição:** {descricao}"
+            )
+
+        with col3:
+
+            st.markdown(
+                f"**Unidade:** {unidade}"
+            )
+
+    # ==========================================
+    # CONTROLE FINANCEIRO
+    # ==========================================
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+
+        with st.container(border=True):
+
+            st.caption(
+                "VALOR ATUAL"
+            )
+
+            st.markdown(
+                f"##### "
+                f"{moeda(valor_total_atual)}"
+            )
+
+    with col2:
+
+        with st.container(border=True):
+
+            st.caption(
+                "OUTROS ITENS"
+            )
+
+            st.markdown(
+                f"##### "
+                f"{moeda(valor_outros_itens)}"
+            )
+
+    with col3:
+
+        with st.container(border=True):
+
+            st.caption(
+                "LIMITE DESTE ITEM"
+            )
+
+            st.markdown(
+                f"##### "
+                f"{moeda(limite_item)}"
+            )
+
+    # ==========================================
+    # FORMULÁRIO
+    # ==========================================
+
+    st.markdown(
+        "### ✏️ Alterar Registro"
+    )
+
+    with st.form(
+        f"form_alterar_item_{id_vinculo}"
+    ):
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+
+            nova_quantidade = st.number_input(
+                "📦 Quantidade",
+                min_value=0.0,
+                value=quantidade_atual,
+                step=1.0
+            )
+
+        with col2:
+
+            novo_valor_unitario = (
+                st.number_input(
+                    "💵 Valor Unitário (R$)",
+                    min_value=0.0,
+                    value=valor_unitario_atual,
+                    format="%.2f"
+                )
+            )
+
+        nova_observacao = st.text_area(
+            "📝 Observação",
+            value=observacao_atual
+        )
+
+        salvar = st.form_submit_button(
+            "💾 Salvar Alteração",
+            type="primary",
+            use_container_width=True
+        )
+
+    # ==========================================
+    # NOVO TOTAL
+    # ==========================================
+
+    novo_total = (
+        nova_quantidade
+        * novo_valor_unitario
+    )
+
+    diferenca = (
+        novo_total
+        - valor_total_atual
+    )
+
+    # ==========================================
+    # PRÉVIA
+    # ==========================================
+
+    st.markdown(
+        "### 💰 Resultado da Alteração"
+    )
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+
+        with st.container(border=True):
+
+            st.caption(
+                "NOVO VALOR DO ITEM"
+            )
+
+            st.markdown(
+                f"##### {moeda(novo_total)}"
+            )
+
+    with col2:
+
+        with st.container(border=True):
+
+            if diferenca > 0:
+
+                st.caption(
+                    "AUMENTO"
+                )
+
+                st.markdown(
+                    f"##### + {moeda(diferenca)}"
+                )
+
+            elif diferenca < 0:
+
+                st.caption(
+                    "REDUÇÃO"
+                )
+
+                st.markdown(
+                    f"##### - "
+                    f"{moeda(abs(diferenca))}"
+                )
+
+            else:
+
+                st.caption(
+                    "DIFERENÇA"
+                )
+
+                st.markdown(
+                    "##### R$ 0,00"
+                )
+
+    # ==========================================
+    # SALVAR
+    # ==========================================
+
+    if salvar:
+
+        if nova_quantidade <= 0:
+
+            st.warning(
+                "⚠️ Informe uma quantidade "
+                "maior que zero."
+            )
+
+        elif novo_valor_unitario <= 0:
+
+            st.warning(
+                "⚠️ Informe um valor unitário "
+                "maior que zero."
+            )
+
+        elif novo_total > limite_item:
+
+            st.error(
+                "❌ Alteração não permitida. "
+                "O novo valor faria os itens "
+                "ultrapassarem o valor total "
+                "da obra."
+            )
+
+        else:
+
+            try:
+
+                cursor.execute("""
+                    UPDATE itens_obra
+
+                    SET
+                        quantidade = ?,
+                        valor_unitario = ?,
+                        valor_total = ?,
+                        observacao = ?
+
+                    WHERE id = ?
+                """, (
+                    nova_quantidade,
+                    novo_valor_unitario,
+                    novo_total,
+                    nova_observacao.strip(),
+                    id_vinculo
+                ))
+
+                conn.commit()
+
+                st.session_state[
+                    "item_alterado_sucesso"
+                ] = True
+
+                st.session_state[
+                    "modo_item_obra"
+                ] = "lista"
+
+                st.session_state.pop(
+                    "item_obra_edicao_id",
+                    None
+                )
+
+                st.rerun()
+
+            except Exception as e:
+
+                conn.rollback()
+
+                st.error(
+                    f"❌ Erro ao alterar item: {e}"
+                )
+
+    # ==========================================
+    # VOLTAR
+    # ==========================================
+
+    if st.button(
+        "⬅️ Voltar sem Alterar",
+        use_container_width=True,
+        key=f"voltar_alteracao_{id_vinculo}"
+    ):
+
+        st.session_state[
+            "modo_item_obra"
+        ] = "lista"
+
+        st.session_state.pop(
+            "item_obra_edicao_id",
+            None
+        )
+
+        st.rerun()
 def incluir_item_obra():
 
     st.subheader("🧱 Itens da Obra")
+
+    # ==========================================
+    # CONTROLE DA TELA
+    # ==========================================
+
+    if "modo_item_obra" not in st.session_state:
+        st.session_state["modo_item_obra"] = "lista"
+
+    # Se estiver alterando um item,
+    # abre a tela de alteração e não mostra
+    # o restante da inclusão.
+    if st.session_state["modo_item_obra"] == "alterar":
+        alterar_item_obra()
+        return
+
+    # ==========================================
+    # MENSAGEM DE ALTERAÇÃO
+    # ==========================================
+
+    if st.session_state.get(
+        "item_alterado_sucesso",
+        False
+    ):
+
+        st.success(
+            "✅ Item alterado com sucesso!"
+        )
+
+        st.session_state[
+            "item_alterado_sucesso"
+        ] = False
 
     # ==========================================
     # LISTA TEMPORÁRIA
     # ==========================================
 
     if "itens_temporarios_obra" not in st.session_state:
-        st.session_state["itens_temporarios_obra"] = []
+        st.session_state[
+            "itens_temporarios_obra"
+        ] = []
 
     # ==========================================
     # BUSCAR OBRAS
     # ==========================================
 
     try:
+
         cursor.execute("""
             SELECT
                 id,
@@ -245,12 +771,14 @@ def incluir_item_obra():
         obras = cursor.fetchall()
 
     except Exception as e:
+
         st.error(
             f"❌ Erro ao carregar obras: {e}"
         )
         return
 
     if not obras:
+
         st.warning(
             "⚠️ Nenhuma obra cadastrada."
         )
@@ -270,7 +798,8 @@ def incluir_item_obra():
 
         texto = (
             f"{id_obra} - {nome_lista} | "
-            f"Contrato: {contrato_lista}"
+            f"Contrato: "
+            f"{contrato_lista or 'Não informado'}"
         )
 
         opcoes_obras[texto] = id_obra
@@ -286,7 +815,7 @@ def incluir_item_obra():
     ]
 
     # ==========================================
-    # SE TROCOU DE OBRA, LIMPA ITENS TEMPORÁRIOS
+    # SE TROCOU DE OBRA
     # ==========================================
 
     obra_anterior = st.session_state.get(
@@ -297,9 +826,15 @@ def incluir_item_obra():
         obra_anterior is not None
         and obra_anterior != obra_id
     ):
+
         st.session_state[
             "itens_temporarios_obra"
         ] = []
+
+        st.session_state.pop(
+            "item_obra_edicao_id",
+            None
+        )
 
     st.session_state[
         "obra_itens_anterior"
@@ -310,6 +845,7 @@ def incluir_item_obra():
     # ==========================================
 
     try:
+
         cursor.execute("""
             SELECT
                 obra,
@@ -325,12 +861,14 @@ def incluir_item_obra():
         dados_obra = cursor.fetchone()
 
     except Exception as e:
+
         st.error(
             f"❌ Erro ao carregar obra: {e}"
         )
         return
 
     if not dados_obra:
+
         st.error(
             "❌ Obra não encontrada."
         )
@@ -339,6 +877,7 @@ def incluir_item_obra():
     nome_obra = dados_obra[0]
     contrato = dados_obra[1]
     responsavel = dados_obra[2]
+
     valor_obra = float(
         dados_obra[3] or 0
     )
@@ -361,9 +900,13 @@ def incluir_item_obra():
     # ==========================================
 
     try:
+
         cursor.execute("""
             SELECT
-                COALESCE(SUM(valor_total), 0)
+                COALESCE(
+                    SUM(valor_total),
+                    0
+                )
             FROM itens_obra
             WHERE obra_id = ?
         """, (
@@ -375,6 +918,7 @@ def incluir_item_obra():
         )
 
     except Exception as e:
+
         st.error(
             f"❌ Erro ao calcular itens: {e}"
         )
@@ -392,9 +936,7 @@ def incluir_item_obra():
         "### 🏗️ Informações da Obra"
     )
 
-    with st.container(
-        border=True
-    ):
+    with st.container(border=True):
 
         col_info1, col_info2 = st.columns(2)
 
@@ -422,7 +964,7 @@ def incluir_item_obra():
             )
 
     # ==========================================
-    # CONTROLE FINANCEIRO
+    # CONTROLE DOS ITENS
     # ==========================================
 
     st.markdown(
@@ -435,9 +977,7 @@ def incluir_item_obra():
 
     with col_valor1:
 
-        with st.container(
-            border=True
-        ):
+        with st.container(border=True):
 
             st.caption(
                 "💰 VALOR DA OBRA"
@@ -449,9 +989,7 @@ def incluir_item_obra():
 
     with col_valor2:
 
-        with st.container(
-            border=True
-        ):
+        with st.container(border=True):
 
             st.caption(
                 "📦 VALOR REGISTRADO"
@@ -463,9 +1001,7 @@ def incluir_item_obra():
 
     with col_valor3:
 
-        with st.container(
-            border=True
-        ):
+        with st.container(border=True):
 
             st.caption(
                 "💵 SALDO DISPONÍVEL"
@@ -516,11 +1052,11 @@ def incluir_item_obra():
         "### 📦 Novo Item"
     )
 
-    # clear_on_submit limpa os campos
-    # sempre que clicar em Adicionar Item
+    # O clear_on_submit limpa os campos
+    # depois de clicar em Adicionar Item.
 
     with st.form(
-        "form_adicionar_item_obra",
+        f"form_adicionar_item_obra_{obra_id}",
         clear_on_submit=True
     ):
 
@@ -648,14 +1184,12 @@ def incluir_item_obra():
 
         else:
 
-            # Soma os itens que ainda
-            # não foram registrados
-
             total_temporario = sum(
                 float(
                     item["valor_total"]
                 )
-                for item in st.session_state[
+                for item
+                in st.session_state[
                     "itens_temporarios_obra"
                 ]
             )
@@ -664,10 +1198,6 @@ def incluir_item_obra():
                 total_temporario
                 + valor_total_item
             )
-
-            # ==================================
-            # NÃO DEIXA ULTRAPASSAR A OBRA
-            # ==================================
 
             if (
                 total_com_novo_item
@@ -722,8 +1252,8 @@ def incluir_item_obra():
 
         st.success(
             "✅ Item adicionado à lista. "
-            "Clique em Salvar Registro para "
-            "gravar os itens na obra."
+            "Adicione outros itens ou clique "
+            "em Salvar Registro."
         )
 
         st.session_state[
@@ -799,7 +1329,8 @@ def incluir_item_obra():
             float(
                 item["valor_total"]
             )
-            for item in itens_temporarios
+            for item
+            in itens_temporarios
         )
 
         saldo_apos_registro = (
@@ -842,7 +1373,7 @@ def incluir_item_obra():
                 )
 
         # ======================================
-        # REMOVER ÚLTIMO ITEM
+        # BOTÕES DA LISTA TEMPORÁRIA
         # ======================================
 
         col_acao1, col_acao2 = (
@@ -863,10 +1394,6 @@ def incluir_item_obra():
 
                 st.rerun()
 
-        # ======================================
-        # SALVAR REGISTRO
-        # ======================================
-
         with col_acao2:
 
             salvar_registro = st.button(
@@ -876,13 +1403,15 @@ def incluir_item_obra():
                 key=f"salvar_registro_{obra_id}"
             )
 
+        # ======================================
+        # SALVAR REGISTRO
+        # ======================================
+
         if salvar_registro:
 
             try:
 
-                # ==================================
-                # RECALCULAR SALDO DO BANCO
-                # ==================================
+                # Recalcula o saldo antes de salvar.
 
                 cursor.execute("""
                     SELECT
@@ -950,7 +1479,7 @@ def incluir_item_obra():
                         )
 
                         # ==============================
-                        # VERIFICAR SE JÁ EXISTE
+                        # ITEM JÁ EXISTE?
                         # ==============================
 
                         cursor.execute("""
@@ -970,7 +1499,7 @@ def incluir_item_obra():
                         )
 
                         # ==============================
-                        # REUTILIZA ITEM EXISTENTE
+                        # REUTILIZAR ITEM
                         # ==============================
 
                         if item_existente:
@@ -980,7 +1509,7 @@ def incluir_item_obra():
                             )
 
                         # ==============================
-                        # CADASTRA NOVO ITEM
+                        # CRIAR NOVO ITEM
                         # ==============================
 
                         else:
@@ -1035,7 +1564,7 @@ def incluir_item_obra():
                             )
 
                         # ==============================
-                        # VINCULAR À OBRA
+                        # VINCULAR ITEM À OBRA
                         # ==============================
 
                         cursor.execute("""
@@ -1068,14 +1597,10 @@ def incluir_item_obra():
                         ))
 
                     # ==================================
-                    # CONFIRMAR TRANSAÇÃO
+                    # SALVAR TUDO
                     # ==================================
 
                     conn.commit()
-
-                    # ==================================
-                    # LIMPAR LISTA TEMPORÁRIA
-                    # ==================================
 
                     st.session_state[
                         "itens_temporarios_obra"
@@ -1115,7 +1640,7 @@ def incluir_item_obra():
         ] = False
 
     # ==========================================
-    # ITENS JÁ REGISTRADOS NA OBRA
+    # ITENS REGISTRADOS NA OBRA
     # ==========================================
 
     st.markdown("---")
@@ -1161,7 +1686,7 @@ def incluir_item_obra():
         itens_registrados = []
 
     # ==========================================
-    # MOSTRAR ITENS REGISTRADOS
+    # TABELA DOS ITENS REGISTRADOS
     # ==========================================
 
     if itens_registrados:
@@ -1179,34 +1704,182 @@ def incluir_item_obra():
             ]
         )
 
-        df_exibicao = (
-            df_registrados.copy()
+        # ======================================
+        # CONFIGURAÇÃO DO AGGRID
+        # ======================================
+
+        gb = GridOptionsBuilder.from_dataframe(
+            df_registrados
         )
 
-        df_exibicao[
-            "Valor Unitário"
-        ] = df_exibicao[
-            "Valor Unitário"
-        ].apply(
-            moeda
+        gb.configure_default_column(
+            resizable=True,
+            sortable=True,
+            filter=True
         )
 
-        df_exibicao[
-            "Valor Total"
-        ] = df_exibicao[
-            "Valor Total"
-        ].apply(
-            moeda
+        gb.configure_selection(
+            selection_mode="single",
+            use_checkbox=False
         )
 
-        st.dataframe(
-            df_exibicao,
-            use_container_width=True,
-            hide_index=True
+        # Esconde o ID interno.
+        gb.configure_column(
+            "ID",
+            hide=True
+        )
+
+        # Formatação de moeda somente visual.
+        gb.configure_column(
+            "Valor Unitário",
+            valueFormatter=(
+                "'R$ ' + "
+                "Number(params.value)"
+                ".toLocaleString("
+                "'pt-BR', "
+                "{minimumFractionDigits: 2, "
+                "maximumFractionDigits: 2}"
+                ")"
+            )
+        )
+
+        gb.configure_column(
+            "Valor Total",
+            valueFormatter=(
+                "'R$ ' + "
+                "Number(params.value)"
+                ".toLocaleString("
+                "'pt-BR', "
+                "{minimumFractionDigits: 2, "
+                "maximumFractionDigits: 2}"
+                ")"
+            )
         )
 
         # ======================================
-        # TOTAL JÁ REGISTRADO
+        # DUPLO CLIQUE
+        # ======================================
+
+        duplo_clique = JsCode("""
+            function(params) {
+                params.node.setSelected(true);
+            }
+        """)
+
+        gb.configure_grid_options(
+            onRowDoubleClicked=duplo_clique
+        )
+
+        grid_options = gb.build()
+
+        resposta_grid = AgGrid(
+            df_registrados,
+            gridOptions=grid_options,
+            update_mode=(
+                GridUpdateMode.SELECTION_CHANGED
+            ),
+            allow_unsafe_jscode=True,
+            fit_columns_on_grid_load=True,
+            height=300,
+            key=f"grid_itens_obra_{obra_id}"
+        )
+
+        # ======================================
+        # CAPTURAR ITEM SELECIONADO
+        # ======================================
+
+        selecionado = resposta_grid.get(
+            "selected_rows"
+        )
+
+        id_selecionado = None
+
+        if selecionado is not None:
+
+            # Algumas versões do AgGrid
+            # retornam DataFrame.
+
+            if isinstance(
+                selecionado,
+                pd.DataFrame
+            ):
+
+                if not selecionado.empty:
+
+                    linha = selecionado.iloc[0]
+
+                    id_selecionado = int(
+                        linha["ID"]
+                    )
+
+            # Outras versões retornam lista.
+
+            elif isinstance(
+                selecionado,
+                list
+            ):
+
+                if len(selecionado) > 0:
+
+                    linha = selecionado[0]
+
+                    id_selecionado = int(
+                        linha["ID"]
+                    )
+
+        # ======================================
+        # GUARDAR ITEM SELECIONADO
+        # ======================================
+
+        if id_selecionado:
+
+            st.session_state[
+                "item_obra_edicao_id"
+            ] = id_selecionado
+
+        # ======================================
+        # BOTÃO ALTERAR
+        # ======================================
+
+        item_para_alterar = (
+            st.session_state.get(
+                "item_obra_edicao_id"
+            )
+        )
+
+        if item_para_alterar:
+
+            st.info(
+                "✏️ Item selecionado. "
+                "Clique em Alterar Item para "
+                "corrigir o registro."
+            )
+
+            if st.button(
+                "✏️ Alterar Item Selecionado",
+                type="primary",
+                use_container_width=True,
+                key=(
+                    f"alterar_item_"
+                    f"{item_para_alterar}"
+                )
+            ):
+
+                st.session_state[
+                    "modo_item_obra"
+                ] = "alterar"
+
+                st.rerun()
+
+        else:
+
+            st.caption(
+                "Selecione o item na tabela "
+                "que deseja alterar."
+            )
+
+        # ======================================
+        # RESUMO DOS REGISTROS
         # ======================================
 
         total_registrado = sum(
@@ -1261,6 +1934,11 @@ def incluir_item_obra():
         st.info(
             "Nenhum item registrado "
             "nesta obra."
+        )
+
+        st.session_state.pop(
+            "item_obra_edicao_id",
+            None
         )
 def cadastrar_usuario():
     st.subheader("➕ Cadastrar Novo Usuário")
