@@ -261,6 +261,10 @@ def cadastrar_responsavel():
 
     if tela == "Principal":
 
+        # ==========================================
+        # MENSAGENS
+        # ==========================================
+
         if st.session_state.pop(
             "responsavel_cadastrado_sucesso",
             False
@@ -277,9 +281,27 @@ def cadastrar_responsavel():
                 "✅ Responsável alterado com sucesso!"
             )
 
-        st.markdown("### 🛠️ O que deseja fazer?")
+        if st.session_state.pop(
+            "responsavel_excluido_sucesso",
+            False
+        ):
+            st.success(
+                "✅ Responsável excluído com sucesso!"
+            )
+
+        st.markdown(
+            "### 🛠️ O que deseja fazer?"
+        )
+
+        # ==========================================
+        # BOTÕES
+        # ==========================================
 
         col1, col2, col3 = st.columns(3)
+
+        # ==========================================
+        # INCLUIR
+        # ==========================================
 
         with col1:
 
@@ -289,11 +311,16 @@ def cadastrar_responsavel():
                 type="primary",
                 key="btn_incluir_responsavel"
             ):
+
                 st.session_state[
                     "tela_responsavel"
                 ] = "Incluir"
 
                 st.rerun()
+
+        # ==========================================
+        # LOCALIZAR
+        # ==========================================
 
         with col2:
 
@@ -302,36 +329,30 @@ def cadastrar_responsavel():
                 use_container_width=True,
                 key="btn_localizar_responsavel"
             ):
+
                 st.session_state[
                     "tela_responsavel"
                 ] = "Localizar"
 
                 st.rerun()
 
+        # ==========================================
+        # EXCLUIR
+        # ==========================================
+
         with col3:
 
             if st.button(
-                "✏️ Alterar",
+                "🗑️ Excluir",
                 use_container_width=True,
-                key="btn_alterar_responsavel"
+                key="btn_excluir_responsavel"
             ):
 
-                if st.session_state.get(
-                    "responsavel_edicao_id"
-                ):
+                st.session_state[
+                    "tela_responsavel"
+                ] = "Excluir"
 
-                    st.session_state[
-                        "tela_responsavel"
-                    ] = "Alterar"
-
-                    st.rerun()
-
-                else:
-
-                    st.warning(
-                        "⚠️ Primeiro localize e selecione "
-                        "um responsável."
-                    )
+                st.rerun()
 
         st.info(
             "Selecione uma opção acima para continuar."
@@ -355,11 +376,214 @@ def cadastrar_responsavel():
 
     # ==========================================
     # ALTERAR
+    # Acessado pelo duplo clique no Localizar
     # ==========================================
 
     elif tela == "Alterar":
 
         alterar_responsavel()
+
+    # ==========================================
+    # EXCLUIR
+    # ==========================================
+
+    elif tela == "Excluir":
+
+        excluir_responsavel()
+
+def excluir_responsavel():
+
+    st.subheader("🗑️ Excluir Responsável")
+
+    # ==========================================
+    # VOLTAR
+    # ==========================================
+
+    if st.button(
+        "⬅️ Voltar",
+        key="voltar_excluir_responsavel"
+    ):
+
+        st.session_state[
+            "tela_responsavel"
+        ] = "Principal"
+
+        st.rerun()
+
+    st.divider()
+
+    # ==========================================
+    # BUSCAR RESPONSÁVEIS
+    # ==========================================
+
+    cursor.execute("""
+        SELECT
+            id,
+            nome,
+            cpf,
+            tipo_responsabilidade,
+            conselho,
+            numero_conselho
+        FROM responsaveis
+        WHERE ativo = 1
+        ORDER BY nome
+    """)
+
+    registros = cursor.fetchall()
+
+    if not registros:
+
+        st.info(
+            "Nenhum responsável cadastrado."
+        )
+
+        return
+
+    # ==========================================
+    # DATAFRAME
+    # ==========================================
+
+    df = pd.DataFrame(
+        registros,
+        columns=[
+            "ID",
+            "Nome",
+            "CPF",
+            "Responsabilidade",
+            "Conselho",
+            "Nº Conselho"
+        ]
+    )
+
+    # ==========================================
+    # CONFIGURAÇÃO DA TABELA
+    # ==========================================
+
+    gb = GridOptionsBuilder.from_dataframe(
+        df
+    )
+
+    gb.configure_default_column(
+        sortable=True,
+        filter=True,
+        resizable=True
+    )
+
+    gb.configure_column(
+        "ID",
+        hide=True
+    )
+
+    gb.configure_selection(
+        selection_mode="single",
+        use_checkbox=True
+    )
+
+    grid_options = gb.build()
+
+    # ==========================================
+    # EXIBIR TABELA
+    # ==========================================
+
+    resposta = AgGrid(
+        df,
+        gridOptions=grid_options,
+        height=350,
+        fit_columns_on_grid_load=True,
+        update_mode=GridUpdateMode.SELECTION_CHANGED,
+        key="grid_excluir_responsavel"
+    )
+
+    # ==========================================
+    # RESPONSÁVEL SELECIONADO
+    # ==========================================
+
+    selecionados = resposta.get(
+        "selected_rows",
+        []
+    )
+
+    if isinstance(
+        selecionados,
+        pd.DataFrame
+    ):
+
+        selecionados = selecionados.to_dict(
+            "records"
+        )
+
+    if selecionados:
+
+        selecionado = selecionados[0]
+
+        id_responsavel = int(
+            selecionado["ID"]
+        )
+
+        nome_responsavel = selecionado[
+            "Nome"
+        ]
+
+        st.warning(
+            f"⚠️ Você selecionou "
+            f"**{nome_responsavel}** para exclusão."
+        )
+
+        st.error(
+            "Esta ação removerá o responsável "
+            "das opções disponíveis para novos cadastros."
+        )
+
+        # ==========================================
+        # CONFIRMAÇÃO
+        # ==========================================
+
+        confirmar = st.checkbox(
+            "Confirmo que desejo excluir este responsável.",
+            key="confirmar_exclusao_responsavel"
+        )
+
+        if st.button(
+            "🗑️ Confirmar Exclusão",
+            type="primary",
+            use_container_width=True,
+            disabled=not confirmar,
+            key="confirmar_excluir_responsavel"
+        ):
+
+            try:
+
+                cursor.execute("""
+                    UPDATE responsaveis
+                    SET ativo = 0
+                    WHERE id = ?
+                """, (
+                    id_responsavel,
+                ))
+
+                conn.commit()
+
+                st.session_state[
+                    "responsavel_excluido_sucesso"
+                ] = True
+
+                st.session_state.pop(
+                    "responsavel_edicao_id",
+                    None
+                )
+
+                st.session_state[
+                    "tela_responsavel"
+                ] = "Principal"
+
+                st.rerun()
+
+            except Exception as e:
+
+                st.error(
+                    f"❌ Erro ao excluir responsável: {e}"
+                )
+
 def incluir_responsavel():
 
     st.subheader("➕ Incluir Responsável")
