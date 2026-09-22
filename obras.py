@@ -4532,486 +4532,704 @@ def excluir_medicao():
                 )
 def situacao_da_obra():
 
+    # ==================================================
+    # TÍTULO
+    # ==================================================
+
     st.title("🚧 Situação da Obra")
 
     st.caption(
-        "Consulte uma obra e atualize sua situação."
+        "Atualize a situação da obra e registre "
+        "os dados da publicação."
     )
 
     st.divider()
 
-    # ==========================================
-    # SITUAÇÕES DA OBRA
-    # ==========================================
+    # ==================================================
+    # CONTROLE DE TELA
+    # ==================================================
 
-    situacoes = [
-        "1 – Não iniciado",
-        "2 – Iniciado",
-        "3 – Encerrado por rescisão contratual",
-        "4 – Paralisado",
-        "5 – Concluído e não recebido",
-        "6 – Concluído e recebido provisoriamente",
-        "7 – Concluído e recebido definitivamente",
-        "8 – Reiniciado"
-    ]
+    if "tela_situacao_obra" not in st.session_state:
+        st.session_state["tela_situacao_obra"] = "Principal"
 
-    # ==========================================
-    # MOTIVOS DE PARALISAÇÃO
-    # ==========================================
+    tela = st.session_state["tela_situacao_obra"]
 
-    motivos_paralisacao = [
-        "01 – Atrasos do repasse de convênios",
-        "02 – Suspensão do repasse de convênios",
-        "03 – Bloqueio do repasse de convênios",
-        "04 – Repasses de convênios em valor inferior ao programado",
-        "05 – Contingenciamento de recursos próprios",
-        "06 – Inadequação ao plano de trabalho da nova gestão",
-        "07 – Irregularidades/problemas afetos ao meio ambiente",
-        "08 – Pendências com desapropriações",
-        "09 – Questões técnicas que vieram a ser conhecidas somente após a licitação",
-        "10 – Riscos decorrentes de erros e vícios construtivos",
-        "11 – Descumprimento de especificações técnicas e prazos",
-        "12 – Irregularidades nos preços e serviços contratados",
-        "13 – Problemas relacionados à contratada",
-        "14 – Caso Fortuito ou Força Maior",
-        "15 – Ordem Judicial",
-        "16 – Ausência / Falha de planejamento",
-        "17 – Projeto básico e/ou executivo insuficiente",
-        "18 – Defasagem entre a data base do orçamento e a realização da licitação",
-        "99 – Outros tipos de paralisação ou mais de um motivo"
-    ]
+    # ==================================================
+    # TELA PRINCIPAL
+    # ==================================================
 
-    # ==========================================
-    # MENSAGEM DE SUCESSO
-    # ==========================================
+    if tela == "Principal":
 
-    if st.session_state.pop(
-        "situacao_obra_sucesso",
-        False
-    ):
+        # --------------------------------------------------
+        # MENSAGEM DE SUCESSO
+        # --------------------------------------------------
 
-        st.success(
-            "✅ Situação da obra alterada com sucesso!"
-        )
+        if st.session_state.pop(
+            "situacao_obra_alterada_sucesso",
+            False
+        ):
+            st.success(
+                "✅ Situação da obra atualizada com sucesso!"
+            )
 
-    # ==========================================
-    # PESQUISA
-    # ==========================================
+        st.markdown("### 🔎 Selecione uma obra")
 
-    busca = st.text_input(
-        "🔍 Localizar Obra",
-        placeholder=(
-            "Digite o nome da obra, contrato "
-            "ou responsável"
-        ),
-        key="pesquisa_situacao_obra"
-    )
-
-    # ==========================================
-    # CONSULTAR OBRAS
-    # ==========================================
-
-    if busca:
-
-        termo = f"%{busca}%"
+        # ==================================================
+        # BUSCAR OBRAS
+        # ==================================================
+        #
+        # Obras definitivamente recebidas não aparecem
+        # mais para alteração de situação.
+        # ==================================================
 
         cursor.execute("""
             SELECT
                 id,
                 obra,
                 contrato,
-                responsavel,
                 situacao,
                 data_inicio,
                 data_entrega
             FROM obras
             WHERE
-                obra LIKE ?
-                OR contrato LIKE ?
-                OR responsavel LIKE ?
-            ORDER BY obra
-        """, (
-            termo,
-            termo,
-            termo
-        ))
-
-    else:
-
-        cursor.execute("""
-            SELECT
-                id,
-                obra,
-                contrato,
-                responsavel,
-                situacao,
-                data_inicio,
-                data_entrega
-            FROM obras
+                situacao IS NULL
+                OR situacao != '7 – Concluído e recebido definitivamente'
             ORDER BY obra
         """)
 
-    registros = cursor.fetchall()
-
-    # ==========================================
-    # VERIFICAR RESULTADOS
-    # ==========================================
-
-    if not registros:
-
-        st.info(
-            "Nenhuma obra encontrada."
-        )
-        return
-
-    # ==========================================
-    # DATAFRAME
-    # ==========================================
-
-    df = pd.DataFrame(
-        registros,
-        columns=[
-            "ID",
-            "Obra",
-            "Contrato",
-            "Responsável",
-            "Situação",
-            "Data Início",
-            "Data Entrega"
-        ]
-    )
-
-    # ==========================================
-    # DUPLO CLIQUE
-    # ==========================================
-
-    js_duplo_clique_situacao = JsCode("""
-        function(params) {
-
-            if (params.data) {
-
-                params.api.deselectAll();
-
-                params.node.setSelected(true);
-
-            }
-
-        }
-    """)
-
-    # ==========================================
-    # CONFIGURAÇÃO DA TABELA
-    # ==========================================
-
-    gb = GridOptionsBuilder.from_dataframe(
-        df
-    )
-
-    gb.configure_default_column(
-        sortable=True,
-        filter=True,
-        resizable=True
-    )
-
-    gb.configure_column(
-        "ID",
-        hide=True
-    )
-
-    gb.configure_selection(
-        selection_mode="single",
-        use_checkbox=False
-    )
-
-    grid_options = gb.build()
-
-    grid_options[
-        "onRowDoubleClicked"
-    ] = js_duplo_clique_situacao
-
-    # ==========================================
-    # EXIBIR TABELA
-    # ==========================================
-
-    resposta = AgGrid(
-        df,
-        gridOptions=grid_options,
-        height=350,
-        fit_columns_on_grid_load=True,
-        update_mode=GridUpdateMode.SELECTION_CHANGED,
-        allow_unsafe_jscode=True,
-        key=(
-            f"grid_situacao_obra_"
-            f"{st.session_state.get('grid_situacao_versao', 0)}"
-        )
-    )
-
-    # ==========================================
-    # PEGAR OBRA SELECIONADA
-    # ==========================================
-
-    selecionados = resposta.get(
-        "selected_rows",
-        []
-    )
-
-    if isinstance(
-        selecionados,
-        pd.DataFrame
-    ):
-        selecionados = selecionados.to_dict(
-            "records"
-        )
-
-    if selecionados:
-
-        selecionado = selecionados[0]
-
-        st.session_state[
-            "obra_situacao_id"
-        ] = int(
-            selecionado["ID"]
-        )
-    # ==========================================
-    # OBRA SELECIONADA
-    # ==========================================
-
-    id_obra = st.session_state.get(
-        "obra_situacao_id"
-    )
-
-    if not id_obra:
-
-        st.info(
-            "👆 Dê dois cliques em uma obra "
-            "para alterar a situação."
-        )
-
-        return
-
-    # ==========================================
-    # BUSCAR OBRA
-    # ==========================================
-
-    cursor.execute("""
-        SELECT
-            obra,
-            contrato,
-            responsavel,
-            situacao
-        FROM obras
-        WHERE id = ?
-    """, (
-        id_obra,
-    ))
-
-    obra_selecionada = cursor.fetchone()
-
-    if not obra_selecionada:
-
-        st.error(
-            "❌ Obra não encontrada."
-        )
-
-        st.session_state.pop(
-            "obra_situacao_id",
-            None
-        )
-
-        return
-
-    nome_obra = obra_selecionada[0]
-    contrato = obra_selecionada[1]
-    responsavel = obra_selecionada[2]
-    situacao_atual = obra_selecionada[3]
-
-    st.divider()
-
-    # ==========================================
-    # DADOS DA OBRA
-    # ==========================================
-
-    st.markdown(
-        f"### 🏗️ {nome_obra}"
-    )
-
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-
-        st.write(
-            f"**📜 Contrato:** "
-            f"{contrato or 'Não informado'}"
-        )
-
-    with col2:
-
-        st.write(
-            f"**👤 Responsável:** "
-            f"{responsavel or 'Não informado'}"
-        )
-
-    with col3:
-
-        st.write(
-            f"**🚦 Situação atual:** "
-            f"{situacao_atual or 'Não informada'}"
-        )
-
-    # ==========================================
-    # ÍNDICE DA SITUAÇÃO ATUAL
-    # ==========================================
-
-    indice_situacao = 0
-
-    if situacao_atual in situacoes:
-
-        indice_situacao = situacoes.index(
-            situacao_atual
-        )
-
-    # ==========================================
-    # NOVA SITUAÇÃO
-    # ==========================================
-
-    nova_situacao = st.selectbox(
-        "🚦 Situação da Obra",
-        situacoes,
-        index=indice_situacao,
-        key=f"nova_situacao_obra_{id_obra}"
-    )
-
-    # ==========================================
-    # MOTIVO DA PARALISAÇÃO
-    # ==========================================
-
-    motivo_paralisacao = None
-
-    if nova_situacao == "4 – Paralisado":
-
-        motivo_paralisacao = st.selectbox(
-            "⛔ Motivo da Paralisação",
-            [
-                "Selecione o motivo"
-            ] + motivos_paralisacao,
-            key=f"motivo_paralisacao_{id_obra}"
-        )
-
-    # ==========================================
-    # BOTÕES
-    # ==========================================
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-
-        if st.button(
-            "❌ Cancelar",
-            use_container_width=True,
-            key="cancelar_situacao_obra"
-        ):
-
-            st.session_state.pop(
-                "obra_situacao_id",
-                None
-            )
-
-            st.rerun()
-
-    with col2:
-
-        salvar = st.button(
-            "💾 Salvar Situação",
-            type="primary",
-            use_container_width=True,
-            key="salvar_situacao_obra"
-        )
-
-    # ==========================================
-    # SALVAR SITUAÇÃO
-    # ==========================================
-
-    if salvar:
-
-        # ======================================
-        # VALIDAR PARALISAÇÃO
-        # ======================================
-
-        if (
-            nova_situacao == "4 – Paralisado"
-            and motivo_paralisacao == "Selecione o motivo"
-        ):
-            st.warning(
-                "⚠️ Selecione o motivo da paralisação."
+        registros = cursor.fetchall()
+
+        if not registros:
+            st.info(
+                "Nenhuma obra disponível para alteração de situação."
             )
             return
 
-        # ======================================
-        # LIMPAR MOTIVO SE NÃO FOR PARALISADA
-        # ======================================
+        # ==================================================
+        # DATAFRAME
+        # ==================================================
 
-        if nova_situacao != "4 – Paralisado":
-            motivo_paralisacao = None
+        df = pd.DataFrame(
+            registros,
+            columns=[
+                "ID",
+                "Obra",
+                "Contrato",
+                "Situação Atual",
+                "Data Início",
+                "Data Entrega"
+            ]
+        )
 
-        try:
+        # ==================================================
+        # DUPLO CLIQUE
+        # ==================================================
 
-            # ==================================
-            # SALVAR NO BANCO
-            # ==================================
+        js_duplo_clique = JsCode("""
+            function(params) {
+                if (params.data) {
+                    params.api.deselectAll();
+                    params.node.setSelected(true);
+                }
+            }
+        """)
 
-            cursor.execute("""
-                UPDATE obras
-                SET
-                    situacao = ?,
-                    motivo_paralisacao = ?
-                WHERE id = ?
-            """, (
-                nova_situacao,
-                motivo_paralisacao,
-                id_obra
-            ))
+        gb = GridOptionsBuilder.from_dataframe(df)
 
-            conn.commit()
+        gb.configure_default_column(
+            sortable=True,
+            filter=True,
+            resizable=True
+        )
 
-            # ==================================
-            # MARCAR MENSAGEM DE SUCESSO
-            # ==================================
+        gb.configure_column(
+            "ID",
+            hide=True
+        )
 
-            st.session_state[
-                "situacao_obra_sucesso"
-            ] = True
+        gb.configure_selection(
+            selection_mode="single",
+            use_checkbox=False
+        )
 
-            # ==================================
-            # FECHAR OBRA SELECIONADA
-            # ==================================
+        grid_options = gb.build()
 
-            st.session_state.pop(
-                "obra_situacao_id",
-                None
+        grid_options["suppressRowClickSelection"] = True
+        grid_options["onRowDoubleClicked"] = js_duplo_clique
+
+        resposta = AgGrid(
+            df,
+            gridOptions=grid_options,
+            height=350,
+            fit_columns_on_grid_load=True,
+            update_mode=GridUpdateMode.SELECTION_CHANGED,
+            allow_unsafe_jscode=True,
+            key="grid_situacao_obra"
+        )
+
+        selecionados = resposta.get(
+            "selected_rows",
+            []
+        )
+
+        if isinstance(
+            selecionados,
+            pd.DataFrame
+        ):
+            selecionados = selecionados.to_dict(
+                "records"
             )
 
-            # ==================================
-            # FORÇAR NOVA TABELA
-            # ==================================
+        # ==================================================
+        # ABRIR OBRA
+        # ==================================================
+
+        if selecionados:
+
+            selecionado = selecionados[0]
 
             st.session_state[
-                "grid_situacao_versao"
-            ] = (
-                st.session_state.get(
-                    "grid_situacao_versao",
-                    0
-                ) + 1
+                "situacao_obra_id"
+            ] = int(
+                selecionado["ID"]
+            )
+
+            st.session_state[
+                "tela_situacao_obra"
+            ] = "Alterar"
+
+            st.rerun()
+
+        st.info(
+            "👆 Dê dois cliques em uma obra "
+            "para atualizar sua situação."
+        )
+
+    # ==================================================
+    # ALTERAR SITUAÇÃO
+    # ==================================================
+
+    elif tela == "Alterar":
+
+        id_obra = st.session_state.get(
+            "situacao_obra_id"
+        )
+
+        if not id_obra:
+
+            st.session_state[
+                "tela_situacao_obra"
+            ] = "Principal"
+
+            st.rerun()
+
+        # ==================================================
+        # VOLTAR
+        # ==================================================
+
+        if st.button(
+            "⬅️ Voltar",
+            key="voltar_situacao_obra"
+        ):
+
+            st.session_state[
+                "tela_situacao_obra"
+            ] = "Principal"
+
+            st.session_state.pop(
+                "situacao_obra_id",
+                None
             )
 
             st.rerun()
 
-        except Exception as e:
+        st.divider()
 
-            conn.rollback()
+        # ==================================================
+        # BUSCAR DADOS DA OBRA
+        # ==================================================
+
+        cursor.execute("""
+            SELECT
+                obra,
+                contrato,
+                situacao,
+                motivo_paralisacao,
+                data_inicio,
+                data_entrega,
+                valor_obra
+            FROM obras
+            WHERE id = ?
+        """, (
+            id_obra,
+        ))
+
+        obra = cursor.fetchone()
+
+        if not obra:
 
             st.error(
-                f"❌ Erro ao alterar situação: {e}"
+                "❌ Obra não encontrada."
             )
+            return
+
+        nome_obra = obra[0]
+        contrato = obra[1] or "-"
+        situacao_atual = obra[2]
+        motivo_atual = obra[3] or ""
+        data_inicio = obra[4] or "-"
+        data_entrega = obra[5] or "-"
+        valor_obra = float(
+            obra[6] or 0
+        )
+
+        # ==================================================
+        # BLOQUEIO DE OBRA FINALIZADA
+        # ==================================================
+        #
+        # Mesmo que a tela tenha sido aberta antes da obra
+        # ser finalizada, não será possível alterar.
+        # ==================================================
+
+        if (
+            situacao_atual
+            == "7 – Concluído e recebido definitivamente"
+        ):
+
+            st.error(
+                "🔒 Esta obra foi concluída e recebida "
+                "definitivamente."
+            )
+
+            st.warning(
+                "A obra está encerrada e não pode mais "
+                "ter sua situação alterada."
+            )
+
+            if st.button(
+                "⬅️ Voltar para Obras",
+                key=f"voltar_obra_finalizada_{id_obra}"
+            ):
+
+                st.session_state[
+                    "tela_situacao_obra"
+                ] = "Principal"
+
+                st.session_state.pop(
+                    "situacao_obra_id",
+                    None
+                )
+
+                st.rerun()
+
+            return
+
+        # ==================================================
+        # INFORMAÇÕES DA OBRA
+        # ==================================================
+
+        st.subheader(
+            f"🏗️ {nome_obra}"
+        )
+
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+
+            st.write(
+                f"**Contrato:** {contrato}"
+            )
+
+        with col2:
+
+            st.write(
+                f"**Data de início:** "
+                f"{data_inicio}"
+            )
+
+        with col3:
+
+            st.write(
+                f"**Data de entrega:** "
+                f"{data_entrega}"
+            )
+
+        # --------------------------------------------------
+        # FORMATAÇÃO DO VALOR
+        # --------------------------------------------------
+
+        valor_formatado = (
+            f"{valor_obra:,.2f}"
+            .replace(",", "X")
+            .replace(".", ",")
+            .replace("X", ".")
+        )
+
+        st.write(
+            f"**Valor da obra:** "
+            f"R$ {valor_formatado}"
+        )
+
+        st.write(
+            f"**Situação atual:** "
+            f"{situacao_atual or 'Não informada'}"
+        )
+
+        st.divider()
+
+        # ==================================================
+        # SITUAÇÕES
+        # ==================================================
+
+        situacoes = [
+            "1 – Não iniciado",
+            "2 – Iniciado",
+            "3 – Encerrado por rescisão contratual",
+            "4 – Paralisado",
+            "5 – Concluído e não recebido",
+            "6 – Concluído e recebido provisoriamente",
+            "7 – Concluído e recebido definitivamente",
+            "8 – Reiniciado"
+        ]
+
+        # ==================================================
+        # ÍNDICE DA SITUAÇÃO ATUAL
+        # ==================================================
+
+        indice_situacao = 0
+
+        if situacao_atual in situacoes:
+            indice_situacao = situacoes.index(
+                situacao_atual
+            )
+
+        # ==================================================
+        # NOVA SITUAÇÃO
+        # ==================================================
+
+        nova_situacao = st.selectbox(
+            "🚧 Nova Situação da Obra",
+            situacoes,
+            index=indice_situacao,
+            key=f"nova_situacao_{id_obra}"
+        )
+
+        # ==================================================
+        # MOTIVO DA PARALISAÇÃO
+        # ==================================================
+
+        motivo_paralisacao = ""
+
+        if nova_situacao == "4 – Paralisado":
+
+            motivo_paralisacao = st.text_area(
+                "📝 Motivo da Paralisação",
+                value=(
+                    motivo_atual
+                    if situacao_atual == "4 – Paralisado"
+                    else ""
+                ),
+                placeholder=(
+                    "Informe o motivo da paralisação "
+                    "da obra..."
+                ),
+                key=f"motivo_paralisacao_{id_obra}"
+            )
+
+        # ==================================================
+        # PUBLICAÇÃO
+        # ==================================================
+
+        st.divider()
+
+        st.markdown(
+            "### 📰 Dados da Publicação"
+        )
+
+        st.caption(
+            "Informe os dados da publicação oficial "
+            "referente à nova situação da obra."
+        )
+
+        col1, col2 = st.columns(2)
+
+        # --------------------------------------------------
+        # DATA
+        # --------------------------------------------------
+
+        with col1:
+
+            data_publicacao = st.date_input(
+                "📅 Data da Publicação",
+                value=datetime.now().date(),
+                key=f"data_publicacao_{id_obra}"
+            )
+
+        # --------------------------------------------------
+        # ÓRGÃO
+        # --------------------------------------------------
+
+        with col2:
+
+            orgao_publicacao = st.text_input(
+                "🏛️ Órgão da Publicação",
+                placeholder=(
+                    "Ex: Diário Oficial do Município"
+                ),
+                key=f"orgao_publicacao_{id_obra}"
+            )
+
+        # --------------------------------------------------
+        # LINK
+        # --------------------------------------------------
+
+        link_publicacao = st.text_input(
+            "🔗 Link da Publicação",
+            placeholder="https://...",
+            key=f"link_publicacao_{id_obra}"
+        )
+
+        st.divider()
+
+        # ==================================================
+        # AVISO DE ENCERRAMENTO
+        # ==================================================
+
+        if (
+            nova_situacao
+            == "7 – Concluído e recebido definitivamente"
+        ):
+
+            st.warning(
+                "⚠️ ATENÇÃO: ao salvar esta situação, "
+                "a obra será considerada definitivamente "
+                "encerrada."
+            )
+
+            st.info(
+                "🔒 Após o recebimento definitivo, "
+                "não será possível registrar novas situações "
+                "nem novas medições para esta obra."
+            )
+
+        # ==================================================
+        # SALVAR
+        # ==================================================
+
+        if st.button(
+            "💾 Salvar Situação",
+            type="primary",
+            use_container_width=True,
+            key=f"salvar_situacao_{id_obra}"
+        ):
+
+            # ==================================================
+            # VERIFICAR NOVAMENTE A SITUAÇÃO NO BANCO
+            # ==================================================
+
+            cursor.execute("""
+                SELECT situacao
+                FROM obras
+                WHERE id = ?
+            """, (
+                id_obra,
+            ))
+
+            resultado_situacao = cursor.fetchone()
+
+            if not resultado_situacao:
+
+                st.error(
+                    "❌ Obra não encontrada."
+                )
+                return
+
+            situacao_banco = resultado_situacao[0]
+
+            if (
+                situacao_banco
+                == "7 – Concluído e recebido definitivamente"
+            ):
+
+                st.error(
+                    "🔒 Esta obra já foi concluída e "
+                    "recebida definitivamente."
+                )
+
+                st.warning(
+                    "Não é permitido alterar novamente "
+                    "a situação desta obra."
+                )
+
+                return
+
+            # ==================================================
+            # VALIDAR ALTERAÇÃO
+            # ==================================================
+
+            if nova_situacao == situacao_atual:
+
+                st.warning(
+                    "⚠️ Selecione uma situação diferente "
+                    "da situação atual."
+                )
+                return
+
+            # ==================================================
+            # VALIDAR PARALISAÇÃO
+            # ==================================================
+
+            if (
+                nova_situacao == "4 – Paralisado"
+                and not motivo_paralisacao.strip()
+            ):
+
+                st.warning(
+                    "⚠️ Informe o motivo da paralisação."
+                )
+                return
+
+            # ==================================================
+            # VALIDAR ÓRGÃO
+            # ==================================================
+
+            if not orgao_publicacao.strip():
+
+                st.warning(
+                    "⚠️ Informe o órgão da publicação."
+                )
+                return
+
+            # ==================================================
+            # VALIDAR LINK
+            # ==================================================
+
+            if not link_publicacao.strip():
+
+                st.warning(
+                    "⚠️ Informe o link da publicação."
+                )
+                return
+
+            if not (
+                link_publicacao.strip().startswith("http://")
+                or
+                link_publicacao.strip().startswith("https://")
+            ):
+
+                st.warning(
+                    "⚠️ Informe um link válido começando "
+                    "com http:// ou https://"
+                )
+                return
+
+            # ==================================================
+            # SALVAR
+            # ==================================================
+
+            try:
+
+                # --------------------------------------------------
+                # MOTIVO
+                # --------------------------------------------------
+
+                motivo_salvar = None
+
+                if nova_situacao == "4 – Paralisado":
+
+                    motivo_salvar = (
+                        motivo_paralisacao.strip()
+                    )
+
+                # --------------------------------------------------
+                # ATUALIZAR SITUAÇÃO ATUAL
+                # --------------------------------------------------
+
+                cursor.execute("""
+                    UPDATE obras
+                    SET
+                        situacao = ?,
+                        motivo_paralisacao = ?
+                    WHERE id = ?
+                """, (
+                    nova_situacao,
+                    motivo_salvar,
+                    id_obra
+                ))
+
+                # --------------------------------------------------
+                # REGISTRAR HISTÓRICO
+                # --------------------------------------------------
+
+                cursor.execute("""
+                    INSERT INTO historico_situacao_obra (
+                        obra_id,
+                        situacao,
+                        motivo_paralisacao,
+                        data_publicacao,
+                        orgao_publicacao,
+                        link_publicacao,
+                        data_registro
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    id_obra,
+                    nova_situacao,
+                    motivo_salvar,
+                    data_publicacao.strftime(
+                        "%Y-%m-%d"
+                    ),
+                    orgao_publicacao.strip(),
+                    link_publicacao.strip(),
+                    datetime.now().strftime(
+                        "%Y-%m-%d %H:%M:%S"
+                    )
+                ))
+
+                # --------------------------------------------------
+                # COMMIT
+                # --------------------------------------------------
+
+                conn.commit()
+
+                # --------------------------------------------------
+                # SUCESSO
+                # --------------------------------------------------
+
+                st.session_state[
+                    "situacao_obra_alterada_sucesso"
+                ] = True
+
+                st.session_state[
+                    "tela_situacao_obra"
+                ] = "Principal"
+
+                st.session_state.pop(
+                    "situacao_obra_id",
+                    None
+                )
+
+                st.rerun()
+
+            except Exception as e:
+
+                conn.rollback()
+
+                st.error(
+                    f"❌ Erro ao atualizar situação: {e}"
+                )
+
+    # ==================================================
+    # SEGURANÇA
+    # ==================================================
+
+    else:
+
+        st.session_state[
+            "tela_situacao_obra"
+        ] = "Principal"
+
+        st.rerun()
 def cadastrar_responsavel():
 
     st.title("👨‍🔧 Cadastro de Responsável")
