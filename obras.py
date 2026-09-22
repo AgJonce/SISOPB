@@ -682,7 +682,7 @@ def situacao_da_obra():
         try:
 
             # ==================================
-            # ATUALIZAR OBRA
+            # SALVAR NO BANCO
             # ==================================
 
             cursor.execute("""
@@ -700,7 +700,7 @@ def situacao_da_obra():
             conn.commit()
 
             # ==================================
-            # MENSAGEM DE SUCESSO
+            # MARCAR MENSAGEM DE SUCESSO
             # ==================================
 
             st.session_state[
@@ -708,7 +708,7 @@ def situacao_da_obra():
             ] = True
 
             # ==================================
-            # FECHAR TELA DE ALTERAÇÃO
+            # FECHAR OBRA SELECIONADA
             # ==================================
 
             st.session_state.pop(
@@ -717,17 +717,17 @@ def situacao_da_obra():
             )
 
             # ==================================
-            # LIMPAR SELEÇÃO DA TABELA
+            # FORÇAR NOVA TABELA
             # ==================================
 
-            st.session_state.pop(
-                "grid_situacao_obra",
-                None
+            st.session_state[
+                "grid_situacao_versao"
+            ] = (
+                st.session_state.get(
+                    "grid_situacao_versao",
+                    0
+                ) + 1
             )
-
-            # ==================================
-            # RECARREGAR TELA
-            # ==================================
 
             st.rerun()
 
@@ -738,7 +738,6 @@ def situacao_da_obra():
             st.error(
                 f"❌ Erro ao alterar situação: {e}"
             )
-
 def cadastrar_responsavel():
 
     st.title("👨‍🔧 Cadastro de Responsável")
