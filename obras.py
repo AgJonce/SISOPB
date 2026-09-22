@@ -403,6 +403,10 @@ def excluir_responsavel():
         "⬅️ Voltar",
         key="voltar_excluir_responsavel"
     ):
+        st.session_state.pop(
+            "responsavel_excluir_id",
+            None
+        )
 
         st.session_state[
             "tela_responsavel"
@@ -413,53 +417,209 @@ def excluir_responsavel():
     st.divider()
 
     # ==========================================
-    # PESQUISA
+    # VERIFICAR SE JÁ FOI SELECIONADO
     # ==========================================
 
-    busca = st.text_input(
-        "🔍 Pesquisar responsável",
-        placeholder=(
-            "Digite nome, CPF, conselho "
-            "ou número do conselho"
-        ),
-        key="pesquisa_excluir_responsavel"
+    id_responsavel_excluir = st.session_state.get(
+        "responsavel_excluir_id"
     )
 
     # ==========================================
-    # CONSULTAR RESPONSÁVEIS
+    # SE AINDA NÃO SELECIONOU
+    # MOSTRA A TABELA
     # ==========================================
 
-    if busca:
+    if not id_responsavel_excluir:
 
-        termo = f"%{busca}%"
+        busca = st.text_input(
+            "🔍 Pesquisar responsável",
+            placeholder=(
+                "Digite nome, CPF, conselho "
+                "ou número do conselho"
+            ),
+            key="pesquisa_excluir_responsavel"
+        )
 
-        cursor.execute("""
-            SELECT
-                id,
-                nome,
-                cpf,
-                documento,
-                tipo_responsabilidade,
-                conselho,
-                numero_conselho
-            FROM responsaveis
-            WHERE (
-                nome LIKE ?
-                OR cpf LIKE ?
-                OR documento LIKE ?
-                OR tipo_responsabilidade LIKE ?
-                OR conselho LIKE ?
-                OR numero_conselho LIKE ?
+        # ======================================
+        # CONSULTA COM PESQUISA
+        # ======================================
+
+        if busca:
+
+            termo = f"%{busca}%"
+
+            cursor.execute("""
+                SELECT
+                    id,
+                    nome,
+                    cpf,
+                    documento,
+                    tipo_responsabilidade,
+                    conselho,
+                    numero_conselho
+                FROM responsaveis
+                WHERE (
+                    nome LIKE ?
+                    OR cpf LIKE ?
+                    OR documento LIKE ?
+                    OR tipo_responsabilidade LIKE ?
+                    OR conselho LIKE ?
+                    OR numero_conselho LIKE ?
+                )
+                ORDER BY nome
+            """, (
+                termo,
+                termo,
+                termo,
+                termo,
+                termo,
+                termo
+            ))
+
+        else:
+
+            cursor.execute("""
+                SELECT
+                    id,
+                    nome,
+                    cpf,
+                    documento,
+                    tipo_responsabilidade,
+                    conselho,
+                    numero_conselho
+                FROM responsaveis
+                ORDER BY nome
+            """)
+
+        registros = cursor.fetchall()
+
+        # ======================================
+        # SEM REGISTROS
+        # ======================================
+
+        if not registros:
+
+            st.info(
+                "Nenhum responsável encontrado."
             )
-            ORDER BY nome
-        """, (
-            termo,
-            termo,
-            termo,
-            termo,
-            termo,
-            termo
-        ))
+
+            return
+
+        # ======================================
+        # DATAFRAME
+        # ======================================
+
+        df = pd.DataFrame(
+            registros,
+            columns=[
+                "ID",
+                "Nome",
+                "CPF",
+                "Documento",
+                "Responsabilidade",
+                "Conselho",
+                "Nº Conselho"
+            ]
+        )
+
+        # ======================================
+        # JAVASCRIPT - DUPLO CLIQUE
+        # ======================================
+
+        js_duplo_clique_excluir = JsCode("""
+            function(params) {
+
+                if (params.data) {
+
+                    params.api.deselectAll();
+
+                    params.node.setSelected(true);
+
+                }
+
+            }
+        """)
+
+        # ======================================
+        # CONFIGURAÇÃO DO AGGRID
+        # ======================================
+
+        gb = GridOptionsBuilder.from_dataframe(
+            df
+        )
+
+        gb.configure_default_column(
+            sortable=True,
+            filter=True,
+            resizable=True
+        )
+
+        gb.configure_column(
+            "ID",
+            hide=True
+        )
+
+        gb.configure_selection(
+            selection_mode="single",
+            use_checkbox=False
+        )
+
+        grid_options = gb.build()
+
+        grid_options[
+            "onRowDoubleClicked"
+        ] = js_duplo_clique_excluir
+
+        # ======================================
+        # TABELA
+        # ======================================
+
+        resposta = AgGrid(
+            df,
+            gridOptions=grid_options,
+            height=350,
+            fit_columns_on_grid_load=True,
+            update_mode=GridUpdateMode.SELECTION_CHANGED,
+            allow_unsafe_jscode=True,
+            key="grid_excluir_responsavel"
+        )
+
+        # ======================================
+        # PEGAR DUPLO CLIQUE
+        # ======================================
+
+        selecionados = resposta.get(
+            "selected_rows",
+            []
+        )
+
+        if isinstance(
+            selecionados,
+            pd.DataFrame
+        ):
+            selecionados = selecionados.to_dict(
+                "records"
+            )
+
+        # ======================================
+        # RESPONSÁVEL SELECIONADO
+        # ======================================
+
+        if selecionados:
+
+            selecionado = selecionados[0]
+
+            st.session_state[
+                "responsavel_excluir_id"
+            ] = int(
+                selecionado["ID"]
+            )
+
+            st.rerun()
+
+    # ==========================================
+    # RESPONSÁVEL FOI SELECIONADO
+    # ==========================================
 
     else:
 
@@ -473,193 +633,191 @@ def excluir_responsavel():
                 conselho,
                 numero_conselho
             FROM responsaveis
-            ORDER BY nome
-        """)
+            WHERE id = ?
+        """, (
+            id_responsavel_excluir,
+        ))
 
-    registros = cursor.fetchall()
+        responsavel = cursor.fetchone()
 
-    # ==========================================
-    # SEM REGISTROS
-    # ==========================================
+        # ======================================
+        # NÃO ENCONTROU
+        # ======================================
 
-    if not registros:
+        if not responsavel:
 
-        st.info(
-            "Nenhum responsável encontrado."
-        )
+            st.error(
+                "❌ Responsável não encontrado."
+            )
 
-        return
+            st.session_state.pop(
+                "responsavel_excluir_id",
+                None
+            )
 
-    # ==========================================
-    # DATAFRAME
-    # ==========================================
+            return
 
-    df = pd.DataFrame(
-        registros,
-        columns=[
-            "ID",
-            "Nome",
-            "CPF",
-            "Documento",
-            "Responsabilidade",
-            "Conselho",
-            "Nº Conselho"
-        ]
-    )
+        (
+            id_responsavel,
+            nome,
+            cpf,
+            documento,
+            tipo_responsabilidade,
+            conselho,
+            numero_conselho
+        ) = responsavel
 
-    # ==========================================
-    # CONFIGURAÇÃO DA TABELA
-    # ==========================================
-
-    gb = GridOptionsBuilder.from_dataframe(
-        df
-    )
-
-    gb.configure_default_column(
-        sortable=True,
-        filter=True,
-        resizable=True
-    )
-
-    gb.configure_column(
-        "ID",
-        hide=True
-    )
-
-    gb.configure_selection(
-        selection_mode="single",
-        use_checkbox=True
-    )
-
-    grid_options = gb.build()
-
-    # ==========================================
-    # EXIBIR TABELA
-    # ==========================================
-
-    resposta = AgGrid(
-        df,
-        gridOptions=grid_options,
-        height=350,
-        fit_columns_on_grid_load=True,
-        update_mode=GridUpdateMode.SELECTION_CHANGED,
-        key="grid_excluir_responsavel"
-    )
-
-    # ==========================================
-    # PEGAR REGISTRO SELECIONADO
-    # ==========================================
-
-    selecionados = resposta.get(
-        "selected_rows",
-        []
-    )
-
-    if isinstance(
-        selecionados,
-        pd.DataFrame
-    ):
-
-        selecionados = selecionados.to_dict(
-            "records"
-        )
-
-    # ==========================================
-    # CONFIRMAÇÃO DA EXCLUSÃO
-    # ==========================================
-
-    if selecionados:
-
-        selecionado = selecionados[0]
-
-        id_responsavel = int(
-            selecionado["ID"]
-        )
-
-        nome_responsavel = selecionado[
-            "Nome"
-        ]
+        # ======================================
+        # DADOS DO RESPONSÁVEL
+        # ======================================
 
         st.warning(
-            f"⚠️ Responsável selecionado: "
-            f"**{nome_responsavel}**"
+            "⚠️ Você está prestes a excluir "
+            "este responsável."
         )
+
+        with st.container(
+            border=True
+        ):
+
+            st.markdown(
+                f"### 👤 {nome}"
+            )
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+
+                st.write(
+                    f"**CPF:** {cpf}"
+                )
+
+                st.write(
+                    f"**Documento:** "
+                    f"{documento or 'Não informado'}"
+                )
+
+                st.write(
+                    f"**Responsabilidade:** "
+                    f"{tipo_responsabilidade}"
+                )
+
+            with col2:
+
+                st.write(
+                    f"**Conselho:** "
+                    f"{conselho or 'Não informado'}"
+                )
+
+                st.write(
+                    f"**Nº Conselho:** "
+                    f"{numero_conselho or 'Não informado'}"
+                )
 
         st.error(
-            "🗑️ Este registro será excluído "
-            "permanentemente do banco de dados."
+            "🗑️ A exclusão será permanente."
         )
 
-        # ==========================================
-        # CONFIRMAR EXCLUSÃO
-        # ==========================================
+        # ======================================
+        # CONFIRMAÇÃO
+        # ======================================
 
         confirmar = st.checkbox(
-            "Confirmo a exclusão deste responsável.",
+            "Confirmo que desejo excluir "
+            "permanentemente este responsável.",
             key="confirmar_exclusao_responsavel"
         )
 
-        # ==========================================
-        # BOTÃO SALVAR EXCLUSÃO
-        # ==========================================
+        # ======================================
+        # BOTÕES
+        # ======================================
 
-        if st.button(
-            "💾 Salvar Exclusão",
-            type="primary",
-            use_container_width=True,
-            disabled=not confirmar,
-            key="btn_salvar_exclusao_responsavel"
-        ):
+        col1, col2 = st.columns(2)
 
-            try:
+        # ======================================
+        # CANCELAR
+        # ======================================
 
-                # ==================================
-                # EXCLUIR DEFINITIVAMENTE
-                # ==================================
+        with col1:
 
-                cursor.execute("""
-                    DELETE FROM responsaveis
-                    WHERE id = ?
-                """, (
-                    id_responsavel,
-                ))
-
-                conn.commit()
-
-                # ==================================
-                # CONFIRMAR SUCESSO
-                # ==================================
-
-                st.session_state[
-                    "responsavel_excluido_sucesso"
-                ] = True
-
-                # ==================================
-                # LIMPAR RESPONSÁVEL SELECIONADO
-                # ==================================
+            if st.button(
+                "❌ Cancelar",
+                use_container_width=True,
+                key="cancelar_exclusao_responsavel"
+            ):
 
                 st.session_state.pop(
-                    "responsavel_edicao_id",
+                    "responsavel_excluir_id",
                     None
                 )
 
-                # ==================================
-                # VOLTAR PARA TELA PRINCIPAL
-                # ==================================
-
-                st.session_state[
-                    "tela_responsavel"
-                ] = "Principal"
-
                 st.rerun()
 
-            except Exception as e:
+        # ======================================
+        # SALVAR EXCLUSÃO
+        # ======================================
 
-                conn.rollback()
+        with col2:
 
-                st.error(
-                    f"❌ Erro ao excluir responsável: {e}"
-                )
+            if st.button(
+                "💾 Salvar Exclusão",
+                type="primary",
+                use_container_width=True,
+                disabled=not confirmar,
+                key="salvar_exclusao_responsavel"
+            ):
+
+                try:
+
+                    cursor.execute("""
+                        DELETE FROM responsaveis
+                        WHERE id = ?
+                    """, (
+                        id_responsavel,
+                    ))
+
+                    conn.commit()
+
+                    # ==========================
+                    # LIMPAR SELEÇÃO
+                    # ==========================
+
+                    st.session_state.pop(
+                        "responsavel_excluir_id",
+                        None
+                    )
+
+                    st.session_state.pop(
+                        "responsavel_edicao_id",
+                        None
+                    )
+
+                    # ==========================
+                    # MENSAGEM
+                    # ==========================
+
+                    st.session_state[
+                        "responsavel_excluido_sucesso"
+                    ] = True
+
+                    # ==========================
+                    # VOLTAR
+                    # ==========================
+
+                    st.session_state[
+                        "tela_responsavel"
+                    ] = "Principal"
+
+                    st.rerun()
+
+                except Exception as e:
+
+                    conn.rollback()
+
+                    st.error(
+                        f"❌ Erro ao excluir "
+                        f"responsável: {e}"
+                    )
 def incluir_responsavel():
 
     st.subheader("➕ Incluir Responsável")
