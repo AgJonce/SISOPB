@@ -3422,20 +3422,79 @@ def incluir_obra():
         )
     with col2:
 
-        responsavel = st.text_input(
+        # ==========================================
+        # RESPONSÁVEL PELA OBRA
+        # ==========================================
+
+        cursor.execute("""
+            SELECT
+                id,
+                nome,
+                tipo_responsabilidade
+            FROM responsaveis
+            WHERE ativo = 1
+            ORDER BY nome
+        """)
+
+        responsaveis_cadastrados = cursor.fetchall()
+
+        opcoes_responsaveis = {
+            "Selecione o responsável": {
+                "id": None,
+                "nome": "",
+                "tipo_responsabilidade": ""
+            }
+        }
+
+        for registro in responsaveis_cadastrados:
+
+            id_responsavel = registro[0]
+            nome_responsavel = registro[1]
+            tipo_responsavel = registro[2]
+
+            opcoes_responsaveis[nome_responsavel] = {
+                "id": id_responsavel,
+                "nome": nome_responsavel,
+                "tipo_responsabilidade": tipo_responsavel
+            }
+
+        responsavel_selecionado = st.selectbox(
             "👤 Responsável pela Obra",
+            options=list(
+                opcoes_responsaveis.keys()
+            ),
             key=f"responsavel_{cadastro_id}"
         )
 
-        tipo_responsabilidade = st.selectbox(
+        dados_responsavel = (
+            opcoes_responsaveis[
+                responsavel_selecionado
+            ]
+        )
+
+        responsavel = (
+            dados_responsavel["nome"]
+        )
+
+        tipo_responsabilidade = (
+            dados_responsavel[
+                "tipo_responsabilidade"
+            ]
+        )
+
+        # ==========================================
+        # TIPO DE RESPONSABILIDADE
+        # ==========================================
+
+        st.text_input(
             "👷 Tipo de Responsabilidade",
-            [
-                "Engenheiro",
-                "Arquiteto",
-                "Técnico",
-                "Outros"
-            ],
-            key=f"responsabilidade_{cadastro_id}"
+            value=tipo_responsabilidade,
+            disabled=True,
+            key=(
+                f"tipo_responsabilidade_visual_"
+                f"{cadastro_id}_"
+                f"{dados_responsavel['id']}"
+            )
         )
 
         art = st.text_input(
