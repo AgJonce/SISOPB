@@ -529,13 +529,15 @@ def localizar_responsavel():
 
     st.subheader("🔎 Localizar Responsável")
 
+    # ==========================================
+    # BOTÃO VOLTAR
+    # ==========================================
+
     if st.button(
         "⬅️ Voltar",
         key="voltar_localizar_responsavel"
     ):
-        st.session_state[
-            "tela_responsavel"
-        ] = "Principal"
+        st.session_state["tela_responsavel"] = "Principal"
 
         st.session_state.pop(
             "responsavel_edicao_id",
@@ -546,14 +548,22 @@ def localizar_responsavel():
 
     st.divider()
 
+    # ==========================================
+    # CAMPO DE PESQUISA
+    # ==========================================
+
     busca = st.text_input(
-        "🔍 Pesquisar",
+        "🔍 Pesquisar responsável",
         placeholder=(
             "Digite nome, CPF, conselho "
             "ou número do conselho"
         ),
         key="pesquisa_responsavel"
     )
+
+    # ==========================================
+    # CONSULTAR RESPONSÁVEIS
+    # ==========================================
 
     if busca:
 
@@ -573,11 +583,15 @@ def localizar_responsavel():
             AND (
                 nome LIKE ?
                 OR cpf LIKE ?
+                OR documento LIKE ?
+                OR tipo_responsabilidade LIKE ?
                 OR conselho LIKE ?
                 OR numero_conselho LIKE ?
             )
             ORDER BY nome
         """, (
+            termo,
+            termo,
             termo,
             termo,
             termo,
@@ -602,12 +616,21 @@ def localizar_responsavel():
 
     registros = cursor.fetchall()
 
+    # ==========================================
+    # VERIFICAR RESULTADOS
+    # ==========================================
+
     if not registros:
 
         st.info(
             "Nenhum responsável encontrado."
         )
+
         return
+
+    # ==========================================
+    # DATAFRAME
+    # ==========================================
 
     df = pd.DataFrame(
         registros,
@@ -622,9 +645,29 @@ def localizar_responsavel():
         ]
     )
 
-    gb = GridOptionsBuilder.from_dataframe(
-        df
-    )
+    # ==========================================
+    # JAVASCRIPT - DUPLO CLIQUE
+    # ==========================================
+
+    js_duplo_clique = JsCode("""
+        function(params) {
+
+            if (params.data) {
+
+                params.api.deselectAll();
+
+                params.node.setSelected(true);
+
+            }
+
+        }
+    """)
+
+    # ==========================================
+    # CONFIGURAÇÃO DO AGGRID
+    # ==========================================
+
+    gb = GridOptionsBuilder.from_dataframe(df)
 
     gb.configure_default_column(
         sortable=True,
@@ -639,10 +682,18 @@ def localizar_responsavel():
 
     gb.configure_selection(
         selection_mode="single",
-        use_checkbox=True
+        use_checkbox=False
     )
 
     grid_options = gb.build()
+
+    grid_options[
+        "onRowDoubleClicked"
+    ] = js_duplo_clique
+
+    # ==========================================
+    # EXIBIR TABELA
+    # ==========================================
 
     resposta = AgGrid(
         df,
@@ -650,8 +701,13 @@ def localizar_responsavel():
         height=350,
         fit_columns_on_grid_load=True,
         update_mode=GridUpdateMode.SELECTION_CHANGED,
+        allow_unsafe_jscode=True,
         key="grid_localizar_responsavel"
     )
+
+    # ==========================================
+    # PEGAR LINHA SELECIONADA
+    # ==========================================
 
     selecionados = resposta.get(
         "selected_rows",
@@ -667,6 +723,10 @@ def localizar_responsavel():
             "records"
         )
 
+    # ==========================================
+    # ABRIR ALTERAÇÃO
+    # ==========================================
+
     if selecionados:
 
         selecionado = selecionados[0]
@@ -679,42 +739,11 @@ def localizar_responsavel():
             "responsavel_edicao_id"
         ] = id_responsavel
 
-        st.success(
-            f"✅ Responsável selecionado: "
-            f"{selecionado['Nome']}"
-        )
+        st.session_state[
+            "tela_responsavel"
+        ] = "Alterar"
 
-        col1, col2 = st.columns(2)
-
-        with col1:
-
-            if st.button(
-                "✏️ Alterar Responsável",
-                type="primary",
-                use_container_width=True,
-                key="alterar_responsavel_localizado"
-            ):
-
-                st.session_state[
-                    "tela_responsavel"
-                ] = "Alterar"
-
-                st.rerun()
-
-        with col2:
-
-            if st.button(
-                "↩️ Cancelar Seleção",
-                use_container_width=True,
-                key="cancelar_responsavel_localizado"
-            ):
-
-                st.session_state.pop(
-                    "responsavel_edicao_id",
-                    None
-                )
-
-                st.rerun()
+        st.rerun()
 def excluir_item_obra():
 
     st.subheader("🗑️ Excluir Item da Obra")
