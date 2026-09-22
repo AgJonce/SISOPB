@@ -188,7 +188,7 @@ def main ():
         dashboard()
 
     elif escolha == "👨‍🔧 Cadastro de Responsavel":
-        cadastrar_funcionario()
+        cadastrar_responsavel()
 
     elif escolha == "Contabilidade":
         opcao = st.sidebar.radio(
