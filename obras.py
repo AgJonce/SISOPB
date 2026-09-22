@@ -230,8 +230,11 @@ def login():
         else:
             st.warning("⚠️ Preencha todos os campos.")
 
+
 def get_geolocator():
     return Nominatim(user_agent="SISOPB")
+
+
 def cadastrar_responsavel():
 
     # ==================================================
