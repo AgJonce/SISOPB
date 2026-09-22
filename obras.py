@@ -2823,12 +2823,12 @@ def incluir_obra():
                         or "Não informado"
                     )
 
-                    numero = (
+                    numero_mapa = (
                         dados_endereco.get("house_number")
                         or "Não informado"
                     )
 
-                    bairro = (
+                    bairro_mapa = (
                         dados_endereco.get("suburb")
                         or dados_endereco.get("neighbourhood")
                         or dados_endereco.get("quarter")
@@ -2872,8 +2872,8 @@ def incluir_obra():
 
                     st.session_state["dados_endereco_obra"] = {
                         "rua": rua,
-                        "numero": numero,
-                        "bairro": bairro,
+                        "numero": numero_mapa,
+                        "bairro": bairro_mapa,
                         "cidade": cidade,
                         "estado": estado,
                         "pais": pais
