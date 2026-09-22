@@ -2942,6 +2942,17 @@ def incluir_obra():
             f"{latitude:.6f}, {longitude:.6f}"
         )
 
+        endereco = (
+            f"{dados.get('rua', 'Não informado')}, "
+            f"{numero if numero else 'S/N'} - "
+            f"{bairro if bairro else 'Não informado'}, "
+            f"{dados.get('cidade', 'Não informado')} - "
+            f"{dados.get('estado', 'Não informado')}, "
+            f"{dados.get('pais', 'Brasil')}"
+        )
+
+        st.session_state["endereco_obra"] = endereco
+
         st.info(
             f"🏠 Endereço: {endereco}"
         )
