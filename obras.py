@@ -638,7 +638,7 @@ def medicoes():
             "### 🛠️ O que deseja fazer?"
         )
 
-        col1, col2, col3 = st.columns(3)
+        col1, col2, col3, col4 = st.columns(4)
 
         # ==============================================
         # INCLUIR
@@ -664,6 +664,11 @@ def medicoes():
 
                 st.session_state.pop(
                     "medicao_excluir_id",
+                    None
+                )
+
+                st.session_state.pop(
+                    "medicao_imprimir_id",
                     None
                 )
 
@@ -695,13 +700,51 @@ def medicoes():
                     None
                 )
 
+                st.session_state.pop(
+                    "medicao_imprimir_id",
+                    None
+                )
+
+                st.rerun()
+
+        # ==============================================
+        # IMPRIMIR
+        # ==============================================
+
+        with col3:
+
+            if st.button(
+                "🖨️ Imprimir",
+                use_container_width=True,
+                key="btn_imprimir_medicao"
+            ):
+
+                st.session_state[
+                    "tela_medicao"
+                ] = "Imprimir"
+
+                st.session_state.pop(
+                    "medicao_edicao_id",
+                    None
+                )
+
+                st.session_state.pop(
+                    "medicao_excluir_id",
+                    None
+                )
+
+                st.session_state.pop(
+                    "medicao_imprimir_id",
+                    None
+                )
+
                 st.rerun()
 
         # ==============================================
         # EXCLUIR
         # ==============================================
 
-        with col3:
+        with col4:
 
             if st.button(
                 "🗑️ Excluir",
@@ -720,6 +763,11 @@ def medicoes():
 
                 st.session_state.pop(
                     "medicao_excluir_id",
+                    None
+                )
+
+                st.session_state.pop(
+                    "medicao_imprimir_id",
                     None
                 )
 
@@ -752,6 +800,14 @@ def medicoes():
     elif tela == "Alterar":
 
         alterar_medicao()
+
+    # ==================================================
+    # IMPRIMIR
+    # ==================================================
+
+    elif tela == "Imprimir":
+
+        imprimir_medicao()
 
     # ==================================================
     # EXCLUIR
@@ -2057,6 +2113,1429 @@ def localizar_medicao():
     st.info(
         "👆 Dê dois cliques em uma medição para alterar."
     )
+def imprimir_medicao():
+
+    st.subheader("🖨️ Imprimir Medição")
+
+    # ==================================================
+    # VOLTAR
+    # ==================================================
+
+    if st.button(
+        "⬅️ Voltar",
+        key="voltar_imprimir_medicao"
+    ):
+        st.session_state["tela_medicao"] = "Principal"
+
+        st.session_state.pop(
+            "medicao_imprimir_id",
+            None
+        )
+
+        st.rerun()
+
+    st.divider()
+
+    # ==================================================
+    # PESQUISA
+    # ==================================================
+
+    busca = st.text_input(
+        "🔍 Pesquisar",
+        placeholder="Obra, tipo de medição ou nota fiscal",
+        key="pesquisa_imprimir_medicao"
+    )
+
+    # ==================================================
+    # BUSCAR MEDIÇÕES
+    # ==================================================
+
+    if busca:
+
+        termo = f"%{busca}%"
+
+        cursor.execute("""
+            SELECT
+                m.id,
+                o.obra,
+                m.tipo_medicao,
+                m.data_medicao,
+                m.valor,
+                m.percentual_obra,
+                m.nota_fiscal
+            FROM medicoes m
+
+            INNER JOIN obras o
+                ON o.id = m.obra_id
+
+            WHERE
+                o.obra LIKE ?
+                OR m.tipo_medicao LIKE ?
+                OR m.nota_fiscal LIKE ?
+
+            ORDER BY m.id DESC
+        """, (
+            termo,
+            termo,
+            termo
+        ))
+
+    else:
+
+        cursor.execute("""
+            SELECT
+                m.id,
+                o.obra,
+                m.tipo_medicao,
+                m.data_medicao,
+                m.valor,
+                m.percentual_obra,
+                m.nota_fiscal
+            FROM medicoes m
+
+            INNER JOIN obras o
+                ON o.id = m.obra_id
+
+            ORDER BY m.id DESC
+        """)
+
+    registros = cursor.fetchall()
+
+    if not registros:
+
+        st.info(
+            "Nenhuma medição encontrada."
+        )
+        return
+
+    # ==================================================
+    # DATAFRAME
+    # ==================================================
+
+    df = pd.DataFrame(
+        registros,
+        columns=[
+            "ID",
+            "Obra",
+            "Tipo",
+            "Data",
+            "Valor",
+            "Percentual",
+            "Nota Fiscal"
+        ]
+    )
+
+    # ==================================================
+    # DUPLO CLIQUE
+    # ==================================================
+
+    js_duplo_clique = JsCode("""
+        function(params) {
+            if (params.data) {
+                params.api.deselectAll();
+                params.node.setSelected(true);
+            }
+        }
+    """)
+
+    gb = GridOptionsBuilder.from_dataframe(df)
+
+    gb.configure_default_column(
+        sortable=True,
+        filter=True,
+        resizable=True
+    )
+
+    gb.configure_column(
+        "ID",
+        hide=True
+    )
+
+    gb.configure_selection(
+        selection_mode="single",
+        use_checkbox=False
+    )
+
+    grid_options = gb.build()
+
+    grid_options[
+        "suppressRowClickSelection"
+    ] = True
+
+    grid_options[
+        "onRowDoubleClicked"
+    ] = js_duplo_clique
+
+    resposta = AgGrid(
+        df,
+        gridOptions=grid_options,
+        height=350,
+        fit_columns_on_grid_load=True,
+        update_mode=GridUpdateMode.SELECTION_CHANGED,
+        allow_unsafe_jscode=True,
+        key="grid_imprimir_medicao"
+    )
+
+    selecionados = resposta.get(
+        "selected_rows",
+        []
+    )
+
+    if isinstance(
+        selecionados,
+        pd.DataFrame
+    ):
+        selecionados = selecionados.to_dict(
+            "records"
+        )
+
+    # ==================================================
+    # SELECIONAR MEDIÇÃO
+    # ==================================================
+
+    if selecionados:
+
+        selecionado = selecionados[0]
+
+        st.session_state[
+            "medicao_imprimir_id"
+        ] = int(
+            selecionado["ID"]
+        )
+
+    st.info(
+        "👆 Dê dois cliques na medição que deseja imprimir."
+    )
+
+    # ==================================================
+    # MEDIÇÃO SELECIONADA
+    # ==================================================
+
+    id_medicao = st.session_state.get(
+        "medicao_imprimir_id"
+    )
+
+    if not id_medicao:
+        return
+
+    # ==================================================
+    # BUSCAR DADOS DA MEDIÇÃO
+    # ==================================================
+
+    cursor.execute("""
+        SELECT
+            m.id,
+            o.obra,
+            o.contrato,
+            o.valor_obra,
+
+            m.tipo_medicao,
+            m.data_medicao,
+            m.data_inicio,
+            m.data_final,
+
+            m.valor,
+            m.percentual_obra,
+
+            m.nota_fiscal,
+            m.data_nota,
+            m.empenho,
+
+            m.boletim_nome
+
+        FROM medicoes m
+
+        INNER JOIN obras o
+            ON o.id = m.obra_id
+
+        WHERE m.id = ?
+    """, (
+        id_medicao,
+    ))
+
+    medicao = cursor.fetchone()
+
+    if not medicao:
+
+        st.error(
+            "❌ Medição não encontrada."
+        )
+        return
+
+    # ==================================================
+    # DADOS
+    # ==================================================
+
+    nome_obra = medicao[1]
+    contrato = medicao[2] or "Não informado"
+    valor_obra = float(medicao[3] or 0)
+
+    tipo_medicao = medicao[4] or ""
+    data_medicao = medicao[5] or ""
+    data_inicio = medicao[6] or ""
+    data_final = medicao[7] or ""
+
+    valor_medicao = float(medicao[8] or 0)
+    percentual = float(medicao[9] or 0)
+
+    nota_fiscal = medicao[10] or "Não informado"
+    data_nota = medicao[11] or ""
+    empenho = medicao[12] or "Não informado"
+
+    boletim_nome = medicao[13]
+
+    # ==================================================
+    # RESPONSÁVEL DA MEDIÇÃO
+    # ==================================================
+
+    cursor.execute("""
+        SELECT fiscal
+        FROM fiscais_medicao
+        WHERE medicao_id = ?
+        ORDER BY id
+    """, (
+        id_medicao,
+    ))
+
+    fiscais = cursor.fetchall()
+
+    nomes_fiscais = [
+        registro[0]
+        for registro in fiscais
+        if registro[0]
+    ]
+
+    responsavel_medicao = (
+        ", ".join(nomes_fiscais)
+        if nomes_fiscais
+        else "Não informado"
+    )
+
+    # ==================================================
+    # MOSTRAR RESUMO
+    # ==================================================
+
+    st.divider()
+
+    st.markdown(
+        "### 📏 Medição selecionada"
+    )
+
+    st.write(
+        f"🏗️ **Obra:** {nome_obra}"
+    )
+
+    st.write(
+        f"📜 **Contrato:** {contrato}"
+    )
+
+    st.write(
+        f"👷 **Responsável pela medição:** "
+        f"{responsavel_medicao}"
+    )
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+
+        st.metric(
+            "Valor da Obra",
+            f"R$ {valor_obra:,.2f}"
+        )
+
+    with col2:
+
+        st.metric(
+            "Valor da Medição",
+            f"R$ {valor_medicao:,.2f}"
+        )
+
+    with col3:
+
+        st.metric(
+            "Percentual",
+            f"{percentual:.2f}%"
+        )
+
+    st.write(
+        f"📑 **Tipo:** {tipo_medicao}"
+    )
+
+    st.write(
+        f"📅 **Data da medição:** "
+        f"{data_medicao}"
+    )
+
+    st.write(
+        f"📆 **Período:** "
+        f"{data_inicio} até {data_final}"
+    )
+
+    st.write(
+        f"🧾 **Nota Fiscal:** {nota_fiscal}"
+    )
+
+    st.write(
+        f"💰 **Empenho:** {empenho}"
+    )
+
+    if boletim_nome:
+
+        st.success(
+            f"📊 Boletim Excel anexado: "
+            f"{boletim_nome}"
+        )
+
+    else:
+
+        st.info(
+            "📊 Nenhum boletim Excel anexado."
+        )
+
+    # ==================================================
+    # GERAR PDF
+    # ==================================================
+
+    st.divider()
+
+    try:
+
+        pdf = gerar_pdf_medicao(
+            id_medicao
+        )
+
+        st.download_button(
+            "🖨️ Gerar / Baixar PDF",
+            data=pdf,
+            file_name=(
+                f"medicao_{id_medicao}.pdf"
+            ),
+            mime="application/pdf",
+            use_container_width=True,
+            key=(
+                f"baixar_pdf_medicao_"
+                f"{id_medicao}"
+            )
+        )
+
+    except Exception as e:
+
+        st.error(
+            f"❌ Erro ao gerar PDF: {e}"
+        )
+def gerar_pdf_medicao(id_medicao):
+
+    # ==================================================
+    # FUNÇÃO PARA FORMATAR DATA
+    # ==================================================
+
+    def formatar_data(data):
+
+        if not data:
+            return "Não informado"
+
+        try:
+
+            return datetime.strptime(
+                str(data)[:10],
+                "%Y-%m-%d"
+            ).strftime(
+                "%d/%m/%Y"
+            )
+
+        except Exception:
+
+            return str(data)
+
+    # ==================================================
+    # FUNÇÃO PARA FORMATAR DINHEIRO
+    # ==================================================
+
+    def moeda(valor):
+
+        try:
+
+            valor = float(
+                valor or 0
+            )
+
+            texto = (
+                f"{valor:,.2f}"
+                .replace(",", "X")
+                .replace(".", ",")
+                .replace("X", ".")
+            )
+
+            return f"R$ {texto}"
+
+        except Exception:
+
+            return "R$ 0,00"
+
+    # ==================================================
+    # BUSCAR MEDIÇÃO
+    # ==================================================
+
+    cursor.execute("""
+        SELECT
+            m.id,
+
+            o.id,
+            o.obra,
+            o.contrato,
+            o.valor_obra,
+
+            m.tipo_medicao,
+            m.data_medicao,
+            m.data_inicio,
+            m.data_final,
+
+            m.valor,
+            m.percentual_obra,
+
+            m.nota_fiscal,
+            m.data_nota,
+            m.empenho,
+
+            m.boletim_nome
+
+        FROM medicoes m
+
+        INNER JOIN obras o
+            ON o.id = m.obra_id
+
+        WHERE m.id = ?
+    """, (
+        id_medicao,
+    ))
+
+    medicao = cursor.fetchone()
+
+    if not medicao:
+
+        raise Exception(
+            "Medição não encontrada."
+        )
+
+    # ==================================================
+    # VARIÁVEIS
+    # ==================================================
+
+    obra_id = medicao[1]
+    nome_obra = medicao[2] or "Não informado"
+    contrato = medicao[3] or "Não informado"
+    valor_obra = medicao[4] or 0
+
+    tipo_medicao = medicao[5] or "Não informado"
+    data_medicao = medicao[6]
+    data_inicio = medicao[7]
+    data_final = medicao[8]
+
+    valor_medicao = medicao[9] or 0
+    percentual = float(
+        medicao[10] or 0
+    )
+
+    nota_fiscal = (
+        medicao[11]
+        or "Não informado"
+    )
+
+    data_nota = medicao[12]
+
+    empenho = (
+        medicao[13]
+        or "Não informado"
+    )
+
+    boletim_nome = medicao[14]
+
+    # ==================================================
+    # RESPONSÁVEL EFETIVO DA MEDIÇÃO
+    # ==================================================
+
+    cursor.execute("""
+        SELECT fiscal
+        FROM fiscais_medicao
+        WHERE medicao_id = ?
+        ORDER BY id
+    """, (
+        id_medicao,
+    ))
+
+    registros_fiscais = (
+        cursor.fetchall()
+    )
+
+    fiscais = [
+        registro[0]
+        for registro in registros_fiscais
+        if registro[0]
+    ]
+
+    # ==================================================
+    # DADOS DOS RESPONSÁVEIS
+    #
+    # fiscal_medicao guarda o nome escolhido.
+    # Aqui procuramos esse profissional entre os
+    # responsáveis vinculados à obra para obter ART etc.
+    # ==================================================
+
+    responsaveis_pdf = []
+
+    for nome_fiscal in fiscais:
+
+        cursor.execute("""
+            SELECT
+                r.nome,
+                ro.tipo_responsabilidade,
+                ro.tipo_vinculo,
+                ro.numero_art,
+                ro.tipo_art,
+                ro.data_inicio_art,
+                ro.data_final_art
+
+            FROM responsaveis_obra ro
+
+            INNER JOIN responsaveis r
+                ON r.id = ro.responsavel_id
+
+            WHERE ro.obra_id = ?
+              AND r.nome = ?
+
+            ORDER BY ro.id
+
+            LIMIT 1
+        """, (
+            obra_id,
+            nome_fiscal
+        ))
+
+        dados_resp = cursor.fetchone()
+
+        if dados_resp:
+
+            responsaveis_pdf.append(
+                dados_resp
+            )
+
+        else:
+
+            responsaveis_pdf.append(
+                (
+                    nome_fiscal,
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    ""
+                )
+            )
+
+    # ==================================================
+    # ITENS DA MEDIÇÃO
+    # ==================================================
+
+    cursor.execute("""
+        SELECT
+            i.codigo,
+            i.descricao,
+            i.unidade,
+            im.valor_medido
+
+        FROM itens_medicao im
+
+        INNER JOIN itens_obra io
+            ON io.id = im.item_obra_id
+
+        INNER JOIN itens i
+            ON i.id = io.item_id
+
+        WHERE im.medicao_id = ?
+
+        ORDER BY i.codigo
+    """, (
+        id_medicao,
+    ))
+
+    itens = cursor.fetchall()
+
+    # ==================================================
+    # CONFIGURAÇÃO DO PDF
+    # ==================================================
+
+    buffer = BytesIO()
+
+    documento = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        rightMargin=1.5 * cm,
+        leftMargin=1.5 * cm,
+        topMargin=1.5 * cm,
+        bottomMargin=1.5 * cm
+    )
+
+    estilos = getSampleStyleSheet()
+
+    titulo = ParagraphStyle(
+        "TituloMedicao",
+        parent=estilos["Title"],
+        fontSize=16,
+        leading=20,
+        alignment=1,
+        spaceAfter=12
+    )
+
+    subtitulo = ParagraphStyle(
+        "SubtituloMedicao",
+        parent=estilos["Heading2"],
+        fontSize=11,
+        leading=14,
+        spaceBefore=8,
+        spaceAfter=6
+    )
+
+    normal = ParagraphStyle(
+        "NormalMedicao",
+        parent=estilos["Normal"],
+        fontSize=9,
+        leading=12
+    )
+
+    cabecalho_tabela = ParagraphStyle(
+        "CabecalhoTabelaMedicao",
+        parent=normal,
+        fontSize=8,
+        leading=10
+    )
+
+    historia = []
+
+    # ==================================================
+    # TÍTULO
+    # ==================================================
+
+    historia.append(
+        Paragraph(
+            "SISOPB",
+            titulo
+        )
+    )
+
+    historia.append(
+        Paragraph(
+            "RELATÓRIO DE MEDIÇÃO",
+            titulo
+        )
+    )
+
+    historia.append(
+        Spacer(
+            1,
+            0.2 * cm
+        )
+    )
+
+    # ==================================================
+    # IDENTIFICAÇÃO
+    # ==================================================
+
+    historia.append(
+        Paragraph(
+            "Identificação",
+            subtitulo
+        )
+    )
+
+    tabela_identificacao = Table(
+        [
+            [
+                Paragraph(
+                    "<b>Obra</b>",
+                    normal
+                ),
+                Paragraph(
+                    str(nome_obra),
+                    normal
+                )
+            ],
+            [
+                Paragraph(
+                    "<b>Contrato</b>",
+                    normal
+                ),
+                Paragraph(
+                    str(contrato),
+                    normal
+                )
+            ],
+            [
+                Paragraph(
+                    "<b>Medição</b>",
+                    normal
+                ),
+                Paragraph(
+                    f"Nº {id_medicao}",
+                    normal
+                )
+            ],
+            [
+                Paragraph(
+                    "<b>Tipo</b>",
+                    normal
+                ),
+                Paragraph(
+                    str(tipo_medicao),
+                    normal
+                )
+            ],
+            [
+                Paragraph(
+                    "<b>Data da Medição</b>",
+                    normal
+                ),
+                Paragraph(
+                    formatar_data(
+                        data_medicao
+                    ),
+                    normal
+                )
+            ],
+            [
+                Paragraph(
+                    "<b>Período</b>",
+                    normal
+                ),
+                Paragraph(
+                    (
+                        f"{formatar_data(data_inicio)} "
+                        f"a "
+                        f"{formatar_data(data_final)}"
+                    ),
+                    normal
+                )
+            ]
+        ],
+        colWidths=[
+            4 * cm,
+            13.5 * cm
+        ]
+    )
+
+    tabela_identificacao.setStyle(
+        TableStyle([
+            (
+                "GRID",
+                (0, 0),
+                (-1, -1),
+                0.5,
+                colors.grey
+            ),
+            (
+                "VALIGN",
+                (0, 0),
+                (-1, -1),
+                "TOP"
+            ),
+            (
+                "BACKGROUND",
+                (0, 0),
+                (0, -1),
+                colors.lightgrey
+            ),
+            (
+                "LEFTPADDING",
+                (0, 0),
+                (-1, -1),
+                6
+            ),
+            (
+                "RIGHTPADDING",
+                (0, 0),
+                (-1, -1),
+                6
+            ),
+            (
+                "TOPPADDING",
+                (0, 0),
+                (-1, -1),
+                5
+            ),
+            (
+                "BOTTOMPADDING",
+                (0, 0),
+                (-1, -1),
+                5
+            )
+        ])
+    )
+
+    historia.append(
+        tabela_identificacao
+    )
+
+    # ==================================================
+    # RESPONSÁVEL
+    # ==================================================
+
+    historia.append(
+        Paragraph(
+            "Responsável pela Medição",
+            subtitulo
+        )
+    )
+
+    if responsaveis_pdf:
+
+        dados_responsaveis = [
+            [
+                Paragraph(
+                    "<b>Responsável</b>",
+                    cabecalho_tabela
+                ),
+                Paragraph(
+                    "<b>Responsabilidade</b>",
+                    cabecalho_tabela
+                ),
+                Paragraph(
+                    "<b>Vínculo</b>",
+                    cabecalho_tabela
+                ),
+                Paragraph(
+                    "<b>ART</b>",
+                    cabecalho_tabela
+                ),
+                Paragraph(
+                    "<b>Tipo ART</b>",
+                    cabecalho_tabela
+                )
+            ]
+        ]
+
+        for responsavel in responsaveis_pdf:
+
+            dados_responsaveis.append([
+                Paragraph(
+                    str(
+                        responsavel[0]
+                        or "-"
+                    ),
+                    normal
+                ),
+                Paragraph(
+                    str(
+                        responsavel[1]
+                        or "-"
+                    ),
+                    normal
+                ),
+                Paragraph(
+                    str(
+                        responsavel[2]
+                        or "-"
+                    ),
+                    normal
+                ),
+                Paragraph(
+                    str(
+                        responsavel[3]
+                        or "-"
+                    ),
+                    normal
+                ),
+                Paragraph(
+                    str(
+                        responsavel[4]
+                        or "-"
+                    ),
+                    normal
+                )
+            ])
+
+        tabela_responsaveis = Table(
+            dados_responsaveis,
+            colWidths=[
+                4 * cm,
+                4 * cm,
+                3.5 * cm,
+                3 * cm,
+                3 * cm
+            ],
+            repeatRows=1
+        )
+
+        tabela_responsaveis.setStyle(
+            TableStyle([
+                (
+                    "GRID",
+                    (0, 0),
+                    (-1, -1),
+                    0.5,
+                    colors.grey
+                ),
+                (
+                    "BACKGROUND",
+                    (0, 0),
+                    (-1, 0),
+                    colors.lightgrey
+                ),
+                (
+                    "VALIGN",
+                    (0, 0),
+                    (-1, -1),
+                    "TOP"
+                ),
+                (
+                    "LEFTPADDING",
+                    (0, 0),
+                    (-1, -1),
+                    4
+                ),
+                (
+                    "RIGHTPADDING",
+                    (0, 0),
+                    (-1, -1),
+                    4
+                ),
+                (
+                    "TOPPADDING",
+                    (0, 0),
+                    (-1, -1),
+                    4
+                ),
+                (
+                    "BOTTOMPADDING",
+                    (0, 0),
+                    (-1, -1),
+                    4
+                )
+            ])
+        )
+
+        historia.append(
+            tabela_responsaveis
+        )
+
+    else:
+
+        historia.append(
+            Paragraph(
+                "Responsável não informado.",
+                normal
+            )
+        )
+
+    # ==================================================
+    # RESUMO FINANCEIRO
+    # ==================================================
+
+    historia.append(
+        Paragraph(
+            "Resumo Financeiro",
+            subtitulo
+        )
+    )
+
+    tabela_financeira = Table(
+        [
+            [
+                Paragraph(
+                    "<b>Valor da Obra</b>",
+                    normal
+                ),
+                Paragraph(
+                    "<b>Valor da Medição</b>",
+                    normal
+                ),
+                Paragraph(
+                    "<b>Percentual da Obra</b>",
+                    normal
+                )
+            ],
+            [
+                Paragraph(
+                    moeda(valor_obra),
+                    normal
+                ),
+                Paragraph(
+                    moeda(valor_medicao),
+                    normal
+                ),
+                Paragraph(
+                    f"{percentual:.2f}%",
+                    normal
+                )
+            ]
+        ],
+        colWidths=[
+            5.8 * cm,
+            5.8 * cm,
+            5.8 * cm
+        ]
+    )
+
+    tabela_financeira.setStyle(
+        TableStyle([
+            (
+                "GRID",
+                (0, 0),
+                (-1, -1),
+                0.5,
+                colors.grey
+            ),
+            (
+                "BACKGROUND",
+                (0, 0),
+                (-1, 0),
+                colors.lightgrey
+            ),
+            (
+                "ALIGN",
+                (0, 0),
+                (-1, -1),
+                "CENTER"
+            ),
+            (
+                "VALIGN",
+                (0, 0),
+                (-1, -1),
+                "MIDDLE"
+            ),
+            (
+                "TOPPADDING",
+                (0, 0),
+                (-1, -1),
+                6
+            ),
+            (
+                "BOTTOMPADDING",
+                (0, 0),
+                (-1, -1),
+                6
+            )
+        ])
+    )
+
+    historia.append(
+        tabela_financeira
+    )
+
+    # ==================================================
+    # ITENS MEDIDOS
+    # ==================================================
+
+    historia.append(
+        Paragraph(
+            "Itens Medidos",
+            subtitulo
+        )
+    )
+
+    dados_itens = [
+        [
+            Paragraph(
+                "<b>Código</b>",
+                cabecalho_tabela
+            ),
+            Paragraph(
+                "<b>Descrição</b>",
+                cabecalho_tabela
+            ),
+            Paragraph(
+                "<b>Unidade</b>",
+                cabecalho_tabela
+            ),
+            Paragraph(
+                "<b>Valor Medido</b>",
+                cabecalho_tabela
+            )
+        ]
+    ]
+
+    for item in itens:
+
+        dados_itens.append([
+            Paragraph(
+                str(item[0] or ""),
+                normal
+            ),
+            Paragraph(
+                str(item[1] or ""),
+                normal
+            ),
+            Paragraph(
+                str(item[2] or ""),
+                normal
+            ),
+            Paragraph(
+                moeda(item[3]),
+                normal
+            )
+        ])
+
+    if len(dados_itens) == 1:
+
+        dados_itens.append([
+            "",
+            Paragraph(
+                "Nenhum item encontrado.",
+                normal
+            ),
+            "",
+            ""
+        ])
+
+    tabela_itens = Table(
+        dados_itens,
+        colWidths=[
+            2.5 * cm,
+            9 * cm,
+            2.5 * cm,
+            3.5 * cm
+        ],
+        repeatRows=1
+    )
+
+    tabela_itens.setStyle(
+        TableStyle([
+            (
+                "GRID",
+                (0, 0),
+                (-1, -1),
+                0.5,
+                colors.grey
+            ),
+            (
+                "BACKGROUND",
+                (0, 0),
+                (-1, 0),
+                colors.lightgrey
+            ),
+            (
+                "VALIGN",
+                (0, 0),
+                (-1, -1),
+                "TOP"
+            ),
+            (
+                "ALIGN",
+                (3, 1),
+                (3, -1),
+                "RIGHT"
+            ),
+            (
+                "LEFTPADDING",
+                (0, 0),
+                (-1, -1),
+                4
+            ),
+            (
+                "RIGHTPADDING",
+                (0, 0),
+                (-1, -1),
+                4
+            ),
+            (
+                "TOPPADDING",
+                (0, 0),
+                (-1, -1),
+                4
+            ),
+            (
+                "BOTTOMPADDING",
+                (0, 0),
+                (-1, -1),
+                4
+            )
+        ])
+    )
+
+    historia.append(
+        tabela_itens
+    )
+
+    # ==================================================
+    # DOCUMENTOS
+    # ==================================================
+
+    historia.append(
+        Paragraph(
+            "Documentos",
+            subtitulo
+        )
+    )
+
+    boletim_texto = (
+        f"Sim - {boletim_nome}"
+        if boletim_nome
+        else "Não anexado"
+    )
+
+    tabela_documentos = Table(
+        [
+            [
+                Paragraph(
+                    "<b>Nota Fiscal</b>",
+                    normal
+                ),
+                Paragraph(
+                    str(nota_fiscal),
+                    normal
+                )
+            ],
+            [
+                Paragraph(
+                    "<b>Data da Nota</b>",
+                    normal
+                ),
+                Paragraph(
+                    formatar_data(
+                        data_nota
+                    ),
+                    normal
+                )
+            ],
+            [
+                Paragraph(
+                    "<b>Empenho</b>",
+                    normal
+                ),
+                Paragraph(
+                    str(empenho),
+                    normal
+                )
+            ],
+            [
+                Paragraph(
+                    "<b>Boletim de Medição</b>",
+                    normal
+                ),
+                Paragraph(
+                    str(boletim_texto),
+                    normal
+                )
+            ]
+        ],
+        colWidths=[
+            4 * cm,
+            13.5 * cm
+        ]
+    )
+
+    tabela_documentos.setStyle(
+        TableStyle([
+            (
+                "GRID",
+                (0, 0),
+                (-1, -1),
+                0.5,
+                colors.grey
+            ),
+            (
+                "BACKGROUND",
+                (0, 0),
+                (0, -1),
+                colors.lightgrey
+            ),
+            (
+                "VALIGN",
+                (0, 0),
+                (-1, -1),
+                "TOP"
+            ),
+            (
+                "LEFTPADDING",
+                (0, 0),
+                (-1, -1),
+                6
+            ),
+            (
+                "RIGHTPADDING",
+                (0, 0),
+                (-1, -1),
+                6
+            ),
+            (
+                "TOPPADDING",
+                (0, 0),
+                (-1, -1),
+                5
+            ),
+            (
+                "BOTTOMPADDING",
+                (0, 0),
+                (-1, -1),
+                5
+            )
+        ])
+    )
+
+    historia.append(
+        tabela_documentos
+    )
+
+    # ==================================================
+    # ASSINATURA
+    # ==================================================
+
+    historia.append(
+        Spacer(
+            1,
+            1.5 * cm
+        )
+    )
+
+    historia.append(
+        Paragraph(
+            "_______________________________________________",
+            ParagraphStyle(
+                "AssinaturaMedicao",
+                parent=normal,
+                alignment=1
+            )
+        )
+    )
+
+    nome_assinatura = (
+        fiscais[0]
+        if fiscais
+        else "Responsável pela Medição"
+    )
+
+    historia.append(
+        Paragraph(
+            str(nome_assinatura),
+            ParagraphStyle(
+                "NomeAssinaturaMedicao",
+                parent=normal,
+                alignment=1
+            )
+        )
+    )
+
+    historia.append(
+        Paragraph(
+            "Responsável pela Medição",
+            ParagraphStyle(
+                "CargoAssinaturaMedicao",
+                parent=normal,
+                alignment=1
+            )
+        )
+    )
+
+    # ==================================================
+    # GERAR
+    # ==================================================
+
+    documento.build(
+        historia
+    )
+
+    buffer.seek(0)
+
+    return buffer.getvalue()
 def alterar_medicao():
 
     st.subheader("✏️ Alterar Medição")
