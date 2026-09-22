@@ -111,6 +111,21 @@ cursor.execute("""
 
 conn.commit()
 
+cursor.execute("""
+    CREATE TABLE IF NOT EXISTS responsaveis (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nome TEXT NOT NULL,
+        cpf TEXT UNIQUE NOT NULL,
+        documento TEXT,
+        tipo_responsabilidade TEXT NOT NULL,
+        conselho TEXT NOT NULL,
+        numero_conselho TEXT,
+        ativo INTEGER DEFAULT 1,
+        data_cadastro TEXT
+    )
+""")
+
+conn.commit()
 def main ():
     st.set_page_config(page_title="Sistemas de Obras Públicas ", page_icon="🏗️", layout="wide")
     st.title("🏗️SISOPB")
@@ -217,6 +232,279 @@ def login():
 
 def get_geolocator():
     return Nominatim(user_agent="SISOPB")
+def cadastrar_responsavel():
+
+    # ==================================================
+    # CABEÇALHO
+    # ==================================================
+
+    st.title("👨‍🔧 Cadastro de Responsável")
+
+    st.caption(
+        "Cadastre engenheiros, arquitetos, técnicos e outros "
+        "profissionais responsáveis pelas obras."
+    )
+
+    st.divider()
+
+    # ==================================================
+    # MENSAGEM DE SUCESSO
+    # ==================================================
+
+    if st.session_state.pop(
+        "responsavel_cadastrado_sucesso",
+        False
+    ):
+        st.success(
+            "✅ Responsável cadastrado com sucesso!"
+        )
+
+    # ==================================================
+    # CARD DO CADASTRO
+    # ==================================================
+
+    with st.container(border=True):
+
+        st.subheader("👤 Dados do Profissional")
+
+        st.caption(
+            "Preencha as informações do responsável técnico."
+        )
+
+        with st.form(
+            "form_cadastro_responsavel",
+            clear_on_submit=True
+        ):
+
+            col1, col2 = st.columns(2)
+
+            # ==========================================
+            # COLUNA 1
+            # ==========================================
+
+            with col1:
+
+                nome = st.text_input(
+                    "👤 Nome Completo *",
+                    placeholder="Ex: João da Silva"
+                )
+
+                cpf = st.text_input(
+                    "🪪 CPF *",
+                    placeholder="Ex: 000.000.000-00"
+                )
+
+                documento = st.text_input(
+                    "📄 Documento",
+                    placeholder="Ex: MG-12.345.678"
+                )
+
+            # ==========================================
+            # COLUNA 2
+            # ==========================================
+
+            with col2:
+
+                tipo_responsabilidade = st.selectbox(
+                    "👷 Tipo de Responsabilidade *",
+                    [
+                        "Engenheiro",
+                        "Arquiteto",
+                        "Técnico",
+                        "Fiscal de Obra",
+                        "Outro"
+                    ]
+                )
+
+                conselho = st.selectbox(
+                    "🏛️ Conselho Profissional *",
+                    [
+                        "CREA",
+                        "CAU",
+                        "CFT",
+                        "CRT",
+                        "Outro"
+                    ]
+                )
+
+                numero_conselho = st.text_input(
+                    "🔢 Número do Conselho",
+                    placeholder="Ex: CREA-MG 123456/D"
+                )
+
+            st.divider()
+
+            salvar = st.form_submit_button(
+                "💾 Cadastrar Responsável",
+                type="primary",
+                use_container_width=True
+            )
+
+    # ==================================================
+    # SALVAR
+    # ==================================================
+
+    if salvar:
+
+        nome = nome.strip()
+        cpf = cpf.strip()
+        documento = documento.strip()
+        numero_conselho = numero_conselho.strip()
+
+        if not nome:
+
+            st.warning(
+                "⚠️ Informe o nome do responsável."
+            )
+
+        elif not cpf:
+
+            st.warning(
+                "⚠️ Informe o CPF do responsável."
+            )
+
+        else:
+
+            try:
+
+                # ======================================
+                # VERIFICAR CPF
+                # ======================================
+
+                cursor.execute("""
+                    SELECT id
+                    FROM responsaveis
+                    WHERE cpf = ?
+                """, (
+                    cpf,
+                ))
+
+                cpf_existente = cursor.fetchone()
+
+                if cpf_existente:
+
+                    st.warning(
+                        "⚠️ Já existe um responsável "
+                        "cadastrado com este CPF."
+                    )
+
+                else:
+
+                    # ==================================
+                    # CADASTRAR
+                    # ==================================
+
+                    cursor.execute("""
+                        INSERT INTO responsaveis (
+                            nome,
+                            cpf,
+                            documento,
+                            tipo_responsabilidade,
+                            conselho,
+                            numero_conselho,
+                            ativo,
+                            data_cadastro
+                        )
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (
+                        nome,
+                        cpf,
+                        documento,
+                        tipo_responsabilidade,
+                        conselho,
+                        numero_conselho,
+                        1,
+                        datetime.now().strftime(
+                            "%Y-%m-%d %H:%M:%S"
+                        )
+                    ))
+
+                    conn.commit()
+
+                    st.session_state[
+                        "responsavel_cadastrado_sucesso"
+                    ] = True
+
+                    st.rerun()
+
+            except Exception as e:
+
+                st.error(
+                    f"❌ Erro ao cadastrar responsável: {e}"
+                )
+
+    # ==================================================
+    # RESPONSÁVEIS CADASTRADOS
+    # ==================================================
+
+    st.markdown("### 📋 Responsáveis Cadastrados")
+
+    cursor.execute("""
+        SELECT
+            id,
+            nome,
+            cpf,
+            tipo_responsabilidade,
+            conselho,
+            numero_conselho
+        FROM responsaveis
+        WHERE ativo = 1
+        ORDER BY nome
+    """)
+
+    registros = cursor.fetchall()
+
+    if not registros:
+
+        st.info(
+            "Nenhum responsável cadastrado."
+        )
+
+    else:
+
+        df_responsaveis = pd.DataFrame(
+            registros,
+            columns=[
+                "ID",
+                "Nome",
+                "CPF",
+                "Responsabilidade",
+                "Conselho",
+                "Nº Conselho"
+            ]
+        )
+
+        gb = GridOptionsBuilder.from_dataframe(
+            df_responsaveis
+        )
+
+        gb.configure_default_column(
+            filter=True,
+            sortable=True,
+            resizable=True
+        )
+
+        gb.configure_column(
+            "ID",
+            hide=True
+        )
+
+        gb.configure_selection(
+            selection_mode="single",
+            use_checkbox=True
+        )
+
+        grid_options = gb.build()
+
+        AgGrid(
+            df_responsaveis,
+            gridOptions=grid_options,
+            height=300,
+            fit_columns_on_grid_load=True,
+            update_mode=GridUpdateMode.SELECTION_CHANGED,
+            key="grid_responsaveis"
+        )
+
 def excluir_item_obra():
 
     st.subheader("🗑️ Excluir Item da Obra")
