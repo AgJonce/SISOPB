@@ -68,6 +68,8 @@ cursor.execute('''
         latitude REAL,
         longitude REAL,
         endereco TEXT,
+        numero TEXT,
+        bairro TEXT,
         responsavel TEXT,
         tipo_obra TEXT,
         valor_obra REAL,
@@ -2649,7 +2651,19 @@ def incluir_obra():
             format="%.2f",
             key=f"valor_{cadastro_id}"
         )
+        
+		numero = st.text_input(
+            "🔢 Número",
+            placeholder="Ex: 125",
+            key=f"numero_{cadastro_id}"
+        )
 
+        bairro = st.text_input(
+            "🏘️ Bairro",
+            placeholder="Ex: Centro",
+            key=f"bairro_{cadastro_id}"
+        )
+		
     with col2:
 
         responsavel = st.text_input(
@@ -2897,14 +2911,14 @@ def incluir_obra():
 
             st.write(
                 "🔢 **Número:**",
-                dados.get("numero", "Não informado")
+                numero if numero else "Não informado"
             )
 
         with col2:
 
             st.write(
                 "🏘️ **Bairro:**",
-                dados.get("bairro", "Não informado")
+                bairro if bairro else "Não informado"
             )
 
             st.write(
