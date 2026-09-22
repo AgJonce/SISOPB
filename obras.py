@@ -631,7 +631,7 @@ def situacao_da_obra():
         )
 
     # ==========================================
-    # SALVAR
+    # SALVAR SITUAÇÃO
     # ==========================================
 
     if salvar:
@@ -644,34 +644,67 @@ def situacao_da_obra():
             nova_situacao == "4 – Paralisado"
             and motivo_paralisacao == "Selecione o motivo"
         ):
-
             st.warning(
                 "⚠️ Selecione o motivo da paralisação."
             )
-
             return
+
+        # ======================================
+        # LIMPAR MOTIVO SE NÃO FOR PARALISADA
+        # ======================================
+
+        if nova_situacao != "4 – Paralisado":
+            motivo_paralisacao = None
 
         try:
 
+            # ==================================
+            # ATUALIZAR OBRA
+            # ==================================
+
             cursor.execute("""
                 UPDATE obras
-                SET situacao = ?
+                SET
+                    situacao = ?,
+                    motivo_paralisacao = ?
                 WHERE id = ?
             """, (
                 nova_situacao,
+                motivo_paralisacao,
                 id_obra
             ))
 
             conn.commit()
+
+            # ==================================
+            # MENSAGEM DE SUCESSO
+            # ==================================
+
+            st.session_state[
+                "situacao_obra_sucesso"
+            ] = True
+
+            # ==================================
+            # FECHAR TELA DE ALTERAÇÃO
+            # ==================================
 
             st.session_state.pop(
                 "obra_situacao_id",
                 None
             )
 
-            st.session_state[
-                "situacao_obra_sucesso"
-            ] = True
+            # ==================================
+            # LIMPAR SELEÇÃO DA TABELA
+            # ==================================
+
+            st.session_state.pop(
+                "grid_situacao_obra",
+                None
+            )
+
+            # ==================================
+            # RECARREGAR TELA
+            # ==================================
 
             st.rerun()
 
