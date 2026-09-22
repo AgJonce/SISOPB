@@ -848,7 +848,9 @@ def incluir_medicao():
         key="obra_incluir_medicao"
     )
 
-    dados_obra = opcoes_obras[obra_selecionada]
+    dados_obra = opcoes_obras[
+        obra_selecionada
+    ]
 
     obra_id = dados_obra["id"]
     valor_obra = dados_obra["valor"]
@@ -858,13 +860,14 @@ def incluir_medicao():
     # ==================================================
 
     if obra_id is None:
+
         st.info(
             "Selecione uma obra para continuar."
         )
         return
 
     # ==================================================
-    # LIMPAR RESPONSÁVEIS AO TROCAR DE OBRA
+    # LIMPAR RESPONSÁVEL AO TROCAR DE OBRA
     # ==================================================
 
     obra_anterior = st.session_state.get(
@@ -873,163 +876,312 @@ def incluir_medicao():
 
     if obra_anterior != obra_id:
 
-        st.session_state["obra_anterior_medicao"] = obra_id
-        st.session_state["fiscais_temp_medicao"] = []
+        st.session_state[
+            "obra_anterior_medicao"
+        ] = obra_id
+
+        st.session_state[
+            "fiscais_temp_medicao"
+        ] = []
 
     if "fiscais_temp_medicao" not in st.session_state:
-        st.session_state["fiscais_temp_medicao"] = []
+
+        st.session_state[
+            "fiscais_temp_medicao"
+        ] = []
 
     # ==================================================
-    # RESPONSÁVEL VINCULADO À OBRA
+    # RESPONSÁVEIS VINCULADOS À OBRA
     # ==================================================
 
-    st.markdown("### 👷 Responsáveis da Medição")
+    st.markdown(
+        "### 👷 Responsável pela Medição"
+    )
 
     cursor.execute("""
         SELECT
-            o.responsavel_id,
+            ro.id,
+            r.id,
             r.nome,
-            o.tipo_responsabilidade,
-            o.tipo_vinculo,
-            o.art,
-            o.tipo_art
-        FROM obras o
+            ro.tipo_responsabilidade,
+            ro.tipo_vinculo,
+            ro.numero_art,
+            ro.tipo_art
+        FROM responsaveis_obra ro
 
-        LEFT JOIN responsaveis r
-            ON r.id = o.responsavel_id
+        INNER JOIN responsaveis r
+            ON r.id = ro.responsavel_id
 
-        WHERE o.id = ?
+        WHERE ro.obra_id = ?
+
+        ORDER BY r.nome
     """, (
         obra_id,
     ))
 
-    registro_responsavel = cursor.fetchone()
+    responsaveis_obra = cursor.fetchall()
 
     # ==================================================
-    # VERIFICAR RESPONSÁVEL
+    # COMPATIBILIDADE COM OBRAS ANTIGAS
     # ==================================================
 
-    if (
-        not registro_responsavel
-        or not registro_responsavel[0]
-    ):
+    if not responsaveis_obra:
+
+        cursor.execute("""
+            SELECT
+                o.responsavel_id,
+                r.nome,
+                o.tipo_responsabilidade,
+                o.tipo_vinculo,
+                o.art,
+                o.tipo_art
+            FROM obras o
+
+            INNER JOIN responsaveis r
+                ON r.id = o.responsavel_id
+
+            WHERE o.id = ?
+        """, (
+            obra_id,
+        ))
+
+        responsavel_antigo = cursor.fetchone()
+
+        if responsavel_antigo:
+
+            responsaveis_obra = [
+                (
+                    0,
+                    responsavel_antigo[0],
+                    responsavel_antigo[1],
+                    responsavel_antigo[2],
+                    responsavel_antigo[3],
+                    responsavel_antigo[4],
+                    responsavel_antigo[5]
+                )
+            ]
+
+    # ==================================================
+    # VERIFICAR RESPONSÁVEIS
+    # ==================================================
+
+    if not responsaveis_obra:
 
         st.warning(
-            "⚠️ Esta obra não possui responsável vinculado."
+            "⚠️ Esta obra não possui responsáveis vinculados."
         )
         return
 
     # ==================================================
-    # DADOS DO RESPONSÁVEL
+    # MONTAR OPÇÕES
     # ==================================================
 
-    responsavel_id = registro_responsavel[0]
+    opcoes_responsaveis = {
+        "Selecione o responsável": None
+    }
 
-    nome_responsavel = (
-        registro_responsavel[1] or ""
-    )
+    dados_responsaveis = {}
 
-    tipo_responsabilidade = (
-        registro_responsavel[2] or ""
-    )
+    for registro in responsaveis_obra:
 
-    tipo_vinculo = (
-        registro_responsavel[3] or ""
-    )
+        vinculo_obra_id = registro[0]
+        responsavel_id = registro[1]
+        nome = registro[2] or ""
 
-    numero_art = (
-        registro_responsavel[4] or ""
-    )
+        tipo_responsabilidade = (
+            registro[3] or ""
+        )
 
-    tipo_art = (
-        registro_responsavel[5] or ""
-    )
+        tipo_vinculo = (
+            registro[4] or ""
+        )
+
+        numero_art = (
+            registro[5] or ""
+        )
+
+        tipo_art = (
+            registro[6] or ""
+        )
+
+        # Permite inclusive o mesmo profissional
+        # possuir mais de uma ART na mesma obra.
+
+        chave = (
+            f"{nome} | "
+            f"{tipo_responsabilidade} | "
+            f"{tipo_art}"
+        )
+
+        opcoes_responsaveis[
+            chave
+        ] = vinculo_obra_id
+
+        dados_responsaveis[
+            vinculo_obra_id
+        ] = {
+            "vinculo_obra_id": vinculo_obra_id,
+            "responsavel_id": responsavel_id,
+            "nome": nome,
+            "tipo_responsabilidade": (
+                tipo_responsabilidade
+            ),
+            "tipo_vinculo": (
+                tipo_vinculo
+            ),
+            "numero_art": (
+                numero_art
+            ),
+            "tipo_art": (
+                tipo_art
+            )
+        }
 
     # ==================================================
-    # MOSTRAR RESPONSÁVEL DA OBRA
+    # ESCOLHER RESPONSÁVEL PELA MEDIÇÃO
     # ==================================================
 
-    st.text_input(
-        "👤 Responsável",
-        value=nome_responsavel,
-        disabled=True,
+    responsavel_escolhido = st.selectbox(
+        "👤 Selecione o responsável pela medição",
+        options=list(
+            opcoes_responsaveis.keys()
+        ),
         key=f"responsavel_medicao_{obra_id}"
     )
 
-    col1, col2 = st.columns(2)
-
-    with col1:
-
-        st.text_input(
-            "👷 Tipo de Responsabilidade",
-            value=tipo_responsabilidade,
-            disabled=True,
-            key=f"tipo_responsabilidade_medicao_{obra_id}"
-        )
-
-        st.text_input(
-            "🔗 Tipo de Vínculo",
-            value=tipo_vinculo,
-            disabled=True,
-            key=f"tipo_vinculo_medicao_{obra_id}"
-        )
-
-    with col2:
-
-        st.text_input(
-            "📜 Número da ART",
-            value=numero_art,
-            disabled=True,
-            key=f"numero_art_medicao_{obra_id}"
-        )
-
-        st.text_input(
-            "🏗️ Tipo da ART",
-            value=tipo_art,
-            disabled=True,
-            key=f"tipo_art_medicao_{obra_id}"
-        )
+    vinculo_escolhido = (
+        opcoes_responsaveis[
+            responsavel_escolhido
+        ]
+    )
 
     # ==================================================
-    # ADICIONAR RESPONSÁVEL
+    # MOSTRAR DADOS DO RESPONSÁVEL
     # ==================================================
 
-    if st.button(
-        "➕ Adicionar Responsável",
-        use_container_width=True,
-        key=f"adicionar_responsavel_medicao_{obra_id}"
-    ):
+    if vinculo_escolhido is not None:
 
-        ja_adicionado = any(
-            fiscal["responsavel_id"] == responsavel_id
-            for fiscal in st.session_state[
-                "fiscais_temp_medicao"
+        dados_responsavel = (
+            dados_responsaveis[
+                vinculo_escolhido
             ]
         )
 
-        if ja_adicionado:
+        col1, col2 = st.columns(2)
 
-            st.warning(
-                "⚠️ Este responsável já foi adicionado."
+        with col1:
+
+            st.text_input(
+                "👷 Tipo de Responsabilidade",
+                value=dados_responsavel[
+                    "tipo_responsabilidade"
+                ],
+                disabled=True,
+                key=(
+                    f"resp_tipo_medicao_"
+                    f"{obra_id}_"
+                    f"{vinculo_escolhido}"
+                )
             )
 
-        else:
+            st.text_input(
+                "🔗 Tipo de Vínculo",
+                value=dados_responsavel[
+                    "tipo_vinculo"
+                ],
+                disabled=True,
+                key=(
+                    f"resp_vinculo_medicao_"
+                    f"{obra_id}_"
+                    f"{vinculo_escolhido}"
+                )
+            )
+
+        with col2:
+
+            st.text_input(
+                "📜 Número da ART",
+                value=dados_responsavel[
+                    "numero_art"
+                ],
+                disabled=True,
+                key=(
+                    f"resp_art_medicao_"
+                    f"{obra_id}_"
+                    f"{vinculo_escolhido}"
+                )
+            )
+
+            st.text_input(
+                "🏗️ Tipo da ART",
+                value=dados_responsavel[
+                    "tipo_art"
+                ],
+                disabled=True,
+                key=(
+                    f"resp_tipo_art_medicao_"
+                    f"{obra_id}_"
+                    f"{vinculo_escolhido}"
+                )
+            )
+
+        # ==================================================
+        # ADICIONAR RESPONSÁVEL À MEDIÇÃO
+        # ==================================================
+
+        if st.button(
+            "➕ Adicionar Responsável",
+            use_container_width=True,
+            key=(
+                f"adicionar_responsavel_medicao_"
+                f"{obra_id}"
+            )
+        ):
+
+            # A medição terá apenas o responsável
+            # escolhido pelo usuário.
 
             st.session_state[
                 "fiscais_temp_medicao"
-            ].append({
-                "responsavel_id": responsavel_id,
-                "nome": nome_responsavel,
-                "tipo_responsabilidade": tipo_responsabilidade,
-                "tipo_vinculo": tipo_vinculo,
-                "numero_art": numero_art,
-                "tipo_art": tipo_art
-            })
+            ] = [
+                {
+                    "responsavel_id": (
+                        dados_responsavel[
+                            "responsavel_id"
+                        ]
+                    ),
+                    "nome": (
+                        dados_responsavel[
+                            "nome"
+                        ]
+                    ),
+                    "tipo_responsabilidade": (
+                        dados_responsavel[
+                            "tipo_responsabilidade"
+                        ]
+                    ),
+                    "tipo_vinculo": (
+                        dados_responsavel[
+                            "tipo_vinculo"
+                        ]
+                    ),
+                    "numero_art": (
+                        dados_responsavel[
+                            "numero_art"
+                        ]
+                    ),
+                    "tipo_art": (
+                        dados_responsavel[
+                            "tipo_art"
+                        ]
+                    )
+                }
+            ]
 
             st.rerun()
 
     # ==================================================
-    # RESPONSÁVEIS ADICIONADOS
+    # RESPONSÁVEL DEFINIDO PARA A MEDIÇÃO
     # ==================================================
 
     fiscais_temp = st.session_state[
@@ -1039,7 +1191,7 @@ def incluir_medicao():
     if fiscais_temp:
 
         st.markdown(
-            "#### 📋 Responsáveis adicionados"
+            "#### ✅ Responsável definido para a medição"
         )
 
         dados_tabela = []
@@ -1047,41 +1199,59 @@ def incluir_medicao():
         for fiscal_temp in fiscais_temp:
 
             dados_tabela.append({
-                "Responsável": fiscal_temp["nome"],
-                "Responsabilidade": (
-                    fiscal_temp["tipo_responsabilidade"]
+                "Responsável": (
+                    fiscal_temp["nome"]
                 ),
-                "Vínculo": fiscal_temp["tipo_vinculo"],
-                "Número ART": fiscal_temp["numero_art"],
-                "Tipo ART": fiscal_temp["tipo_art"]
+                "Responsabilidade": (
+                    fiscal_temp[
+                        "tipo_responsabilidade"
+                    ]
+                ),
+                "Vínculo": (
+                    fiscal_temp[
+                        "tipo_vinculo"
+                    ]
+                ),
+                "Número ART": (
+                    fiscal_temp[
+                        "numero_art"
+                    ]
+                ),
+                "Tipo ART": (
+                    fiscal_temp[
+                        "tipo_art"
+                    ]
+                )
             })
 
-        df_fiscais = pd.DataFrame(
-            dados_tabela
-        )
-
         st.dataframe(
-            df_fiscais,
+            pd.DataFrame(
+                dados_tabela
+            ),
             use_container_width=True,
             hide_index=True
         )
 
         if st.button(
-            "↩️ Remover Último",
+            "🗑️ Remover Responsável",
             use_container_width=True,
-            key=f"remover_responsavel_medicao_{obra_id}"
+            key=(
+                f"remover_responsavel_medicao_"
+                f"{obra_id}"
+            )
         ):
 
             st.session_state[
                 "fiscais_temp_medicao"
-            ].pop()
+            ] = []
 
             st.rerun()
 
     else:
 
         st.info(
-            "Nenhum responsável adicionado à medição."
+            "Selecione e adicione o responsável "
+            "por esta medição."
         )
 
     # ==================================================
@@ -1090,7 +1260,9 @@ def incluir_medicao():
 
     st.divider()
 
-    st.markdown("### 📋 Dados da Medição")
+    st.markdown(
+        "### 📋 Dados da Medição"
+    )
 
     col1, col2 = st.columns(2)
 
@@ -1146,7 +1318,9 @@ def incluir_medicao():
 
     st.divider()
 
-    st.markdown("### 🧱 Itens da Medição")
+    st.markdown(
+        "### 🧱 Itens da Medição"
+    )
 
     cursor.execute("""
         SELECT
@@ -1160,7 +1334,9 @@ def incluir_medicao():
 
             COALESCE(
                 (
-                    SELECT SUM(im.valor_medido)
+                    SELECT SUM(
+                        im.valor_medido
+                    )
                     FROM itens_medicao im
                     WHERE im.item_obra_id = io.id
                 ),
@@ -1229,7 +1405,9 @@ def incluir_medicao():
             f"#### {codigo} - {descricao}"
         )
 
-        col_item1, col_item2, col_item3 = st.columns(3)
+        col_item1, col_item2, col_item3 = (
+            st.columns(3)
+        )
 
         with col_item1:
 
@@ -1262,10 +1440,6 @@ def incluir_medicao():
                 f"R$ {saldo_item:,.2f}"
             )
 
-        # ==============================================
-        # ITEM TOTALMENTE MEDIDO
-        # ==============================================
-
         if saldo_item <= 0:
 
             st.success(
@@ -1288,7 +1462,9 @@ def incluir_medicao():
                 valor_medido = st.number_input(
                     "💵 Valor a medir neste item",
                     min_value=0.0,
-                    max_value=float(saldo_item),
+                    max_value=float(
+                        saldo_item
+                    ),
                     value=0.0,
                     step=0.01,
                     format="%.2f",
@@ -1302,7 +1478,9 @@ def incluir_medicao():
                 if valor_medido > 0:
 
                     itens_selecionados.append({
-                        "item_obra_id": item_obra_id,
+                        "item_obra_id": (
+                            item_obra_id
+                        ),
                         "valor_medido": float(
                             valor_medido
                         )
@@ -1338,7 +1516,9 @@ def incluir_medicao():
     # RESUMO FINANCEIRO
     # ==================================================
 
-    st.markdown("### 💰 Resumo da Medição")
+    st.markdown(
+        "### 💰 Resumo da Medição"
+    )
 
     col1, col2, col3 = st.columns(3)
 
@@ -1369,7 +1549,9 @@ def incluir_medicao():
 
     st.divider()
 
-    st.markdown("### 📎 Documentos")
+    st.markdown(
+        "### 📎 Documentos"
+    )
 
     col1, col2 = st.columns(2)
 
@@ -1387,15 +1569,19 @@ def incluir_medicao():
 
     with col2:
 
+        # SOMENTE EXCEL
+
         boletim = st.file_uploader(
-            "📄 Boletim de Medição",
+            "📊 Boletim de Medição (Excel)",
             type=[
-                "pdf",
-                "jpg",
-                "jpeg",
-                "png"
+                "xlsx",
+                "xls"
             ],
             key=f"boletim_medicao_{obra_id}"
+        )
+
+        st.caption(
+            "Formatos permitidos: .xlsx e .xls"
         )
 
     # ==================================================
@@ -1411,17 +1597,17 @@ def incluir_medicao():
         key=f"salvar_medicao_{obra_id}"
     ):
 
-        # ==============================================
+        # ==================================================
         # VALIDAÇÕES
-        # ==============================================
+        # ==================================================
 
         if not st.session_state[
             "fiscais_temp_medicao"
         ]:
 
             st.warning(
-                "⚠️ Adicione pelo menos um responsável "
-                "à medição."
+                "⚠️ Defina o responsável "
+                "pela medição."
             )
             return
 
@@ -1449,18 +1635,22 @@ def incluir_medicao():
             )
             return
 
-        # ==============================================
+        # ==================================================
         # CONFERIR SALDO DOS ITENS NOVAMENTE
-        # ==============================================
+        # ==================================================
 
         for item_medicao in itens_selecionados:
 
             item_obra_id = (
-                item_medicao["item_obra_id"]
+                item_medicao[
+                    "item_obra_id"
+                ]
             )
 
             valor_medido = (
-                item_medicao["valor_medido"]
+                item_medicao[
+                    "valor_medido"
+                ]
             )
 
             cursor.execute("""
@@ -1469,7 +1659,9 @@ def incluir_medicao():
 
                     COALESCE(
                         (
-                            SELECT SUM(im.valor_medido)
+                            SELECT SUM(
+                                im.valor_medido
+                            )
                             FROM itens_medicao im
                             WHERE im.item_obra_id = io.id
                         ),
@@ -1506,18 +1698,21 @@ def incluir_medicao():
                 - valor_ja_medido_banco
             )
 
-            if valor_medido > saldo_banco + 0.001:
+            if (
+                valor_medido
+                > saldo_banco + 0.001
+            ):
 
                 st.warning(
-                    "⚠️ O valor informado para um "
-                    "dos itens ultrapassa o saldo "
-                    "disponível para medição."
+                    "⚠️ O valor informado para "
+                    "um dos itens ultrapassa o "
+                    "saldo disponível."
                 )
                 return
 
-        # ==============================================
+        # ==================================================
         # PREPARAR ARQUIVOS
-        # ==============================================
+        # ==================================================
 
         foto_nome = None
         foto_arquivo = None
@@ -1533,17 +1728,19 @@ def incluir_medicao():
         if boletim is not None:
 
             boletim_nome = boletim.name
-            boletim_arquivo = boletim.getvalue()
+            boletim_arquivo = (
+                boletim.getvalue()
+            )
 
-        # ==============================================
+        # ==================================================
         # SALVAR
-        # ==============================================
+        # ==================================================
 
         try:
 
-            # ==========================================
+            # ==================================================
             # MEDIÇÃO
-            # ==========================================
+            # ==================================================
 
             cursor.execute("""
                 INSERT INTO medicoes (
@@ -1608,9 +1805,9 @@ def incluir_medicao():
 
             medicao_id = cursor.lastrowid
 
-            # ==========================================
+            # ==================================================
             # ITENS DA MEDIÇÃO
-            # ==========================================
+            # ==================================================
 
             for item_medicao in itens_selecionados:
 
@@ -1631,9 +1828,9 @@ def incluir_medicao():
                     ]
                 ))
 
-            # ==========================================
-            # RESPONSÁVEIS / FISCAIS DA MEDIÇÃO
-            # ==========================================
+            # ==================================================
+            # RESPONSÁVEL DA MEDIÇÃO
+            # ==================================================
 
             for fiscal in st.session_state[
                 "fiscais_temp_medicao"
@@ -1650,15 +1847,15 @@ def incluir_medicao():
                     fiscal["nome"]
                 ))
 
-            # ==========================================
+            # ==================================================
             # COMMIT
-            # ==========================================
+            # ==================================================
 
             conn.commit()
 
-            # ==========================================
-            # LIMPAR TEMPORÁRIOS
-            # ==========================================
+            # ==================================================
+            # LIMPAR
+            # ==================================================
 
             st.session_state[
                 "fiscais_temp_medicao"
@@ -1669,9 +1866,9 @@ def incluir_medicao():
                 None
             )
 
-            # ==========================================
+            # ==================================================
             # SUCESSO
-            # ==========================================
+            # ==================================================
 
             st.session_state[
                 "medicao_cadastrada_sucesso"
