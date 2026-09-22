@@ -4392,7 +4392,7 @@ def main():
             "Cadastro de Obras 🛎️",
             "Situação da Obra",
             "Dashboard 📊",
-            "👨‍🔧 Cadastro de Funcionário",
+            "👨‍🔧 Cadastro de Responsável",
             "Financeiro 💰",
             "Contabilidade",
             "Medições",
