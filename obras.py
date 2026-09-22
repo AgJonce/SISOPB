@@ -2651,8 +2651,8 @@ def incluir_obra():
             format="%.2f",
             key=f"valor_{cadastro_id}"
         )
-        
-		numero = st.text_input(
+
+        numero = st.text_input(
             "🔢 Número",
             placeholder="Ex: 125",
             key=f"numero_{cadastro_id}"
@@ -2663,7 +2663,6 @@ def incluir_obra():
             placeholder="Ex: Centro",
             key=f"bairro_{cadastro_id}"
         )
-		
     with col2:
 
         responsavel = st.text_input(
