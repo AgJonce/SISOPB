@@ -303,7 +303,23 @@ cursor.execute("""
 
 conn.commit()
 
+cursor.execute("""
+    CREATE TABLE IF NOT EXISTS historico_situacao_obra (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        obra_id INTEGER NOT NULL,
+        situacao TEXT NOT NULL,
+        motivo_paralisacao TEXT,
+        data_publicacao TEXT,
+        orgao_publicacao TEXT,
+        link_publicacao TEXT,
+        data_registro TEXT,
 
+        FOREIGN KEY (obra_id)
+            REFERENCES obras(id)
+    )
+""")
+
+conn.commit()
 # =========================================================
 # ITENS DA OBRA
 # =========================================================
