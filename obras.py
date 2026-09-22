@@ -238,53 +238,154 @@ def get_geolocator():
 
 def cadastrar_responsavel():
 
-    # ==================================================
-    # CABEÇALHO
-    # ==================================================
-
     st.title("👨‍🔧 Cadastro de Responsável")
 
     st.caption(
-        "Cadastre engenheiros, arquitetos, técnicos e outros "
-        "profissionais responsáveis pelas obras."
+        "Gerencie os profissionais responsáveis pelas obras."
     )
 
     st.divider()
 
-    # ==================================================
-    # MENSAGEM DE SUCESSO
-    # ==================================================
+    # ==========================================
+    # ESTADO DA TELA
+    # ==========================================
 
-    if st.session_state.pop(
-        "responsavel_cadastrado_sucesso",
-        False
-    ):
-        st.success(
-            "✅ Responsável cadastrado com sucesso!"
+    if "tela_responsavel" not in st.session_state:
+        st.session_state["tela_responsavel"] = "Principal"
+
+    tela = st.session_state["tela_responsavel"]
+
+    # ==========================================
+    # TELA PRINCIPAL
+    # ==========================================
+
+    if tela == "Principal":
+
+        if st.session_state.pop(
+            "responsavel_cadastrado_sucesso",
+            False
+        ):
+            st.success(
+                "✅ Responsável cadastrado com sucesso!"
+            )
+
+        if st.session_state.pop(
+            "responsavel_alterado_sucesso",
+            False
+        ):
+            st.success(
+                "✅ Responsável alterado com sucesso!"
+            )
+
+        st.markdown("### 🛠️ O que deseja fazer?")
+
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+
+            if st.button(
+                "➕ Incluir",
+                use_container_width=True,
+                type="primary",
+                key="btn_incluir_responsavel"
+            ):
+                st.session_state[
+                    "tela_responsavel"
+                ] = "Incluir"
+
+                st.rerun()
+
+        with col2:
+
+            if st.button(
+                "🔎 Localizar",
+                use_container_width=True,
+                key="btn_localizar_responsavel"
+            ):
+                st.session_state[
+                    "tela_responsavel"
+                ] = "Localizar"
+
+                st.rerun()
+
+        with col3:
+
+            if st.button(
+                "✏️ Alterar",
+                use_container_width=True,
+                key="btn_alterar_responsavel"
+            ):
+
+                if st.session_state.get(
+                    "responsavel_edicao_id"
+                ):
+
+                    st.session_state[
+                        "tela_responsavel"
+                    ] = "Alterar"
+
+                    st.rerun()
+
+                else:
+
+                    st.warning(
+                        "⚠️ Primeiro localize e selecione "
+                        "um responsável."
+                    )
+
+        st.info(
+            "Selecione uma opção acima para continuar."
         )
 
-    # ==================================================
-    # CARD DO CADASTRO
-    # ==================================================
+    # ==========================================
+    # INCLUIR
+    # ==========================================
+
+    elif tela == "Incluir":
+
+        incluir_responsavel()
+
+    # ==========================================
+    # LOCALIZAR
+    # ==========================================
+
+    elif tela == "Localizar":
+
+        localizar_responsavel()
+
+    # ==========================================
+    # ALTERAR
+    # ==========================================
+
+    elif tela == "Alterar":
+
+        alterar_responsavel()
+def incluir_responsavel():
+
+    st.subheader("➕ Incluir Responsável")
+
+    if st.button(
+        "⬅️ Voltar",
+        key="voltar_incluir_responsavel"
+    ):
+        st.session_state[
+            "tela_responsavel"
+        ] = "Principal"
+
+        st.rerun()
+
+    st.divider()
 
     with st.container(border=True):
 
-        st.subheader("👤 Dados do Profissional")
-
-        st.caption(
-            "Preencha as informações do responsável técnico."
-        )
+        st.markdown("### 👤 Dados do Profissional")
 
         with st.form(
-            "form_cadastro_responsavel",
+            "form_incluir_responsavel",
             clear_on_submit=True
         ):
 
             col1, col2 = st.columns(2)
-
-            # ==========================================
-            # COLUNA 1
-            # ==========================================
 
             with col1:
 
@@ -302,10 +403,6 @@ def cadastrar_responsavel():
                     "📄 Documento",
                     placeholder="Ex: MG-12.345.678"
                 )
-
-            # ==========================================
-            # COLUNA 2
-            # ==========================================
 
             with col2:
 
@@ -339,14 +436,10 @@ def cadastrar_responsavel():
             st.divider()
 
             salvar = st.form_submit_button(
-                "💾 Cadastrar Responsável",
+                "💾 Salvar Responsável",
                 type="primary",
                 use_container_width=True
             )
-
-    # ==================================================
-    # SALVAR
-    # ==================================================
 
     if salvar:
 
@@ -364,16 +457,12 @@ def cadastrar_responsavel():
         elif not cpf:
 
             st.warning(
-                "⚠️ Informe o CPF do responsável."
+                "⚠️ Informe o CPF."
             )
 
         else:
 
             try:
-
-                # ======================================
-                # VERIFICAR CPF
-                # ======================================
 
                 cursor.execute("""
                     SELECT id
@@ -383,9 +472,9 @@ def cadastrar_responsavel():
                     cpf,
                 ))
 
-                cpf_existente = cursor.fetchone()
+                existente = cursor.fetchone()
 
-                if cpf_existente:
+                if existente:
 
                     st.warning(
                         "⚠️ Já existe um responsável "
@@ -393,10 +482,6 @@ def cadastrar_responsavel():
                     )
 
                 else:
-
-                    # ==================================
-                    # CADASTRAR
-                    # ==================================
 
                     cursor.execute("""
                         INSERT INTO responsaveis (
@@ -429,6 +514,10 @@ def cadastrar_responsavel():
                         "responsavel_cadastrado_sucesso"
                     ] = True
 
+                    st.session_state[
+                        "tela_responsavel"
+                    ] = "Principal"
+
                     st.rerun()
 
             except Exception as e:
@@ -436,79 +525,196 @@ def cadastrar_responsavel():
                 st.error(
                     f"❌ Erro ao cadastrar responsável: {e}"
                 )
+def localizar_responsavel():
 
-    # ==================================================
-    # RESPONSÁVEIS CADASTRADOS
-    # ==================================================
+    st.subheader("🔎 Localizar Responsável")
 
-    st.markdown("### 📋 Responsáveis Cadastrados")
+    if st.button(
+        "⬅️ Voltar",
+        key="voltar_localizar_responsavel"
+    ):
+        st.session_state[
+            "tela_responsavel"
+        ] = "Principal"
 
-    cursor.execute("""
-        SELECT
-            id,
-            nome,
-            cpf,
-            tipo_responsabilidade,
-            conselho,
-            numero_conselho
-        FROM responsaveis
-        WHERE ativo = 1
-        ORDER BY nome
-    """)
+        st.session_state.pop(
+            "responsavel_edicao_id",
+            None
+        )
+
+        st.rerun()
+
+    st.divider()
+
+    busca = st.text_input(
+        "🔍 Pesquisar",
+        placeholder=(
+            "Digite nome, CPF, conselho "
+            "ou número do conselho"
+        ),
+        key="pesquisa_responsavel"
+    )
+
+    if busca:
+
+        termo = f"%{busca}%"
+
+        cursor.execute("""
+            SELECT
+                id,
+                nome,
+                cpf,
+                documento,
+                tipo_responsabilidade,
+                conselho,
+                numero_conselho
+            FROM responsaveis
+            WHERE ativo = 1
+            AND (
+                nome LIKE ?
+                OR cpf LIKE ?
+                OR conselho LIKE ?
+                OR numero_conselho LIKE ?
+            )
+            ORDER BY nome
+        """, (
+            termo,
+            termo,
+            termo,
+            termo
+        ))
+
+    else:
+
+        cursor.execute("""
+            SELECT
+                id,
+                nome,
+                cpf,
+                documento,
+                tipo_responsabilidade,
+                conselho,
+                numero_conselho
+            FROM responsaveis
+            WHERE ativo = 1
+            ORDER BY nome
+        """)
 
     registros = cursor.fetchall()
 
     if not registros:
 
         st.info(
-            "Nenhum responsável cadastrado."
+            "Nenhum responsável encontrado."
         )
+        return
 
-    else:
-
-        df_responsaveis = pd.DataFrame(
-            registros,
-            columns=[
-                "ID",
-                "Nome",
-                "CPF",
-                "Responsabilidade",
-                "Conselho",
-                "Nº Conselho"
-            ]
-        )
-
-        gb = GridOptionsBuilder.from_dataframe(
-            df_responsaveis
-        )
-
-        gb.configure_default_column(
-            filter=True,
-            sortable=True,
-            resizable=True
-        )
-
-        gb.configure_column(
+    df = pd.DataFrame(
+        registros,
+        columns=[
             "ID",
-            hide=True
+            "Nome",
+            "CPF",
+            "Documento",
+            "Responsabilidade",
+            "Conselho",
+            "Nº Conselho"
+        ]
+    )
+
+    gb = GridOptionsBuilder.from_dataframe(
+        df
+    )
+
+    gb.configure_default_column(
+        sortable=True,
+        filter=True,
+        resizable=True
+    )
+
+    gb.configure_column(
+        "ID",
+        hide=True
+    )
+
+    gb.configure_selection(
+        selection_mode="single",
+        use_checkbox=True
+    )
+
+    grid_options = gb.build()
+
+    resposta = AgGrid(
+        df,
+        gridOptions=grid_options,
+        height=350,
+        fit_columns_on_grid_load=True,
+        update_mode=GridUpdateMode.SELECTION_CHANGED,
+        key="grid_localizar_responsavel"
+    )
+
+    selecionados = resposta.get(
+        "selected_rows",
+        []
+    )
+
+    if isinstance(
+        selecionados,
+        pd.DataFrame
+    ):
+
+        selecionados = selecionados.to_dict(
+            "records"
         )
 
-        gb.configure_selection(
-            selection_mode="single",
-            use_checkbox=True
+    if selecionados:
+
+        selecionado = selecionados[0]
+
+        id_responsavel = int(
+            selecionado["ID"]
         )
 
-        grid_options = gb.build()
+        st.session_state[
+            "responsavel_edicao_id"
+        ] = id_responsavel
 
-        AgGrid(
-            df_responsaveis,
-            gridOptions=grid_options,
-            height=300,
-            fit_columns_on_grid_load=True,
-            update_mode=GridUpdateMode.SELECTION_CHANGED,
-            key="grid_responsaveis"
+        st.success(
+            f"✅ Responsável selecionado: "
+            f"{selecionado['Nome']}"
         )
 
+        col1, col2 = st.columns(2)
+
+        with col1:
+
+            if st.button(
+                "✏️ Alterar Responsável",
+                type="primary",
+                use_container_width=True,
+                key="alterar_responsavel_localizado"
+            ):
+
+                st.session_state[
+                    "tela_responsavel"
+                ] = "Alterar"
+
+                st.rerun()
+
+        with col2:
+
+            if st.button(
+                "↩️ Cancelar Seleção",
+                use_container_width=True,
+                key="cancelar_responsavel_localizado"
+            ):
+
+                st.session_state.pop(
+                    "responsavel_edicao_id",
+                    None
+                )
+
+                st.rerun()
 def excluir_item_obra():
 
     st.subheader("🗑️ Excluir Item da Obra")
@@ -795,7 +1001,266 @@ def excluir_item_obra():
             st.error(
                 f"❌ Erro ao excluir item: {e}"
             )
-def alterar_item_obra():
+	def alterar_responsavel():
+
+    st.subheader("✏️ Alterar Responsável")
+
+    id_responsavel = st.session_state.get(
+        "responsavel_edicao_id"
+    )
+
+    if not id_responsavel:
+
+        st.warning(
+            "⚠️ Nenhum responsável selecionado."
+        )
+
+        if st.button(
+            "⬅️ Voltar",
+            key="voltar_alterar_sem_responsavel"
+        ):
+            st.session_state[
+                "tela_responsavel"
+            ] = "Principal"
+
+            st.rerun()
+
+        return
+
+    cursor.execute("""
+        SELECT
+            nome,
+            cpf,
+            documento,
+            tipo_responsabilidade,
+            conselho,
+            numero_conselho
+        FROM responsaveis
+        WHERE id = ?
+    """, (
+        id_responsavel,
+    ))
+
+    registro = cursor.fetchone()
+
+    if not registro:
+
+        st.error(
+            "❌ Responsável não encontrado."
+        )
+
+        st.session_state.pop(
+            "responsavel_edicao_id",
+            None
+        )
+
+        return
+
+    (
+        nome_atual,
+        cpf_atual,
+        documento_atual,
+        responsabilidade_atual,
+        conselho_atual,
+        numero_conselho_atual
+    ) = registro
+
+    if st.button(
+        "⬅️ Voltar",
+        key="voltar_alterar_responsavel"
+    ):
+        st.session_state[
+            "tela_responsavel"
+        ] = "Localizar"
+
+        st.rerun()
+
+    st.divider()
+
+    with st.container(border=True):
+
+        st.markdown(
+            f"### 👤 {nome_atual}"
+        )
+
+        with st.form(
+            "form_alterar_responsavel"
+        ):
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+
+                nome = st.text_input(
+                    "👤 Nome Completo *",
+                    value=nome_atual or ""
+                )
+
+                cpf = st.text_input(
+                    "🪪 CPF *",
+                    value=cpf_atual or ""
+                )
+
+                documento = st.text_input(
+                    "📄 Documento",
+                    value=documento_atual or ""
+                )
+
+            responsabilidades = [
+                "Engenheiro",
+                "Arquiteto",
+                "Técnico",
+                "Fiscal de Obra",
+                "Outro"
+            ]
+
+            conselhos = [
+                "CREA",
+                "CAU",
+                "CFT",
+                "CRT",
+                "Outro"
+            ]
+
+            with col2:
+
+                if responsabilidade_atual in responsabilidades:
+
+                    indice_responsabilidade = (
+                        responsabilidades.index(
+                            responsabilidade_atual
+                        )
+                    )
+
+                else:
+
+                    indice_responsabilidade = 0
+
+                tipo_responsabilidade = st.selectbox(
+                    "👷 Tipo de Responsabilidade *",
+                    responsabilidades,
+                    index=indice_responsabilidade
+                )
+
+                if conselho_atual in conselhos:
+
+                    indice_conselho = (
+                        conselhos.index(
+                            conselho_atual
+                        )
+                    )
+
+                else:
+
+                    indice_conselho = 0
+
+                conselho = st.selectbox(
+                    "🏛️ Conselho Profissional *",
+                    conselhos,
+                    index=indice_conselho
+                )
+
+                numero_conselho = st.text_input(
+                    "🔢 Número do Conselho",
+                    value=numero_conselho_atual or ""
+                )
+
+            st.divider()
+
+            salvar = st.form_submit_button(
+                "💾 Salvar Alterações",
+                type="primary",
+                use_container_width=True
+            )
+
+    if salvar:
+
+        nome = nome.strip()
+        cpf = cpf.strip()
+        documento = documento.strip()
+        numero_conselho = numero_conselho.strip()
+
+        if not nome:
+
+            st.warning(
+                "⚠️ Informe o nome."
+            )
+
+        elif not cpf:
+
+            st.warning(
+                "⚠️ Informe o CPF."
+            )
+
+        else:
+
+            try:
+
+                cursor.execute("""
+                    SELECT id
+                    FROM responsaveis
+                    WHERE cpf = ?
+                    AND id <> ?
+                """, (
+                    cpf,
+                    id_responsavel
+                ))
+
+                cpf_existente = cursor.fetchone()
+
+                if cpf_existente:
+
+                    st.warning(
+                        "⚠️ Já existe outro responsável "
+                        "com este CPF."
+                    )
+
+                else:
+
+                    cursor.execute("""
+                        UPDATE responsaveis
+                        SET
+                            nome = ?,
+                            cpf = ?,
+                            documento = ?,
+                            tipo_responsabilidade = ?,
+                            conselho = ?,
+                            numero_conselho = ?
+                        WHERE id = ?
+                    """, (
+                        nome,
+                        cpf,
+                        documento,
+                        tipo_responsabilidade,
+                        conselho,
+                        numero_conselho,
+                        id_responsavel
+                    ))
+
+                    conn.commit()
+
+                    st.session_state[
+                        "responsavel_alterado_sucesso"
+                    ] = True
+
+                    st.session_state.pop(
+                        "responsavel_edicao_id",
+                        None
+                    )
+
+                    st.session_state[
+                        "tela_responsavel"
+                    ] = "Principal"
+
+                    st.rerun()
+
+            except Exception as e:
+
+                st.error(
+                    f"❌ Erro ao alterar responsável: {e}"
+                )
+
+	def alterar_item_obra():
 
     st.subheader("✏️ Alterar Item da Obra")
 
