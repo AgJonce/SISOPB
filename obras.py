@@ -8904,7 +8904,7 @@ def cadastro_de_obras():
 def incluir_obra():
 
     # ==================================================
-    # CONTROLE DA TELA
+    # CONTROLE DO CADASTRO
     # ==================================================
 
     if "cadastro_obra_id" not in st.session_state:
@@ -8913,11 +8913,35 @@ def incluir_obra():
     cadastro_id = st.session_state["cadastro_obra_id"]
 
     # ==================================================
-    # LISTA TEMPORÁRIA DE RESPONSÁVEIS
+    # GARANTIR QUE A LISTA TEMPORÁRIA PERTENCE
+    # AO CADASTRO ATUAL
     # ==================================================
 
-    if "responsaveis_temp_obra" not in st.session_state:
+    if (
+        st.session_state.get(
+            "responsaveis_temp_obra_cadastro_id"
+        ) != cadastro_id
+    ):
         st.session_state["responsaveis_temp_obra"] = []
+        st.session_state[
+            "responsaveis_temp_obra_cadastro_id"
+        ] = cadastro_id
+
+    # ==================================================
+    # ESTADO DA LOCALIZAÇÃO
+    # ==================================================
+
+    if "latitude_obra" not in st.session_state:
+        st.session_state["latitude_obra"] = None
+
+    if "longitude_obra" not in st.session_state:
+        st.session_state["longitude_obra"] = None
+
+    if "endereco_obra" not in st.session_state:
+        st.session_state["endereco_obra"] = None
+
+    if "dados_endereco_obra" not in st.session_state:
+        st.session_state["dados_endereco_obra"] = {}
 
     # ==================================================
     # INFORMAÇÕES DA OBRA
@@ -9015,12 +9039,349 @@ def incluir_obra():
         )
 
     # ==================================================
-    # ART / RESPONSÁVEIS DA OBRA
+    # SITUAÇÃO INICIAL
     # ==================================================
 
     st.divider()
 
-    st.subheader("📑 ART / Responsáveis da Obra")
+    situacao = st.selectbox(
+        "📊 Situação da Obra",
+        [
+            "1 – Não iniciado",
+            "2 – Iniciado",
+            "3 – Encerrado por rescisão contratual",
+            "4 – Paralisado",
+            "5 – Concluído e não recebido",
+            "6 – Concluído e recebido provisoriamente",
+            "7 – Concluído e recebido definitivamente",
+            "8 – Reiniciado"
+        ],
+        key=f"situacao_{cadastro_id}"
+    )
+
+    # ==================================================
+    # MAPA
+    # ==================================================
+
+    st.divider()
+
+    st.subheader("📍 Local da Obra")
+
+    st.info(
+        "🖱️ Clique no mapa exatamente no local da obra."
+    )
+
+    # ==================================================
+    # CENTRO DO MAPA
+    # ==================================================
+    #
+    # Se já existe um ponto escolhido, o mapa volta
+    # exatamente para ele após qualquer rerun.
+    # ==================================================
+
+    if (
+        st.session_state["latitude_obra"] is not None
+        and st.session_state["longitude_obra"] is not None
+    ):
+
+        centro_mapa = [
+            st.session_state["latitude_obra"],
+            st.session_state["longitude_obra"]
+        ]
+
+        zoom_mapa = 17
+
+    else:
+
+        centro_mapa = [
+            -20.7336,
+            -42.0306
+        ]
+
+        zoom_mapa = 15
+
+    mapa = folium.Map(
+        location=centro_mapa,
+        zoom_start=zoom_mapa
+    )
+
+    # ==================================================
+    # MARCADOR
+    # ==================================================
+
+    if (
+        st.session_state["latitude_obra"] is not None
+        and st.session_state["longitude_obra"] is not None
+    ):
+
+        folium.Marker(
+            [
+                st.session_state["latitude_obra"],
+                st.session_state["longitude_obra"]
+            ],
+            popup="Local da Obra",
+            tooltip="Local selecionado"
+        ).add_to(mapa)
+
+    # ==================================================
+    # EXIBIR MAPA
+    # ==================================================
+
+    map_data = st_folium(
+        mapa,
+        width=800,
+        height=500,
+        key=f"mapa_{cadastro_id}"
+    )
+
+    # ==================================================
+    # LOCAL CLICADO
+    # ==================================================
+
+    if map_data and map_data.get("last_clicked"):
+
+        latitude_clicada = (
+            map_data["last_clicked"]["lat"]
+        )
+
+        longitude_clicada = (
+            map_data["last_clicked"]["lng"]
+        )
+
+        ponto_mudou = (
+            latitude_clicada
+            != st.session_state["latitude_obra"]
+            or
+            longitude_clicada
+            != st.session_state["longitude_obra"]
+        )
+
+        if ponto_mudou:
+
+            st.session_state[
+                "latitude_obra"
+            ] = latitude_clicada
+
+            st.session_state[
+                "longitude_obra"
+            ] = longitude_clicada
+
+            try:
+
+                geolocator = get_geolocator()
+
+                location = geolocator.reverse(
+                    (
+                        latitude_clicada,
+                        longitude_clicada
+                    ),
+                    language="pt",
+                    timeout=10,
+                    exactly_one=True
+                )
+
+                if location:
+
+                    dados_endereco = (
+                        location.raw.get(
+                            "address",
+                            {}
+                        )
+                    )
+
+                    rua = (
+                        dados_endereco.get("road")
+                        or dados_endereco.get("pedestrian")
+                        or dados_endereco.get("residential")
+                        or "Não informado"
+                    )
+
+                    numero_mapa = (
+                        dados_endereco.get("house_number")
+                        or "Não informado"
+                    )
+
+                    bairro_mapa = (
+                        dados_endereco.get("suburb")
+                        or dados_endereco.get("neighbourhood")
+                        or dados_endereco.get("quarter")
+                        or dados_endereco.get("city_district")
+                        or dados_endereco.get("district")
+                        or "Não informado"
+                    )
+
+                    cidade = (
+                        dados_endereco.get("city")
+                        or dados_endereco.get("town")
+                        or dados_endereco.get("municipality")
+                        or dados_endereco.get("village")
+                        or "Não informado"
+                    )
+
+                    estado = (
+                        dados_endereco.get(
+                            "state",
+                            "Não informado"
+                        )
+                    )
+
+                    pais = (
+                        dados_endereco.get(
+                            "country",
+                            "Brasil"
+                        )
+                    )
+
+                    st.session_state[
+                        "endereco_obra"
+                    ] = location.address
+
+                    st.session_state[
+                        "dados_endereco_obra"
+                    ] = {
+                        "rua": rua,
+                        "numero": numero_mapa,
+                        "bairro": bairro_mapa,
+                        "cidade": cidade,
+                        "estado": estado,
+                        "pais": pais
+                    }
+
+            except Exception as e:
+
+                st.warning(
+                    f"⚠️ Não foi possível localizar "
+                    f"o endereço: {e}"
+                )
+
+    # ==================================================
+    # PEGAR LOCALIZAÇÃO SALVA
+    # ==================================================
+
+    latitude = st.session_state[
+        "latitude_obra"
+    ]
+
+    longitude = st.session_state[
+        "longitude_obra"
+    ]
+
+    dados = st.session_state[
+        "dados_endereco_obra"
+    ]
+
+    # ==================================================
+    # MOSTRAR LOCALIZAÇÃO
+    # ==================================================
+
+    endereco = st.session_state[
+        "endereco_obra"
+    ]
+
+    if (
+        latitude is not None
+        and longitude is not None
+    ):
+
+        st.success(
+            "✅ Local selecionado"
+        )
+
+        col_local1, col_local2, col_local3 = (
+            st.columns(3)
+        )
+
+        with col_local1:
+
+            st.write(
+                "🛣️ **Rua:**",
+                dados.get(
+                    "rua",
+                    "Não informado"
+                )
+            )
+
+            st.write(
+                "🔢 **Número:**",
+                numero
+                if numero
+                else "Não informado"
+            )
+
+        with col_local2:
+
+            st.write(
+                "🏘️ **Bairro:**",
+                bairro
+                if bairro
+                else "Não informado"
+            )
+
+            st.write(
+                "🏙️ **Cidade:**",
+                dados.get(
+                    "cidade",
+                    "Não informado"
+                )
+            )
+
+        with col_local3:
+
+            st.write(
+                "🗺️ **Estado:**",
+                dados.get(
+                    "estado",
+                    "Não informado"
+                )
+            )
+
+            st.write(
+                "🌎 **País:**",
+                dados.get(
+                    "pais",
+                    "Brasil"
+                )
+            )
+
+        st.info(
+            f"📌 Coordenadas: "
+            f"{latitude:.6f}, "
+            f"{longitude:.6f}"
+        )
+
+        # ==================================================
+        # ENDEREÇO FINAL
+        # ==================================================
+
+        endereco = (
+            f"{dados.get('rua', 'Não informado')}, "
+            f"{numero if numero else 'S/N'} - "
+            f"{bairro if bairro else 'Não informado'}, "
+            f"{dados.get('cidade', 'Não informado')} - "
+            f"{dados.get('estado', 'Não informado')}, "
+            f"{dados.get('pais', 'Brasil')}"
+        )
+
+        st.session_state[
+            "endereco_obra"
+        ] = endereco
+
+        st.info(
+            f"🏠 Endereço: {endereco}"
+        )
+
+    # ==================================================
+    # RESPONSÁVEIS / ART
+    # ==================================================
+
+    st.divider()
+
+    st.subheader("👷 Responsáveis pela Obra")
+
+    st.caption(
+        "Selecione o responsável, informe os dados da ART "
+        "e clique em Adicionar Responsável."
+    )
 
     # ==================================================
     # BUSCAR RESPONSÁVEIS
@@ -9039,6 +9400,10 @@ def incluir_obra():
 
     responsaveis_cadastrados = cursor.fetchall()
 
+    # ==================================================
+    # OPÇÕES
+    # ==================================================
+
     opcoes_responsaveis = {
         "Selecione o responsável": {
             "id": None,
@@ -9052,17 +9417,29 @@ def incluir_obra():
 
         id_responsavel = registro[0]
         nome_responsavel = registro[1]
-        tipo_responsavel = registro[2] or ""
-        vinculo_responsavel = registro[3] or ""
 
         opcoes_responsaveis[
             nome_responsavel
         ] = {
             "id": id_responsavel,
             "nome": nome_responsavel,
-            "tipo_responsabilidade": tipo_responsavel,
-            "tipo_vinculo": vinculo_responsavel
+            "tipo_responsabilidade": (
+                registro[2] or ""
+            ),
+            "tipo_vinculo": (
+                registro[3] or ""
+            )
         }
+
+    # ==================================================
+    # SE NÃO EXISTIR RESPONSÁVEL CADASTRADO
+    # ==================================================
+
+    if not responsaveis_cadastrados:
+
+        st.warning(
+            "⚠️ Nenhum responsável ativo cadastrado."
+        )
 
     # ==================================================
     # SELECIONAR RESPONSÁVEL
@@ -9070,20 +9447,24 @@ def incluir_obra():
 
     responsavel_selecionado = st.selectbox(
         "👤 Responsável pela Obra",
-        options=list(opcoes_responsaveis.keys()),
+        options=list(
+            opcoes_responsaveis.keys()
+        ),
         key=f"art_responsavel_{cadastro_id}"
     )
 
-    dados_responsavel = opcoes_responsaveis[
-        responsavel_selecionado
-    ]
+    dados_responsavel = (
+        opcoes_responsaveis[
+            responsavel_selecionado
+        ]
+    )
 
     responsavel_id_selecionado = (
         dados_responsavel["id"]
     )
 
     # ==================================================
-    # DADOS DO RESPONSÁVEL
+    # DADOS DO RESPONSÁVEL SELECIONADO
     # ==================================================
 
     if responsavel_id_selecionado is not None:
@@ -9100,13 +9481,19 @@ def incluir_obra():
             ]
         )
 
+        # ==================================================
+        # RESPONSABILIDADE / VÍNCULO
+        # ==================================================
+
         col_resp1, col_resp2 = st.columns(2)
 
         with col_resp1:
 
             st.text_input(
                 "👷 Tipo de Responsabilidade",
-                value=tipo_responsabilidade_selecionado,
+                value=(
+                    tipo_responsabilidade_selecionado
+                ),
                 disabled=True,
                 key=(
                     f"art_resp_visual_"
@@ -9119,7 +9506,9 @@ def incluir_obra():
 
             st.text_input(
                 "🔗 Tipo de Vínculo",
-                value=tipo_vinculo_selecionado,
+                value=(
+                    tipo_vinculo_selecionado
+                ),
                 disabled=True,
                 key=(
                     f"art_vinculo_visual_"
@@ -9129,7 +9518,7 @@ def incluir_obra():
             )
 
         # ==================================================
-        # DADOS DA ART
+        # ART
         # ==================================================
 
         col_art1, col_art2 = st.columns(2)
@@ -9138,13 +9527,17 @@ def incluir_obra():
 
             numero_art_temp = st.text_input(
                 "📜 Número da ART",
-                placeholder="Informe o número da ART",
+                placeholder=(
+                    "Informe o número da ART"
+                ),
                 key=(
                     f"numero_art_temp_"
                     f"{cadastro_id}_"
                     f"{responsavel_id_selecionado}"
                 )
             )
+
+        with col_art2:
 
             tipo_art_temp = st.selectbox(
                 "🏗️ Tipo da ART",
@@ -9160,23 +9553,35 @@ def incluir_obra():
                 )
             )
 
-        with col_art2:
+        # ==================================================
+        # DATAS DA ART
+        # ==================================================
 
-            data_inicio_art_temp = st.date_input(
-                "📅 Data Inicial da ART",
-                key=(
-                    f"inicio_art_temp_"
-                    f"{cadastro_id}_"
-                    f"{responsavel_id_selecionado}"
+        col_data1, col_data2 = st.columns(2)
+
+        with col_data1:
+
+            data_inicio_art_temp = (
+                st.date_input(
+                    "📅 Data Inicial da ART",
+                    key=(
+                        f"inicio_art_temp_"
+                        f"{cadastro_id}_"
+                        f"{responsavel_id_selecionado}"
+                    )
                 )
             )
 
-            data_final_art_temp = st.date_input(
-                "📅 Data Final da ART",
-                key=(
-                    f"final_art_temp_"
-                    f"{cadastro_id}_"
-                    f"{responsavel_id_selecionado}"
+        with col_data2:
+
+            data_final_art_temp = (
+                st.date_input(
+                    "📅 Data Final da ART",
+                    key=(
+                        f"final_art_temp_"
+                        f"{cadastro_id}_"
+                        f"{responsavel_id_selecionado}"
+                    )
                 )
             )
 
@@ -9187,8 +9592,15 @@ def incluir_obra():
         if st.button(
             "➕ Adicionar Responsável",
             use_container_width=True,
-            key=f"adicionar_responsavel_obra_{cadastro_id}"
+            key=(
+                f"adicionar_responsavel_obra_"
+                f"{cadastro_id}"
+            )
         ):
+
+            # --------------------------------------------------
+            # VALIDAR ART
+            # --------------------------------------------------
 
             if not numero_art_temp.strip():
 
@@ -9208,6 +9620,10 @@ def incluir_obra():
 
             else:
 
+                # --------------------------------------------------
+                # VERIFICAR DUPLICIDADE
+                # --------------------------------------------------
+
                 ja_adicionado = any(
                     item["responsavel_id"]
                     == responsavel_id_selecionado
@@ -9224,6 +9640,10 @@ def incluir_obra():
                     )
 
                 else:
+
+                    # --------------------------------------------------
+                    # ADICIONAR
+                    # --------------------------------------------------
 
                     st.session_state[
                         "responsaveis_temp_obra"
@@ -9315,7 +9735,10 @@ def incluir_obra():
         if st.button(
             "↩️ Remover Último",
             use_container_width=True,
-            key=f"remover_responsavel_obra_{cadastro_id}"
+            key=(
+                f"remover_responsavel_obra_"
+                f"{cadastro_id}"
+            )
         ):
 
             st.session_state[
@@ -9331,332 +9754,11 @@ def incluir_obra():
         )
 
     # ==================================================
-    # SITUAÇÃO DA OBRA
+    # SALVAR OBRA
     # ==================================================
-
-    st.divider()
-
-    situacao = st.selectbox(
-        "📊 Situação da Obra",
-        [
-            "1 – Não iniciado",
-            "2 – Iniciado",
-            "3 – Encerrado por rescisão contratual",
-            "4 – Paralisado",
-            "5 – Concluído e não recebido",
-            "6 – Concluído e recebido provisoriamente",
-            "7 – Concluído e recebido definitivamente",
-            "8 – Reiniciado"
-        ],
-        key=f"situacao_{cadastro_id}"
-    )
-
-    # ==================================================
-    # ESTADO DA LOCALIZAÇÃO
-    # ==================================================
-
-    if "latitude_obra" not in st.session_state:
-        st.session_state["latitude_obra"] = None
-
-    if "longitude_obra" not in st.session_state:
-        st.session_state["longitude_obra"] = None
-
-    if "endereco_obra" not in st.session_state:
-        st.session_state["endereco_obra"] = None
-
-    if "dados_endereco_obra" not in st.session_state:
-        st.session_state["dados_endereco_obra"] = {}
-
-    # ==================================================
-    # MAPA
-    # ==================================================
-
-    st.subheader("📍 Local da Obra")
-
-    st.info(
-        "🖱️ Clique no mapa exatamente no local da obra."
-    )
-
-    mapa = folium.Map(
-        location=[-20.7336, -42.0306],
-        zoom_start=15
-    )
-
-    # ==================================================
-    # MARCADOR
-    # ==================================================
-
-    if (
-        st.session_state["latitude_obra"] is not None
-        and st.session_state["longitude_obra"] is not None
-    ):
-
-        folium.Marker(
-            [
-                st.session_state["latitude_obra"],
-                st.session_state["longitude_obra"]
-            ],
-            popup="Local da Obra",
-            tooltip="Local selecionado"
-        ).add_to(mapa)
-
-    map_data = st_folium(
-        mapa,
-        width=800,
-        height=500,
-        key=f"mapa_{cadastro_id}"
-    )
-
-    # ==================================================
-    # LOCAL CLICADO
-    # ==================================================
-
-    if map_data and map_data.get("last_clicked"):
-
-        latitude = map_data[
-            "last_clicked"
-        ]["lat"]
-
-        longitude = map_data[
-            "last_clicked"
-        ]["lng"]
-
-        if (
-            latitude
-            != st.session_state["latitude_obra"]
-            or longitude
-            != st.session_state["longitude_obra"]
-        ):
-
-            st.session_state[
-                "latitude_obra"
-            ] = latitude
-
-            st.session_state[
-                "longitude_obra"
-            ] = longitude
-
-            try:
-
-                geolocator = get_geolocator()
-
-                location = geolocator.reverse(
-                    (latitude, longitude),
-                    language="pt",
-                    timeout=10,
-                    exactly_one=True
-                )
-
-                if location:
-
-                    dados_endereco = (
-                        location.raw.get(
-                            "address",
-                            {}
-                        )
-                    )
-
-                    rua = (
-                        dados_endereco.get("road")
-                        or dados_endereco.get(
-                            "pedestrian"
-                        )
-                        or dados_endereco.get(
-                            "residential"
-                        )
-                        or "Não informado"
-                    )
-
-                    numero_mapa = (
-                        dados_endereco.get(
-                            "house_number"
-                        )
-                        or "Não informado"
-                    )
-
-                    bairro_mapa = (
-                        dados_endereco.get(
-                            "suburb"
-                        )
-                        or dados_endereco.get(
-                            "neighbourhood"
-                        )
-                        or dados_endereco.get(
-                            "quarter"
-                        )
-                        or dados_endereco.get(
-                            "city_district"
-                        )
-                        or dados_endereco.get(
-                            "district"
-                        )
-                        or "Não informado"
-                    )
-
-                    cidade = (
-                        dados_endereco.get(
-                            "city"
-                        )
-                        or dados_endereco.get(
-                            "town"
-                        )
-                        or dados_endereco.get(
-                            "municipality"
-                        )
-                        or dados_endereco.get(
-                            "village"
-                        )
-                        or "Não informado"
-                    )
-
-                    estado = dados_endereco.get(
-                        "state",
-                        "Não informado"
-                    )
-
-                    pais = dados_endereco.get(
-                        "country",
-                        "Brasil"
-                    )
-
-                    st.session_state[
-                        "endereco_obra"
-                    ] = location.address
-
-                    st.session_state[
-                        "dados_endereco_obra"
-                    ] = {
-                        "rua": rua,
-                        "numero": numero_mapa,
-                        "bairro": bairro_mapa,
-                        "cidade": cidade,
-                        "estado": estado,
-                        "pais": pais
-                    }
-
-            except Exception as e:
-
-                st.warning(
-                    f"⚠️ Não foi possível localizar "
-                    f"o endereço: {e}"
-                )
-
-    # ==================================================
-    # DADOS DA LOCALIZAÇÃO
-    # ==================================================
-
-    latitude = st.session_state[
-        "latitude_obra"
-    ]
-
-    longitude = st.session_state[
-        "longitude_obra"
-    ]
-
-    endereco = st.session_state[
-        "endereco_obra"
-    ]
-
-    dados = st.session_state[
-        "dados_endereco_obra"
-    ]
-
-    # ==================================================
-    # MOSTRAR LOCALIZAÇÃO
-    # ==================================================
-
-    if (
-        latitude is not None
-        and longitude is not None
-    ):
-
-        st.success(
-            "✅ Local selecionado"
-        )
-
-        col1, col2, col3 = st.columns(3)
-
-        with col1:
-
-            st.write(
-                "🛣️ **Rua:**",
-                dados.get(
-                    "rua",
-                    "Não informado"
-                )
-            )
-
-            st.write(
-                "🔢 **Número:**",
-                numero
-                if numero
-                else "Não informado"
-            )
-
-        with col2:
-
-            st.write(
-                "🏘️ **Bairro:**",
-                bairro
-                if bairro
-                else "Não informado"
-            )
-
-            st.write(
-                "🏙️ **Cidade:**",
-                dados.get(
-                    "cidade",
-                    "Não informado"
-                )
-            )
-
-        with col3:
-
-            st.write(
-                "🗺️ **Estado:**",
-                dados.get(
-                    "estado",
-                    "Não informado"
-                )
-            )
-
-            st.write(
-                "🌎 **País:**",
-                dados.get(
-                    "pais",
-                    "Brasil"
-                )
-            )
-
-        st.info(
-            f"📌 Coordenadas: "
-            f"{latitude:.6f}, "
-            f"{longitude:.6f}"
-        )
-
-        # ==================================================
-        # MONTAR ENDEREÇO FINAL
-        # ==================================================
-
-        endereco = (
-            f"{dados.get('rua', 'Não informado')}, "
-            f"{numero if numero else 'S/N'} - "
-            f"{bairro if bairro else 'Não informado'}, "
-            f"{dados.get('cidade', 'Não informado')} - "
-            f"{dados.get('estado', 'Não informado')}, "
-            f"{dados.get('pais', 'Brasil')}"
-        )
-
-        st.session_state[
-            "endereco_obra"
-        ] = endereco
-
-        st.info(
-            f"🏠 Endereço: {endereco}"
-        )
-
-    # ==================================================
-    # SALVAR
+    #
+    # AGORA O SALVAR FICA LOGO APÓS A ADIÇÃO
+    # DOS RESPONSÁVEIS.
     # ==================================================
 
     st.divider()
@@ -9686,13 +9788,10 @@ def incluir_obra():
             )
             return
 
-        if not st.session_state[
-            "responsaveis_temp_obra"
-        ]:
+        if valor_obra <= 0:
 
             st.warning(
-                "⚠️ Adicione pelo menos um responsável "
-                "à obra."
+                "⚠️ Informe o valor da obra."
             )
             return
 
@@ -9703,52 +9802,87 @@ def incluir_obra():
             )
             return
 
+        if not st.session_state[
+            "responsaveis_temp_obra"
+        ]:
+
+            st.warning(
+                "⚠️ Adicione pelo menos um responsável "
+                "à obra antes de salvar."
+            )
+            return
+
         # ==================================================
         # PRIMEIRO RESPONSÁVEL
-        # MANTÉM COMPATIBILIDADE COM A TABELA OBRAS
+        # ==================================================
+        #
+        # Mantém compatibilidade com os campos antigos
+        # da tabela obras.
         # ==================================================
 
-        primeiro_responsavel = st.session_state[
-            "responsaveis_temp_obra"
-        ][0]
+        primeiro_responsavel = (
+            st.session_state[
+                "responsaveis_temp_obra"
+            ][0]
+        )
 
-        responsavel_id = primeiro_responsavel[
-            "responsavel_id"
-        ]
+        responsavel_id = (
+            primeiro_responsavel[
+                "responsavel_id"
+            ]
+        )
 
-        responsavel = primeiro_responsavel[
-            "nome"
-        ]
+        responsavel = (
+            primeiro_responsavel[
+                "nome"
+            ]
+        )
 
-        tipo_responsabilidade = primeiro_responsavel[
-            "tipo_responsabilidade"
-        ]
+        tipo_responsabilidade = (
+            primeiro_responsavel[
+                "tipo_responsabilidade"
+            ]
+        )
 
-        tipo_vinculo = primeiro_responsavel[
-            "tipo_vinculo"
-        ]
+        tipo_vinculo = (
+            primeiro_responsavel[
+                "tipo_vinculo"
+            ]
+        )
 
-        art = primeiro_responsavel[
-            "numero_art"
-        ]
+        art = (
+            primeiro_responsavel[
+                "numero_art"
+            ]
+        )
 
-        tipo_art = primeiro_responsavel[
-            "tipo_art"
-        ]
+        tipo_art = (
+            primeiro_responsavel[
+                "tipo_art"
+            ]
+        )
 
-        data_inicio_art = primeiro_responsavel[
-            "data_inicio_art"
-        ]
+        data_inicio_art = (
+            primeiro_responsavel[
+                "data_inicio_art"
+            ]
+        )
 
-        data_final_art = primeiro_responsavel[
-            "data_final_art"
-        ]
+        data_final_art = (
+            primeiro_responsavel[
+                "data_final_art"
+            ]
+        )
 
         # ==================================================
         # SALVAR NO BANCO
         # ==================================================
 
         try:
+
+            # ==================================================
+            # OBRA
+            # ==================================================
 
             cursor.execute("""
                 INSERT INTO obras (
@@ -9814,6 +9948,7 @@ def incluir_obra():
                 latitude,
                 longitude,
                 endereco,
+
                 numero.strip(),
                 bairro.strip(),
 
@@ -9831,13 +9966,13 @@ def incluir_obra():
             ))
 
             # ==================================================
-            # ID DA NOVA OBRA
+            # ID DA OBRA NOVA
             # ==================================================
 
             obra_id_nova = cursor.lastrowid
 
             # ==================================================
-            # SALVAR TODOS OS RESPONSÁVEIS DA OBRA
+            # TODOS OS RESPONSÁVEIS DA OBRA
             # ==================================================
 
             for item in st.session_state[
@@ -9874,31 +10009,20 @@ def incluir_obra():
             conn.commit()
 
             # ==================================================
-            # LIMPAR RESPONSÁVEIS TEMPORÁRIOS
+            # LIMPAR RESPONSÁVEIS
             # ==================================================
 
             st.session_state[
                 "responsaveis_temp_obra"
             ] = []
 
-            # ==================================================
-            # MENSAGEM DE SUCESSO
-            # ==================================================
-
-            st.session_state[
-                "obra_cadastrada_sucesso"
-            ] = True
+            st.session_state.pop(
+                "responsaveis_temp_obra_cadastro_id",
+                None
+            )
 
             # ==================================================
-            # VOLTAR PARA PRINCIPAL
-            # ==================================================
-
-            st.session_state[
-                "tela_obras"
-            ] = "Principal"
-
-            # ==================================================
-            # LIMPAR LOCALIZAÇÃO
+            # LIMPAR MAPA
             # ==================================================
 
             st.session_state.pop(
@@ -9922,12 +10046,28 @@ def incluir_obra():
             )
 
             # ==================================================
-            # NOVAS KEYS PARA PRÓXIMO CADASTRO
+            # SUCESSO
+            # ==================================================
+
+            st.session_state[
+                "obra_cadastrada_sucesso"
+            ] = True
+
+            # ==================================================
+            # NOVO ID PARA LIMPAR WIDGETS
             # ==================================================
 
             st.session_state[
                 "cadastro_obra_id"
             ] += 1
+
+            # ==================================================
+            # VOLTAR
+            # ==================================================
+
+            st.session_state[
+                "tela_obras"
+            ] = "Principal"
 
             st.rerun()
 
