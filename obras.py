@@ -590,26 +590,31 @@ def excluir_responsavel():
             "permanentemente do banco de dados."
         )
 
+        # ==========================================
+        # CONFIRMAR EXCLUSÃO
+        # ==========================================
+
         confirmar = st.checkbox(
-            (
-                "Confirmo que desejo excluir "
-                "permanentemente este responsável."
-            ),
+            "Confirmo a exclusão deste responsável.",
             key="confirmar_exclusao_responsavel"
         )
 
+        # ==========================================
+        # BOTÃO SALVAR EXCLUSÃO
+        # ==========================================
+
         if st.button(
-            "🗑️ Excluir Definitivamente",
+            "💾 Salvar Exclusão",
             type="primary",
             use_container_width=True,
             disabled=not confirmar,
-            key="btn_confirmar_exclusao_responsavel"
+            key="btn_salvar_exclusao_responsavel"
         ):
 
             try:
 
                 # ==================================
-                # EXCLUIR DO BANCO
+                # EXCLUIR DEFINITIVAMENTE
                 # ==================================
 
                 cursor.execute("""
@@ -622,7 +627,7 @@ def excluir_responsavel():
                 conn.commit()
 
                 # ==================================
-                # MENSAGEM DE SUCESSO
+                # CONFIRMAR SUCESSO
                 # ==================================
 
                 st.session_state[
@@ -630,7 +635,7 @@ def excluir_responsavel():
                 ] = True
 
                 # ==================================
-                # LIMPAR SELEÇÃO
+                # LIMPAR RESPONSÁVEL SELECIONADO
                 # ==================================
 
                 st.session_state.pop(
