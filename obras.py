@@ -1001,7 +1001,7 @@ def excluir_item_obra():
             st.error(
                 f"❌ Erro ao excluir item: {e}"
             )
-	def alterar_responsavel():
+def alterar_responsavel():
 
     st.subheader("✏️ Alterar Responsável")
 
