@@ -8913,8 +8913,7 @@ def incluir_obra():
     cadastro_id = st.session_state["cadastro_obra_id"]
 
     # ==================================================
-    # GARANTIR QUE A LISTA TEMPORÁRIA PERTENCE
-    # AO CADASTRO ATUAL
+    # RESPONSÁVEIS TEMPORÁRIOS
     # ==================================================
 
     if (
@@ -8928,7 +8927,7 @@ def incluir_obra():
         ] = cadastro_id
 
     # ==================================================
-    # ESTADO DA LOCALIZAÇÃO
+    # LOCALIZAÇÃO
     # ==================================================
 
     if "latitude_obra" not in st.session_state:
@@ -9039,10 +9038,366 @@ def incluir_obra():
         )
 
     # ==================================================
-    # SITUAÇÃO INICIAL
+    # RESPONSÁVEIS / ART
     # ==================================================
 
     st.divider()
+
+    st.subheader("👷 Responsáveis / ART")
+
+    st.caption(
+        "Selecione um responsável, informe os dados "
+        "da ART e clique em Salvar Responsável."
+    )
+
+    # ==================================================
+    # BUSCAR RESPONSÁVEIS
+    # ==================================================
+
+    cursor.execute("""
+        SELECT
+            id,
+            nome,
+            tipo_responsabilidade,
+            tipo_vinculo
+        FROM responsaveis
+        WHERE ativo = 1
+        ORDER BY nome
+    """)
+
+    responsaveis_cadastrados = cursor.fetchall()
+
+    opcoes_responsaveis = {
+        "Selecione o responsável": {
+            "id": None,
+            "nome": "",
+            "tipo_responsabilidade": "",
+            "tipo_vinculo": ""
+        }
+    }
+
+    for registro in responsaveis_cadastrados:
+
+        id_responsavel = registro[0]
+        nome_responsavel = registro[1]
+
+        opcoes_responsaveis[
+            nome_responsavel
+        ] = {
+            "id": id_responsavel,
+            "nome": nome_responsavel,
+            "tipo_responsabilidade": (
+                registro[2] or ""
+            ),
+            "tipo_vinculo": (
+                registro[3] or ""
+            )
+        }
+
+    if not responsaveis_cadastrados:
+
+        st.warning(
+            "⚠️ Nenhum responsável ativo cadastrado."
+        )
+
+    # ==================================================
+    # SELECIONAR RESPONSÁVEL
+    # ==================================================
+
+    responsavel_selecionado = st.selectbox(
+        "👤 Responsável pela Obra",
+        options=list(
+            opcoes_responsaveis.keys()
+        ),
+        key=f"art_responsavel_{cadastro_id}"
+    )
+
+    dados_responsavel = (
+        opcoes_responsaveis[
+            responsavel_selecionado
+        ]
+    )
+
+    responsavel_id_selecionado = (
+        dados_responsavel["id"]
+    )
+
+    # ==================================================
+    # DADOS DO RESPONSÁVEL
+    # ==================================================
+
+    if responsavel_id_selecionado is not None:
+
+        tipo_responsabilidade_selecionado = (
+            dados_responsavel[
+                "tipo_responsabilidade"
+            ]
+        )
+
+        tipo_vinculo_selecionado = (
+            dados_responsavel[
+                "tipo_vinculo"
+            ]
+        )
+
+        col_resp1, col_resp2 = st.columns(2)
+
+        with col_resp1:
+
+            st.text_input(
+                "👷 Tipo de Responsabilidade",
+                value=(
+                    tipo_responsabilidade_selecionado
+                ),
+                disabled=True,
+                key=(
+                    f"art_resp_visual_"
+                    f"{cadastro_id}_"
+                    f"{responsavel_id_selecionado}"
+                )
+            )
+
+        with col_resp2:
+
+            st.text_input(
+                "🔗 Tipo de Vínculo",
+                value=(
+                    tipo_vinculo_selecionado
+                ),
+                disabled=True,
+                key=(
+                    f"art_vinculo_visual_"
+                    f"{cadastro_id}_"
+                    f"{responsavel_id_selecionado}"
+                )
+            )
+
+        # ==================================================
+        # ART
+        # ==================================================
+
+        col_art1, col_art2 = st.columns(2)
+
+        with col_art1:
+
+            numero_art_temp = st.text_input(
+                "📜 Número da ART",
+                placeholder="Informe o número da ART",
+                key=(
+                    f"numero_art_temp_"
+                    f"{cadastro_id}_"
+                    f"{responsavel_id_selecionado}"
+                )
+            )
+
+        with col_art2:
+
+            tipo_art_temp = st.selectbox(
+                "🏗️ Tipo da ART",
+                [
+                    "Fiscalização",
+                    "Execução",
+                    "Projeto"
+                ],
+                key=(
+                    f"tipo_art_temp_"
+                    f"{cadastro_id}_"
+                    f"{responsavel_id_selecionado}"
+                )
+            )
+
+        # ==================================================
+        # DATAS ART
+        # ==================================================
+
+        col_data1, col_data2 = st.columns(2)
+
+        with col_data1:
+
+            data_inicio_art_temp = st.date_input(
+                "📅 Data Inicial da ART",
+                key=(
+                    f"inicio_art_temp_"
+                    f"{cadastro_id}_"
+                    f"{responsavel_id_selecionado}"
+                )
+            )
+
+        with col_data2:
+
+            data_final_art_temp = st.date_input(
+                "📅 Data Final da ART",
+                key=(
+                    f"final_art_temp_"
+                    f"{cadastro_id}_"
+                    f"{responsavel_id_selecionado}"
+                )
+            )
+
+        # ==================================================
+        # SALVAR RESPONSÁVEL
+        # ==================================================
+
+        if st.button(
+            "💾 Salvar Responsável",
+            type="primary",
+            use_container_width=True,
+            key=(
+                f"salvar_responsavel_obra_"
+                f"{cadastro_id}"
+            )
+        ):
+
+            if not numero_art_temp.strip():
+
+                st.warning(
+                    "⚠️ Informe o número da ART."
+                )
+
+            elif (
+                data_final_art_temp
+                < data_inicio_art_temp
+            ):
+
+                st.warning(
+                    "⚠️ A data final da ART não pode "
+                    "ser anterior à data inicial."
+                )
+
+            else:
+
+                ja_adicionado = any(
+                    item["responsavel_id"]
+                    == responsavel_id_selecionado
+                    for item in st.session_state[
+                        "responsaveis_temp_obra"
+                    ]
+                )
+
+                if ja_adicionado:
+
+                    st.warning(
+                        "⚠️ Este responsável já foi "
+                        "adicionado à obra."
+                    )
+
+                else:
+
+                    st.session_state[
+                        "responsaveis_temp_obra"
+                    ].append({
+                        "responsavel_id": (
+                            responsavel_id_selecionado
+                        ),
+                        "nome": (
+                            dados_responsavel["nome"]
+                        ),
+                        "tipo_responsabilidade": (
+                            tipo_responsabilidade_selecionado
+                        ),
+                        "tipo_vinculo": (
+                            tipo_vinculo_selecionado
+                        ),
+                        "numero_art": (
+                            numero_art_temp.strip()
+                        ),
+                        "tipo_art": (
+                            tipo_art_temp
+                        ),
+                        "data_inicio_art": (
+                            data_inicio_art_temp.strftime(
+                                "%Y-%m-%d"
+                            )
+                        ),
+                        "data_final_art": (
+                            data_final_art_temp.strftime(
+                                "%Y-%m-%d"
+                            )
+                        )
+                    })
+
+                    st.rerun()
+
+    # ==================================================
+    # RESPONSÁVEIS SALVOS
+    # ==================================================
+
+    responsaveis_temp = st.session_state[
+        "responsaveis_temp_obra"
+    ]
+
+    if responsaveis_temp:
+
+        st.markdown(
+            "### ✅ Responsáveis adicionados"
+        )
+
+        dados_tabela = []
+
+        for item in responsaveis_temp:
+
+            dados_tabela.append({
+                "Responsável": (
+                    item["nome"]
+                ),
+                "Responsabilidade": (
+                    item["tipo_responsabilidade"]
+                ),
+                "Vínculo": (
+                    item["tipo_vinculo"]
+                ),
+                "ART": (
+                    item["numero_art"]
+                ),
+                "Tipo ART": (
+                    item["tipo_art"]
+                ),
+                "Início": (
+                    item["data_inicio_art"]
+                ),
+                "Final": (
+                    item["data_final_art"]
+                )
+            })
+
+        df_responsaveis = pd.DataFrame(
+            dados_tabela
+        )
+
+        st.dataframe(
+            df_responsaveis,
+            use_container_width=True,
+            hide_index=True
+        )
+
+        if st.button(
+            "↩️ Remover Último Responsável",
+            use_container_width=True,
+            key=(
+                f"remover_responsavel_obra_"
+                f"{cadastro_id}"
+            )
+        ):
+
+            st.session_state[
+                "responsaveis_temp_obra"
+            ].pop()
+
+            st.rerun()
+
+    else:
+
+        st.info(
+            "Nenhum responsável foi salvo para esta obra."
+        )
+
+    # ==================================================
+    # SITUAÇÃO
+    # ==================================================
+
+    st.divider()
+
+    st.subheader("🚧 Situação Inicial da Obra")
 
     situacao = st.selectbox(
         "📊 Situação da Obra",
@@ -9074,10 +9429,6 @@ def incluir_obra():
     # ==================================================
     # CENTRO DO MAPA
     # ==================================================
-    #
-    # Se já existe um ponto escolhido, o mapa volta
-    # exatamente para ele após qualquer rerun.
-    # ==================================================
 
     if (
         st.session_state["latitude_obra"] is not None
@@ -9099,6 +9450,10 @@ def incluir_obra():
         ]
 
         zoom_mapa = 15
+
+    # ==================================================
+    # CRIAR MAPA
+    # ==================================================
 
     mapa = folium.Map(
         location=centro_mapa,
@@ -9124,13 +9479,13 @@ def incluir_obra():
         ).add_to(mapa)
 
     # ==================================================
-    # EXIBIR MAPA
+    # MAPA GRANDE
     # ==================================================
 
     map_data = st_folium(
         mapa,
-        width=800,
-        height=500,
+        height=700,
+        use_container_width=True,
         key=f"mapa_{cadastro_id}"
     )
 
@@ -9138,14 +9493,21 @@ def incluir_obra():
     # LOCAL CLICADO
     # ==================================================
 
-    if map_data and map_data.get("last_clicked"):
+    if (
+        map_data
+        and map_data.get("last_clicked")
+    ):
 
         latitude_clicada = (
-            map_data["last_clicked"]["lat"]
+            map_data[
+                "last_clicked"
+            ]["lat"]
         )
 
         longitude_clicada = (
-            map_data["last_clicked"]["lng"]
+            map_data[
+                "last_clicked"
+            ]["lng"]
         )
 
         ponto_mudou = (
@@ -9165,6 +9527,10 @@ def incluir_obra():
             st.session_state[
                 "longitude_obra"
             ] = longitude_clicada
+
+            # ==================================================
+            # BUSCAR ENDEREÇO
+            # ==================================================
 
             try:
 
@@ -9191,31 +9557,46 @@ def incluir_obra():
 
                     rua = (
                         dados_endereco.get("road")
-                        or dados_endereco.get("pedestrian")
-                        or dados_endereco.get("residential")
-                        or "Não informado"
+                        or
+                        dados_endereco.get("pedestrian")
+                        or
+                        dados_endereco.get("residential")
+                        or
+                        "Não informado"
                     )
 
                     numero_mapa = (
-                        dados_endereco.get("house_number")
-                        or "Não informado"
+                        dados_endereco.get(
+                            "house_number"
+                        )
+                        or
+                        "Não informado"
                     )
 
                     bairro_mapa = (
                         dados_endereco.get("suburb")
-                        or dados_endereco.get("neighbourhood")
-                        or dados_endereco.get("quarter")
-                        or dados_endereco.get("city_district")
-                        or dados_endereco.get("district")
-                        or "Não informado"
+                        or
+                        dados_endereco.get("neighbourhood")
+                        or
+                        dados_endereco.get("quarter")
+                        or
+                        dados_endereco.get("city_district")
+                        or
+                        dados_endereco.get("district")
+                        or
+                        "Não informado"
                     )
 
                     cidade = (
                         dados_endereco.get("city")
-                        or dados_endereco.get("town")
-                        or dados_endereco.get("municipality")
-                        or dados_endereco.get("village")
-                        or "Não informado"
+                        or
+                        dados_endereco.get("town")
+                        or
+                        dados_endereco.get("municipality")
+                        or
+                        dados_endereco.get("village")
+                        or
+                        "Não informado"
                     )
 
                     estado = (
@@ -9255,7 +9636,7 @@ def incluir_obra():
                 )
 
     # ==================================================
-    # PEGAR LOCALIZAÇÃO SALVA
+    # PEGAR DADOS SALVOS DA LOCALIZAÇÃO
     # ==================================================
 
     latitude = st.session_state[
@@ -9270,13 +9651,13 @@ def incluir_obra():
         "dados_endereco_obra"
     ]
 
-    # ==================================================
-    # MOSTRAR LOCALIZAÇÃO
-    # ==================================================
-
     endereco = st.session_state[
         "endereco_obra"
     ]
+
+    # ==================================================
+    # MOSTRAR LOCALIZAÇÃO
+    # ==================================================
 
     if (
         latitude is not None
@@ -9284,7 +9665,7 @@ def incluir_obra():
     ):
 
         st.success(
-            "✅ Local selecionado"
+            "✅ Local da obra selecionado"
         )
 
         col_local1, col_local2, col_local3 = (
@@ -9371,397 +9752,12 @@ def incluir_obra():
         )
 
     # ==================================================
-    # RESPONSÁVEIS / ART
-    # ==================================================
-
-    st.divider()
-
-    st.subheader("👷 Responsáveis pela Obra")
-
-    st.caption(
-        "Selecione o responsável, informe os dados da ART "
-        "e clique em Adicionar Responsável."
-    )
-
-    # ==================================================
-    # BUSCAR RESPONSÁVEIS
-    # ==================================================
-
-    cursor.execute("""
-        SELECT
-            id,
-            nome,
-            tipo_responsabilidade,
-            tipo_vinculo
-        FROM responsaveis
-        WHERE ativo = 1
-        ORDER BY nome
-    """)
-
-    responsaveis_cadastrados = cursor.fetchall()
-
-    # ==================================================
-    # OPÇÕES
-    # ==================================================
-
-    opcoes_responsaveis = {
-        "Selecione o responsável": {
-            "id": None,
-            "nome": "",
-            "tipo_responsabilidade": "",
-            "tipo_vinculo": ""
-        }
-    }
-
-    for registro in responsaveis_cadastrados:
-
-        id_responsavel = registro[0]
-        nome_responsavel = registro[1]
-
-        opcoes_responsaveis[
-            nome_responsavel
-        ] = {
-            "id": id_responsavel,
-            "nome": nome_responsavel,
-            "tipo_responsabilidade": (
-                registro[2] or ""
-            ),
-            "tipo_vinculo": (
-                registro[3] or ""
-            )
-        }
-
-    # ==================================================
-    # SE NÃO EXISTIR RESPONSÁVEL CADASTRADO
-    # ==================================================
-
-    if not responsaveis_cadastrados:
-
-        st.warning(
-            "⚠️ Nenhum responsável ativo cadastrado."
-        )
-
-    # ==================================================
-    # SELECIONAR RESPONSÁVEL
-    # ==================================================
-
-    responsavel_selecionado = st.selectbox(
-        "👤 Responsável pela Obra",
-        options=list(
-            opcoes_responsaveis.keys()
-        ),
-        key=f"art_responsavel_{cadastro_id}"
-    )
-
-    dados_responsavel = (
-        opcoes_responsaveis[
-            responsavel_selecionado
-        ]
-    )
-
-    responsavel_id_selecionado = (
-        dados_responsavel["id"]
-    )
-
-    # ==================================================
-    # DADOS DO RESPONSÁVEL SELECIONADO
-    # ==================================================
-
-    if responsavel_id_selecionado is not None:
-
-        tipo_responsabilidade_selecionado = (
-            dados_responsavel[
-                "tipo_responsabilidade"
-            ]
-        )
-
-        tipo_vinculo_selecionado = (
-            dados_responsavel[
-                "tipo_vinculo"
-            ]
-        )
-
-        # ==================================================
-        # RESPONSABILIDADE / VÍNCULO
-        # ==================================================
-
-        col_resp1, col_resp2 = st.columns(2)
-
-        with col_resp1:
-
-            st.text_input(
-                "👷 Tipo de Responsabilidade",
-                value=(
-                    tipo_responsabilidade_selecionado
-                ),
-                disabled=True,
-                key=(
-                    f"art_resp_visual_"
-                    f"{cadastro_id}_"
-                    f"{responsavel_id_selecionado}"
-                )
-            )
-
-        with col_resp2:
-
-            st.text_input(
-                "🔗 Tipo de Vínculo",
-                value=(
-                    tipo_vinculo_selecionado
-                ),
-                disabled=True,
-                key=(
-                    f"art_vinculo_visual_"
-                    f"{cadastro_id}_"
-                    f"{responsavel_id_selecionado}"
-                )
-            )
-
-        # ==================================================
-        # ART
-        # ==================================================
-
-        col_art1, col_art2 = st.columns(2)
-
-        with col_art1:
-
-            numero_art_temp = st.text_input(
-                "📜 Número da ART",
-                placeholder=(
-                    "Informe o número da ART"
-                ),
-                key=(
-                    f"numero_art_temp_"
-                    f"{cadastro_id}_"
-                    f"{responsavel_id_selecionado}"
-                )
-            )
-
-        with col_art2:
-
-            tipo_art_temp = st.selectbox(
-                "🏗️ Tipo da ART",
-                [
-                    "Fiscalização",
-                    "Execução",
-                    "Projeto"
-                ],
-                key=(
-                    f"tipo_art_temp_"
-                    f"{cadastro_id}_"
-                    f"{responsavel_id_selecionado}"
-                )
-            )
-
-        # ==================================================
-        # DATAS DA ART
-        # ==================================================
-
-        col_data1, col_data2 = st.columns(2)
-
-        with col_data1:
-
-            data_inicio_art_temp = (
-                st.date_input(
-                    "📅 Data Inicial da ART",
-                    key=(
-                        f"inicio_art_temp_"
-                        f"{cadastro_id}_"
-                        f"{responsavel_id_selecionado}"
-                    )
-                )
-            )
-
-        with col_data2:
-
-            data_final_art_temp = (
-                st.date_input(
-                    "📅 Data Final da ART",
-                    key=(
-                        f"final_art_temp_"
-                        f"{cadastro_id}_"
-                        f"{responsavel_id_selecionado}"
-                    )
-                )
-            )
-
-        # ==================================================
-        # ADICIONAR RESPONSÁVEL
-        # ==================================================
-
-        if st.button(
-            "➕ Adicionar Responsável",
-            use_container_width=True,
-            key=(
-                f"adicionar_responsavel_obra_"
-                f"{cadastro_id}"
-            )
-        ):
-
-            # --------------------------------------------------
-            # VALIDAR ART
-            # --------------------------------------------------
-
-            if not numero_art_temp.strip():
-
-                st.warning(
-                    "⚠️ Informe o número da ART."
-                )
-
-            elif (
-                data_final_art_temp
-                < data_inicio_art_temp
-            ):
-
-                st.warning(
-                    "⚠️ A data final da ART não pode "
-                    "ser anterior à data inicial."
-                )
-
-            else:
-
-                # --------------------------------------------------
-                # VERIFICAR DUPLICIDADE
-                # --------------------------------------------------
-
-                ja_adicionado = any(
-                    item["responsavel_id"]
-                    == responsavel_id_selecionado
-                    for item in st.session_state[
-                        "responsaveis_temp_obra"
-                    ]
-                )
-
-                if ja_adicionado:
-
-                    st.warning(
-                        "⚠️ Este responsável já foi "
-                        "adicionado à obra."
-                    )
-
-                else:
-
-                    # --------------------------------------------------
-                    # ADICIONAR
-                    # --------------------------------------------------
-
-                    st.session_state[
-                        "responsaveis_temp_obra"
-                    ].append({
-                        "responsavel_id": (
-                            responsavel_id_selecionado
-                        ),
-                        "nome": (
-                            dados_responsavel["nome"]
-                        ),
-                        "tipo_responsabilidade": (
-                            tipo_responsabilidade_selecionado
-                        ),
-                        "tipo_vinculo": (
-                            tipo_vinculo_selecionado
-                        ),
-                        "numero_art": (
-                            numero_art_temp.strip()
-                        ),
-                        "tipo_art": (
-                            tipo_art_temp
-                        ),
-                        "data_inicio_art": (
-                            data_inicio_art_temp.strftime(
-                                "%Y-%m-%d"
-                            )
-                        ),
-                        "data_final_art": (
-                            data_final_art_temp.strftime(
-                                "%Y-%m-%d"
-                            )
-                        )
-                    })
-
-                    st.rerun()
-
-    # ==================================================
-    # RESPONSÁVEIS ADICIONADOS
-    # ==================================================
-
-    responsaveis_temp = st.session_state[
-        "responsaveis_temp_obra"
-    ]
-
-    if responsaveis_temp:
-
-        st.markdown(
-            "#### 📋 Responsáveis adicionados"
-        )
-
-        dados_tabela = []
-
-        for item in responsaveis_temp:
-
-            dados_tabela.append({
-                "Responsável": (
-                    item["nome"]
-                ),
-                "Responsabilidade": (
-                    item["tipo_responsabilidade"]
-                ),
-                "Vínculo": (
-                    item["tipo_vinculo"]
-                ),
-                "Número ART": (
-                    item["numero_art"]
-                ),
-                "Tipo ART": (
-                    item["tipo_art"]
-                ),
-                "Início ART": (
-                    item["data_inicio_art"]
-                ),
-                "Final ART": (
-                    item["data_final_art"]
-                )
-            })
-
-        df_responsaveis = pd.DataFrame(
-            dados_tabela
-        )
-
-        st.dataframe(
-            df_responsaveis,
-            use_container_width=True,
-            hide_index=True
-        )
-
-        if st.button(
-            "↩️ Remover Último",
-            use_container_width=True,
-            key=(
-                f"remover_responsavel_obra_"
-                f"{cadastro_id}"
-            )
-        ):
-
-            st.session_state[
-                "responsaveis_temp_obra"
-            ].pop()
-
-            st.rerun()
-
-    else:
-
-        st.info(
-            "Nenhum responsável adicionado à obra."
-        )
-
-    # ==================================================
     # SALVAR OBRA
     # ==================================================
-    #
-    # AGORA O SALVAR FICA LOGO APÓS A ADIÇÃO
-    # DOS RESPONSÁVEIS.
-    # ==================================================
 
     st.divider()
+
+    st.subheader("💾 Finalizar Cadastro")
 
     if st.button(
         "💾 Salvar Obra",
@@ -9771,7 +9767,7 @@ def incluir_obra():
     ):
 
         # ==================================================
-        # VALIDAÇÕES
+        # VALIDAR NOME
         # ==================================================
 
         if not obra.strip():
@@ -9781,12 +9777,20 @@ def incluir_obra():
             )
             return
 
+        # ==================================================
+        # VALIDAR CONTRATO
+        # ==================================================
+
         if not contrato.strip():
 
             st.warning(
                 "⚠️ Informe o número do contrato."
             )
             return
+
+        # ==================================================
+        # VALIDAR VALOR
+        # ==================================================
 
         if valor_obra <= 0:
 
@@ -9795,20 +9799,31 @@ def incluir_obra():
             )
             return
 
-        if latitude is None or longitude is None:
-
-            st.warning(
-                "⚠️ Selecione o local da obra no mapa."
-            )
-            return
+        # ==================================================
+        # VALIDAR RESPONSÁVEL
+        # ==================================================
 
         if not st.session_state[
             "responsaveis_temp_obra"
         ]:
 
             st.warning(
-                "⚠️ Adicione pelo menos um responsável "
-                "à obra antes de salvar."
+                "⚠️ Salve pelo menos um responsável "
+                "antes de cadastrar a obra."
+            )
+            return
+
+        # ==================================================
+        # VALIDAR MAPA
+        # ==================================================
+
+        if (
+            latitude is None
+            or longitude is None
+        ):
+
+            st.warning(
+                "⚠️ Selecione o local da obra no mapa."
             )
             return
 
@@ -9816,8 +9831,9 @@ def incluir_obra():
         # PRIMEIRO RESPONSÁVEL
         # ==================================================
         #
-        # Mantém compatibilidade com os campos antigos
-        # da tabela obras.
+        # Mantemos os dados do primeiro responsável
+        # também na tabela obras por compatibilidade.
+        # Todos serão gravados em responsaveis_obra.
         # ==================================================
 
         primeiro_responsavel = (
@@ -9881,7 +9897,7 @@ def incluir_obra():
         try:
 
             # ==================================================
-            # OBRA
+            # SALVAR OBRA
             # ==================================================
 
             cursor.execute("""
@@ -9966,13 +9982,13 @@ def incluir_obra():
             ))
 
             # ==================================================
-            # ID DA OBRA NOVA
+            # ID DA NOVA OBRA
             # ==================================================
 
             obra_id_nova = cursor.lastrowid
 
             # ==================================================
-            # TODOS OS RESPONSÁVEIS DA OBRA
+            # SALVAR TODOS OS RESPONSÁVEIS
             # ==================================================
 
             for item in st.session_state[
@@ -10007,6 +10023,14 @@ def incluir_obra():
             # ==================================================
 
             conn.commit()
+
+            # ==================================================
+            # SUCESSO
+            # ==================================================
+
+            st.session_state[
+                "obra_cadastrada_sucesso"
+            ] = True
 
             # ==================================================
             # LIMPAR RESPONSÁVEIS
@@ -10046,15 +10070,7 @@ def incluir_obra():
             )
 
             # ==================================================
-            # SUCESSO
-            # ==================================================
-
-            st.session_state[
-                "obra_cadastrada_sucesso"
-            ] = True
-
-            # ==================================================
-            # NOVO ID PARA LIMPAR WIDGETS
+            # NOVAS KEYS
             # ==================================================
 
             st.session_state[
@@ -10062,7 +10078,7 @@ def incluir_obra():
             ] += 1
 
             # ==================================================
-            # VOLTAR
+            # VOLTAR PARA PRINCIPAL
             # ==================================================
 
             st.session_state[
