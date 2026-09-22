@@ -396,7 +396,7 @@ def excluir_responsavel():
     st.subheader("🗑️ Excluir Responsável")
 
     # ==========================================
-    # VOLTAR
+    # BOTÃO VOLTAR
     # ==========================================
 
     if st.button(
@@ -413,28 +413,79 @@ def excluir_responsavel():
     st.divider()
 
     # ==========================================
-    # BUSCAR RESPONSÁVEIS
+    # PESQUISA
     # ==========================================
 
-    cursor.execute("""
-        SELECT
-            id,
-            nome,
-            cpf,
-            tipo_responsabilidade,
-            conselho,
-            numero_conselho
-        FROM responsaveis
-        WHERE ativo = 1
-        ORDER BY nome
-    """)
+    busca = st.text_input(
+        "🔍 Pesquisar responsável",
+        placeholder=(
+            "Digite nome, CPF, conselho "
+            "ou número do conselho"
+        ),
+        key="pesquisa_excluir_responsavel"
+    )
+
+    # ==========================================
+    # CONSULTAR RESPONSÁVEIS
+    # ==========================================
+
+    if busca:
+
+        termo = f"%{busca}%"
+
+        cursor.execute("""
+            SELECT
+                id,
+                nome,
+                cpf,
+                documento,
+                tipo_responsabilidade,
+                conselho,
+                numero_conselho
+            FROM responsaveis
+            WHERE (
+                nome LIKE ?
+                OR cpf LIKE ?
+                OR documento LIKE ?
+                OR tipo_responsabilidade LIKE ?
+                OR conselho LIKE ?
+                OR numero_conselho LIKE ?
+            )
+            ORDER BY nome
+        """, (
+            termo,
+            termo,
+            termo,
+            termo,
+            termo,
+            termo
+        ))
+
+    else:
+
+        cursor.execute("""
+            SELECT
+                id,
+                nome,
+                cpf,
+                documento,
+                tipo_responsabilidade,
+                conselho,
+                numero_conselho
+            FROM responsaveis
+            ORDER BY nome
+        """)
 
     registros = cursor.fetchall()
+
+    # ==========================================
+    # SEM REGISTROS
+    # ==========================================
 
     if not registros:
 
         st.info(
-            "Nenhum responsável cadastrado."
+            "Nenhum responsável encontrado."
         )
 
         return
@@ -449,6 +500,7 @@ def excluir_responsavel():
             "ID",
             "Nome",
             "CPF",
+            "Documento",
             "Responsabilidade",
             "Conselho",
             "Nº Conselho"
@@ -495,7 +547,7 @@ def excluir_responsavel():
     )
 
     # ==========================================
-    # RESPONSÁVEL SELECIONADO
+    # PEGAR REGISTRO SELECIONADO
     # ==========================================
 
     selecionados = resposta.get(
@@ -512,6 +564,10 @@ def excluir_responsavel():
             "records"
         )
 
+    # ==========================================
+    # CONFIRMAÇÃO DA EXCLUSÃO
+    # ==========================================
+
     if selecionados:
 
         selecionado = selecionados[0]
@@ -525,37 +581,39 @@ def excluir_responsavel():
         ]
 
         st.warning(
-            f"⚠️ Você selecionou "
-            f"**{nome_responsavel}** para exclusão."
+            f"⚠️ Responsável selecionado: "
+            f"**{nome_responsavel}**"
         )
 
         st.error(
-            "Esta ação removerá o responsável "
-            "das opções disponíveis para novos cadastros."
+            "🗑️ Este registro será excluído "
+            "permanentemente do banco de dados."
         )
 
-        # ==========================================
-        # CONFIRMAÇÃO
-        # ==========================================
-
         confirmar = st.checkbox(
-            "Confirmo que desejo excluir este responsável.",
+            (
+                "Confirmo que desejo excluir "
+                "permanentemente este responsável."
+            ),
             key="confirmar_exclusao_responsavel"
         )
 
         if st.button(
-            "🗑️ Confirmar Exclusão",
+            "🗑️ Excluir Definitivamente",
             type="primary",
             use_container_width=True,
             disabled=not confirmar,
-            key="confirmar_excluir_responsavel"
+            key="btn_confirmar_exclusao_responsavel"
         ):
 
             try:
 
+                # ==================================
+                # EXCLUIR DO BANCO
+                # ==================================
+
                 cursor.execute("""
-                    UPDATE responsaveis
-                    SET ativo = 0
+                    DELETE FROM responsaveis
                     WHERE id = ?
                 """, (
                     id_responsavel,
@@ -563,14 +621,26 @@ def excluir_responsavel():
 
                 conn.commit()
 
+                # ==================================
+                # MENSAGEM DE SUCESSO
+                # ==================================
+
                 st.session_state[
                     "responsavel_excluido_sucesso"
                 ] = True
+
+                # ==================================
+                # LIMPAR SELEÇÃO
+                # ==================================
 
                 st.session_state.pop(
                     "responsavel_edicao_id",
                     None
                 )
+
+                # ==================================
+                # VOLTAR PARA TELA PRINCIPAL
+                # ==================================
 
                 st.session_state[
                     "tela_responsavel"
@@ -580,10 +650,11 @@ def excluir_responsavel():
 
             except Exception as e:
 
+                conn.rollback()
+
                 st.error(
                     f"❌ Erro ao excluir responsável: {e}"
                 )
-
 def incluir_responsavel():
 
     st.subheader("➕ Incluir Responsável")
