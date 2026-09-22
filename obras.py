@@ -1,4 +1,6 @@
 import os
+import plotly.express as px
+import plotly.graph_objects as go
 import sqlite3
 import streamlit as st
 import pandas as pd
@@ -11365,6 +11367,1422 @@ def imprimir_obra():
 
         st.error(
             f"❌ Erro ao gerar PDF: {e}"
+        )
+def dashboard():
+
+    # ==================================================
+    # TÍTULO
+    # ==================================================
+
+    st.title("📊 Dashboard Gerencial de Obras")
+
+    st.caption(
+        "Visão estratégica da execução física, financeira "
+        "e contratual das obras públicas."
+    )
+
+    st.divider()
+
+    # ==================================================
+    # FUNÇÕES AUXILIARES
+    # ==================================================
+
+    def moeda(valor):
+
+        try:
+            valor = float(valor or 0)
+
+            texto = (
+                f"{valor:,.2f}"
+                .replace(",", "X")
+                .replace(".", ",")
+                .replace("X", ".")
+            )
+
+            return f"R$ {texto}"
+
+        except Exception:
+            return "R$ 0,00"
+
+    def formatar_data(data):
+
+        if not data:
+            return "-"
+
+        try:
+            return datetime.strptime(
+                str(data)[:10],
+                "%Y-%m-%d"
+            ).strftime("%d/%m/%Y")
+
+        except Exception:
+            return str(data)
+
+    # ==================================================
+    # BUSCAR TODAS AS OBRAS
+    # ==================================================
+
+    cursor.execute("""
+        SELECT
+            o.id,
+            o.obra,
+            o.contrato,
+            o.valor_obra,
+            o.situacao,
+            o.data_inicio,
+            o.data_entrega,
+            o.recurso,
+            o.latitude,
+            o.longitude,
+            o.endereco,
+            o.numero,
+            o.bairro,
+            o.tipo_obra
+        FROM obras o
+        ORDER BY o.obra
+    """)
+
+    obras = cursor.fetchall()
+
+    if not obras:
+        st.info("Nenhuma obra cadastrada.")
+        return
+
+    # ==================================================
+    # DATAFRAME DAS OBRAS
+    # ==================================================
+
+    df_obras = pd.DataFrame(
+        obras,
+        columns=[
+            "ID",
+            "Obra",
+            "Contrato",
+            "Valor",
+            "Situação",
+            "Data Início",
+            "Data Entrega",
+            "Recurso",
+            "Latitude",
+            "Longitude",
+            "Endereço",
+            "Número",
+            "Bairro",
+            "Tipo"
+        ]
+    )
+
+    df_obras["Valor"] = pd.to_numeric(
+        df_obras["Valor"],
+        errors="coerce"
+    ).fillna(0)
+
+    # ==================================================
+    # DATAS
+    # ==================================================
+
+    hoje = pd.Timestamp.now().normalize()
+
+    df_obras["Data Entrega DT"] = pd.to_datetime(
+        df_obras["Data Entrega"],
+        errors="coerce"
+    )
+
+    df_obras["Data Início DT"] = pd.to_datetime(
+        df_obras["Data Início"],
+        errors="coerce"
+    )
+
+    # ==================================================
+    # SITUAÇÕES CONSIDERADAS FINALIZADAS
+    # ==================================================
+
+    situacoes_finalizadas = [
+        "3 – Encerrado por rescisão contratual",
+        "5 – Concluído e não recebido",
+        "6 – Concluído e recebido provisoriamente",
+        "7 – Concluído e recebido definitivamente"
+    ]
+
+    # ==================================================
+    # IDENTIFICAR ATRASOS
+    # ==================================================
+
+    df_obras["Atrasada"] = (
+        df_obras["Data Entrega DT"].notna()
+        &
+        (df_obras["Data Entrega DT"] < hoje)
+        &
+        (~df_obras["Situação"].isin(situacoes_finalizadas))
+    )
+
+    df_obras["Dias Atraso"] = 0
+
+    mascara_atraso = df_obras["Atrasada"]
+
+    df_obras.loc[
+        mascara_atraso,
+        "Dias Atraso"
+    ] = (
+        hoje
+        - df_obras.loc[
+            mascara_atraso,
+            "Data Entrega DT"
+        ]
+    ).dt.days
+
+    # ==================================================
+    # BUSCAR MEDIÇÕES
+    # ==================================================
+
+    cursor.execute("""
+        SELECT
+            m.id,
+            m.obra_id,
+            o.obra,
+            m.tipo_medicao,
+            m.data_medicao,
+            m.valor,
+            m.percentual_obra,
+            m.nota_fiscal
+        FROM medicoes m
+
+        INNER JOIN obras o
+            ON o.id = m.obra_id
+
+        ORDER BY m.data_medicao DESC
+    """)
+
+    medicoes = cursor.fetchall()
+
+    df_medicoes = pd.DataFrame(
+        medicoes,
+        columns=[
+            "ID",
+            "Obra ID",
+            "Obra",
+            "Tipo",
+            "Data",
+            "Valor",
+            "Percentual",
+            "Nota Fiscal"
+        ]
+    )
+
+    if not df_medicoes.empty:
+
+        df_medicoes["Valor"] = pd.to_numeric(
+            df_medicoes["Valor"],
+            errors="coerce"
+        ).fillna(0)
+
+        df_medicoes["Percentual"] = pd.to_numeric(
+            df_medicoes["Percentual"],
+            errors="coerce"
+        ).fillna(0)
+
+        df_medicoes["Data DT"] = pd.to_datetime(
+            df_medicoes["Data"],
+            errors="coerce"
+        )
+
+    # ==================================================
+    # FILTROS GERENCIAIS
+    # ==================================================
+
+    st.markdown("### 🎛️ Filtros")
+
+    col_f1, col_f2, col_f3 = st.columns(3)
+
+    # --------------------------------------------------
+    # SITUAÇÃO
+    # --------------------------------------------------
+
+    situacoes_disponiveis = sorted([
+        str(x)
+        for x in df_obras["Situação"].dropna().unique()
+        if str(x).strip()
+    ])
+
+    with col_f1:
+
+        filtro_situacao = st.multiselect(
+            "Situação da Obra",
+            situacoes_disponiveis,
+            key="dashboard_filtro_situacao"
+        )
+
+    # --------------------------------------------------
+    # RECURSO
+    # --------------------------------------------------
+
+    recursos_disponiveis = sorted([
+        str(x)
+        for x in df_obras["Recurso"].dropna().unique()
+        if str(x).strip()
+    ])
+
+    with col_f2:
+
+        filtro_recurso = st.multiselect(
+            "Fonte de Recurso",
+            recursos_disponiveis,
+            key="dashboard_filtro_recurso"
+        )
+
+    # --------------------------------------------------
+    # TIPO
+    # --------------------------------------------------
+
+    tipos_disponiveis = sorted([
+        str(x)
+        for x in df_obras["Tipo"].dropna().unique()
+        if str(x).strip()
+    ])
+
+    with col_f3:
+
+        filtro_tipo = st.multiselect(
+            "Tipo de Obra",
+            tipos_disponiveis,
+            key="dashboard_filtro_tipo"
+        )
+
+    # ==================================================
+    # APLICAR FILTROS
+    # ==================================================
+
+    df_filtrado = df_obras.copy()
+
+    if filtro_situacao:
+
+        df_filtrado = df_filtrado[
+            df_filtrado["Situação"].isin(
+                filtro_situacao
+            )
+        ]
+
+    if filtro_recurso:
+
+        df_filtrado = df_filtrado[
+            df_filtrado["Recurso"].isin(
+                filtro_recurso
+            )
+        ]
+
+    if filtro_tipo:
+
+        df_filtrado = df_filtrado[
+            df_filtrado["Tipo"].isin(
+                filtro_tipo
+            )
+        ]
+
+    ids_filtrados = (
+        df_filtrado["ID"]
+        .astype(int)
+        .tolist()
+    )
+
+    if not df_medicoes.empty:
+
+        df_medicoes_filtrado = df_medicoes[
+            df_medicoes["Obra ID"].isin(
+                ids_filtrados
+            )
+        ].copy()
+
+    else:
+
+        df_medicoes_filtrado = pd.DataFrame()
+
+    # ==================================================
+    # INDICADORES
+    # ==================================================
+
+    total_obras = len(df_filtrado)
+
+    valor_total_obras = (
+        df_filtrado["Valor"].sum()
+    )
+
+    total_atrasadas = int(
+        df_filtrado["Atrasada"].sum()
+    )
+
+    total_paralisadas = len(
+        df_filtrado[
+            df_filtrado["Situação"]
+            == "4 – Paralisado"
+        ]
+    )
+
+    total_concluidas = len(
+        df_filtrado[
+            df_filtrado["Situação"].isin(
+                situacoes_finalizadas
+            )
+        ]
+    )
+
+    if not df_medicoes_filtrado.empty:
+
+        total_medido = (
+            df_medicoes_filtrado["Valor"].sum()
+        )
+
+        quantidade_medicoes = len(
+            df_medicoes_filtrado
+        )
+
+    else:
+
+        total_medido = 0
+        quantidade_medicoes = 0
+
+    saldo_contratual = (
+        valor_total_obras
+        - total_medido
+    )
+
+    if valor_total_obras > 0:
+
+        percentual_medido_geral = (
+            total_medido
+            / valor_total_obras
+        ) * 100
+
+    else:
+
+        percentual_medido_geral = 0
+
+    # ==================================================
+    # CARDS PRINCIPAIS
+    # ==================================================
+
+    st.divider()
+
+    st.markdown("### 🏛️ Visão Geral")
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+        st.metric(
+            "🏗️ Obras",
+            total_obras
+        )
+
+    with col2:
+        st.metric(
+            "💰 Valor Contratado",
+            moeda(valor_total_obras)
+        )
+
+    with col3:
+        st.metric(
+            "📏 Total Medido",
+            moeda(total_medido)
+        )
+
+    with col4:
+        st.metric(
+            "💵 Saldo Contratual",
+            moeda(saldo_contratual)
+        )
+
+    col5, col6, col7, col8 = st.columns(4)
+
+    with col5:
+        st.metric(
+            "⏰ Obras Atrasadas",
+            total_atrasadas
+        )
+
+    with col6:
+        st.metric(
+            "⛔ Paralisadas",
+            total_paralisadas
+        )
+
+    with col7:
+        st.metric(
+            "✅ Concluídas",
+            total_concluidas
+        )
+
+    with col8:
+        st.metric(
+            "📋 Medições",
+            quantidade_medicoes
+        )
+
+    # ==================================================
+    # EXECUÇÃO FINANCEIRA GERAL
+    # ==================================================
+
+    st.divider()
+
+    st.markdown(
+        "### 💰 Execução Financeira das Obras"
+    )
+
+    st.progress(
+        min(
+            max(
+                percentual_medido_geral / 100,
+                0
+            ),
+            1
+        )
+    )
+
+    st.write(
+        f"**{percentual_medido_geral:.2f}%** "
+        f"do valor contratado foi medido."
+    )
+
+    col1, col2 = st.columns(2)
+
+    # ==================================================
+    # GRÁFICO SITUAÇÃO
+    # ==================================================
+
+    with col1:
+
+        st.markdown(
+            "#### 📊 Obras por Situação"
+        )
+
+        situacao_df = (
+            df_filtrado[
+                "Situação"
+            ]
+            .fillna("Não informado")
+            .value_counts()
+            .reset_index()
+        )
+
+        situacao_df.columns = [
+            "Situação",
+            "Quantidade"
+        ]
+
+        fig_situacao = px.pie(
+            situacao_df,
+            names="Situação",
+            values="Quantidade",
+            hole=0.45
+        )
+
+        fig_situacao.update_layout(
+            margin=dict(
+                l=10,
+                r=10,
+                t=30,
+                b=10
+            ),
+            legend_title_text=""
+        )
+
+        st.plotly_chart(
+            fig_situacao,
+            use_container_width=True
+        )
+
+    # ==================================================
+    # GRÁFICO RECURSOS
+    # ==================================================
+
+    with col2:
+
+        st.markdown(
+            "#### 💵 Valor por Fonte de Recurso"
+        )
+
+        recurso_df = (
+            df_filtrado
+            .assign(
+                Recurso=df_filtrado[
+                    "Recurso"
+                ].fillna(
+                    "Não informado"
+                )
+            )
+            .groupby(
+                "Recurso",
+                as_index=False
+            )["Valor"]
+            .sum()
+            .sort_values(
+                "Valor",
+                ascending=False
+            )
+        )
+
+        fig_recurso = px.bar(
+            recurso_df,
+            x="Recurso",
+            y="Valor",
+            text_auto=".2s"
+        )
+
+        fig_recurso.update_layout(
+            xaxis_title="",
+            yaxis_title="Valor contratado",
+            margin=dict(
+                l=10,
+                r=10,
+                t=30,
+                b=10
+            )
+        )
+
+        st.plotly_chart(
+            fig_recurso,
+            use_container_width=True
+        )
+
+    # ==================================================
+    # CONTRATADO X MEDIDO POR OBRA
+    # ==================================================
+
+    st.divider()
+
+    st.markdown(
+        "### 📈 Contratado x Medido por Obra"
+    )
+
+    valores_medido_por_obra = {}
+
+    if not df_medicoes_filtrado.empty:
+
+        valores_medido_por_obra = (
+            df_medicoes_filtrado
+            .groupby("Obra ID")["Valor"]
+            .sum()
+            .to_dict()
+        )
+
+    comparativo = []
+
+    for _, obra in df_filtrado.iterrows():
+
+        obra_id = int(obra["ID"])
+
+        contratado = float(
+            obra["Valor"] or 0
+        )
+
+        medido = float(
+            valores_medido_por_obra.get(
+                obra_id,
+                0
+            )
+        )
+
+        saldo = contratado - medido
+
+        percentual_execucao = (
+            (medido / contratado) * 100
+            if contratado > 0
+            else 0
+        )
+
+        comparativo.append({
+            "Obra": obra["Obra"],
+            "Contratado": contratado,
+            "Medido": medido,
+            "Saldo": saldo,
+            "% Medido": percentual_execucao
+        })
+
+    df_comparativo = pd.DataFrame(
+        comparativo
+    )
+
+    if not df_comparativo.empty:
+
+        df_grafico = df_comparativo.melt(
+            id_vars=["Obra"],
+            value_vars=[
+                "Contratado",
+                "Medido"
+            ],
+            var_name="Tipo",
+            value_name="Valor"
+        )
+
+        fig_comparativo = px.bar(
+            df_grafico,
+            x="Obra",
+            y="Valor",
+            color="Tipo",
+            barmode="group"
+        )
+
+        fig_comparativo.update_layout(
+            xaxis_title="",
+            yaxis_title="Valor",
+            legend_title_text="",
+            margin=dict(
+                l=10,
+                r=10,
+                t=20,
+                b=10
+            )
+        )
+
+        st.plotly_chart(
+            fig_comparativo,
+            use_container_width=True
+        )
+
+    # ==================================================
+    # EXECUÇÃO FINANCEIRA INDIVIDUAL
+    # ==================================================
+
+    st.markdown(
+        "#### 📋 Execução por Obra"
+    )
+
+    if not df_comparativo.empty:
+
+        df_execucao = (
+            df_comparativo.copy()
+        )
+
+        df_execucao[
+            "Contratado"
+        ] = df_execucao[
+            "Contratado"
+        ].apply(moeda)
+
+        df_execucao[
+            "Medido"
+        ] = df_execucao[
+            "Medido"
+        ].apply(moeda)
+
+        df_execucao[
+            "Saldo"
+        ] = df_execucao[
+            "Saldo"
+        ].apply(moeda)
+
+        df_execucao[
+            "% Medido"
+        ] = df_execucao[
+            "% Medido"
+        ].apply(
+            lambda x: f"{x:.2f}%"
+        )
+
+        st.dataframe(
+            df_execucao,
+            use_container_width=True,
+            hide_index=True
+        )
+
+    # ==================================================
+    # EVOLUÇÃO DAS MEDIÇÕES
+    # ==================================================
+
+    st.divider()
+
+    st.markdown(
+        "### 📏 Evolução das Medições"
+    )
+
+    if not df_medicoes_filtrado.empty:
+
+        df_evolucao = (
+            df_medicoes_filtrado[
+                df_medicoes_filtrado[
+                    "Data DT"
+                ].notna()
+            ]
+            .copy()
+        )
+
+        if not df_evolucao.empty:
+
+            evolucao = (
+                df_evolucao
+                .groupby(
+                    "Data DT",
+                    as_index=False
+                )["Valor"]
+                .sum()
+                .sort_values(
+                    "Data DT"
+                )
+            )
+
+            evolucao[
+                "Acumulado"
+            ] = evolucao[
+                "Valor"
+            ].cumsum()
+
+            fig_evolucao = go.Figure()
+
+            fig_evolucao.add_trace(
+                go.Bar(
+                    x=evolucao[
+                        "Data DT"
+                    ],
+                    y=evolucao[
+                        "Valor"
+                    ],
+                    name="Valor Medido"
+                )
+            )
+
+            fig_evolucao.add_trace(
+                go.Scatter(
+                    x=evolucao[
+                        "Data DT"
+                    ],
+                    y=evolucao[
+                        "Acumulado"
+                    ],
+                    mode="lines+markers",
+                    name="Acumulado"
+                )
+            )
+
+            fig_evolucao.update_layout(
+                xaxis_title="Data",
+                yaxis_title="Valor",
+                legend_title_text="",
+                hovermode="x unified"
+            )
+
+            st.plotly_chart(
+                fig_evolucao,
+                use_container_width=True
+            )
+
+    else:
+
+        st.info(
+            "Ainda não existem medições "
+            "para as obras selecionadas."
+        )
+
+    # ==================================================
+    # OBRAS ATRASADAS
+    # ==================================================
+
+    st.divider()
+
+    st.markdown(
+        "### ⏰ Obras Atrasadas"
+    )
+
+    df_atrasadas = df_filtrado[
+        df_filtrado["Atrasada"]
+    ].copy()
+
+    if not df_atrasadas.empty:
+
+        atrasadas_exibir = (
+            df_atrasadas[
+                [
+                    "Obra",
+                    "Contrato",
+                    "Situação",
+                    "Data Entrega",
+                    "Dias Atraso",
+                    "Valor"
+                ]
+            ]
+            .copy()
+        )
+
+        atrasadas_exibir[
+            "Data Entrega"
+        ] = atrasadas_exibir[
+            "Data Entrega"
+        ].apply(formatar_data)
+
+        atrasadas_exibir[
+            "Valor"
+        ] = atrasadas_exibir[
+            "Valor"
+        ].apply(moeda)
+
+        atrasadas_exibir = (
+            atrasadas_exibir
+            .sort_values(
+                "Dias Atraso",
+                ascending=False
+            )
+        )
+
+        st.dataframe(
+            atrasadas_exibir,
+            use_container_width=True,
+            hide_index=True
+        )
+
+    else:
+
+        st.success(
+            "✅ Nenhuma obra atrasada "
+            "nos filtros selecionados."
+        )
+
+    # ==================================================
+    # OBRAS PARALISADAS
+    # ==================================================
+
+    st.markdown(
+        "### ⛔ Obras Paralisadas"
+    )
+
+    cursor.execute("""
+        SELECT
+            id,
+            motivo_paralisacao
+        FROM obras
+    """)
+
+    motivos = {
+        registro[0]: (
+            registro[1]
+            or "Motivo não informado"
+        )
+        for registro in cursor.fetchall()
+    }
+
+    df_paralisadas = df_filtrado[
+        df_filtrado["Situação"]
+        == "4 – Paralisado"
+    ].copy()
+
+    if not df_paralisadas.empty:
+
+        for _, obra in (
+            df_paralisadas.iterrows()
+        ):
+
+            with st.expander(
+                f"⛔ {obra['Obra']}"
+            ):
+
+                st.write(
+                    f"**Contrato:** "
+                    f"{obra['Contrato'] or '-'}"
+                )
+
+                st.write(
+                    f"**Valor:** "
+                    f"{moeda(obra['Valor'])}"
+                )
+
+                st.write(
+                    f"**Motivo da paralisação:** "
+                    f"{motivos.get(obra['ID'], '-')}"
+                )
+
+    else:
+
+        st.success(
+            "✅ Nenhuma obra paralisada."
+        )
+
+    # ==================================================
+    # PRAZOS
+    # ==================================================
+
+    st.divider()
+
+    st.markdown(
+        "### 📅 Controle de Prazos"
+    )
+
+    df_prazos = df_filtrado[
+        df_filtrado[
+            "Data Entrega DT"
+        ].notna()
+    ].copy()
+
+    if not df_prazos.empty:
+
+        df_prazos[
+            "Dias para Prazo"
+        ] = (
+            df_prazos[
+                "Data Entrega DT"
+            ] - hoje
+        ).dt.days
+
+        # Remover concluídas
+        df_prazos_abertos = df_prazos[
+            ~df_prazos[
+                "Situação"
+            ].isin(
+                situacoes_finalizadas
+            )
+        ].copy()
+
+        # ----------------------------------------------
+        # PRAZOS PRÓXIMOS
+        # ----------------------------------------------
+
+        proximos = df_prazos_abertos[
+            (
+                df_prazos_abertos[
+                    "Dias para Prazo"
+                ] >= 0
+            )
+            &
+            (
+                df_prazos_abertos[
+                    "Dias para Prazo"
+                ] <= 30
+            )
+        ].copy()
+
+        if not proximos.empty:
+
+            st.warning(
+                f"⚠️ {len(proximos)} obra(s) "
+                f"com prazo vencendo nos próximos 30 dias."
+            )
+
+            proximos_exibir = proximos[
+                [
+                    "Obra",
+                    "Situação",
+                    "Data Entrega",
+                    "Dias para Prazo"
+                ]
+            ].copy()
+
+            proximos_exibir[
+                "Data Entrega"
+            ] = proximos_exibir[
+                "Data Entrega"
+            ].apply(formatar_data)
+
+            proximos_exibir.rename(
+                columns={
+                    "Dias para Prazo":
+                    "Dias Restantes"
+                },
+                inplace=True
+            )
+
+            st.dataframe(
+                proximos_exibir,
+                use_container_width=True,
+                hide_index=True
+            )
+
+        # ----------------------------------------------
+        # ATRASADAS
+        # ----------------------------------------------
+
+        vencidas = df_prazos_abertos[
+            df_prazos_abertos[
+                "Dias para Prazo"
+            ] < 0
+        ]
+
+        if not vencidas.empty:
+
+            st.error(
+                f"🚨 {len(vencidas)} obra(s) "
+                f"com prazo contratual vencido."
+            )
+
+    # ==================================================
+    # MEDIÇÕES RECENTES
+    # ==================================================
+
+    st.divider()
+
+    st.markdown(
+        "### 🧾 Últimas Medições"
+    )
+
+    if not df_medicoes_filtrado.empty:
+
+        ultimas = (
+            df_medicoes_filtrado
+            .sort_values(
+                "Data DT",
+                ascending=False
+            )
+            .head(10)
+            .copy()
+        )
+
+        ultimas[
+            "Data"
+        ] = ultimas[
+            "Data"
+        ].apply(formatar_data)
+
+        ultimas[
+            "Valor"
+        ] = ultimas[
+            "Valor"
+        ].apply(moeda)
+
+        ultimas[
+            "Percentual"
+        ] = ultimas[
+            "Percentual"
+        ].apply(
+            lambda x: f"{x:.2f}%"
+        )
+
+        st.dataframe(
+            ultimas[
+                [
+                    "Obra",
+                    "Tipo",
+                    "Data",
+                    "Valor",
+                    "Percentual",
+                    "Nota Fiscal"
+                ]
+            ],
+            use_container_width=True,
+            hide_index=True
+        )
+
+    else:
+
+        st.info(
+            "Nenhuma medição cadastrada."
+        )
+
+    # ==================================================
+    # OBRAS SEM MEDIÇÃO
+    # ==================================================
+
+    st.markdown(
+        "### ⚠️ Obras sem Medição"
+    )
+
+    if not df_medicoes.empty:
+
+        ids_com_medicao = set(
+            df_medicoes[
+                "Obra ID"
+            ].astype(int)
+        )
+
+    else:
+
+        ids_com_medicao = set()
+
+    obras_sem_medicao = df_filtrado[
+        ~df_filtrado[
+            "ID"
+        ].astype(int).isin(
+            ids_com_medicao
+        )
+    ].copy()
+
+    if not obras_sem_medicao.empty:
+
+        st.dataframe(
+            obras_sem_medicao[
+                [
+                    "Obra",
+                    "Contrato",
+                    "Situação",
+                    "Data Início",
+                    "Data Entrega"
+                ]
+            ],
+            use_container_width=True,
+            hide_index=True
+        )
+
+    else:
+
+        st.success(
+            "✅ Todas as obras possuem "
+            "pelo menos uma medição."
+        )
+
+    # ==================================================
+    # MAPA
+    # ==================================================
+
+    st.divider()
+
+    st.markdown(
+        "### 🗺️ Mapa das Obras"
+    )
+
+    obras_mapa = df_filtrado[
+        df_filtrado["Latitude"].notna()
+        &
+        df_filtrado["Longitude"].notna()
+    ].copy()
+
+    if not obras_mapa.empty:
+
+        # ----------------------------------------------
+        # CENTRO AUTOMÁTICO
+        # ----------------------------------------------
+
+        latitude_centro = (
+            pd.to_numeric(
+                obras_mapa["Latitude"],
+                errors="coerce"
+            ).mean()
+        )
+
+        longitude_centro = (
+            pd.to_numeric(
+                obras_mapa["Longitude"],
+                errors="coerce"
+            ).mean()
+        )
+
+        mapa = folium.Map(
+            location=[
+                latitude_centro,
+                longitude_centro
+            ],
+            zoom_start=12
+        )
+
+        # ----------------------------------------------
+        # MARCADORES
+        # ----------------------------------------------
+
+        for _, obra in (
+            obras_mapa.iterrows()
+        ):
+
+            try:
+
+                latitude = float(
+                    obra["Latitude"]
+                )
+
+                longitude = float(
+                    obra["Longitude"]
+                )
+
+            except Exception:
+                continue
+
+            # ------------------------------------------
+            # MEDIDO DA OBRA
+            # ------------------------------------------
+
+            obra_id = int(
+                obra["ID"]
+            )
+
+            valor_medido_obra = float(
+                valores_medido_por_obra.get(
+                    obra_id,
+                    0
+                )
+            )
+
+            valor_contratado = float(
+                obra["Valor"] or 0
+            )
+
+            if valor_contratado > 0:
+
+                percentual_obra = (
+                    valor_medido_obra
+                    / valor_contratado
+                ) * 100
+
+            else:
+
+                percentual_obra = 0
+
+            # ------------------------------------------
+            # ENDEREÇO
+            # ------------------------------------------
+
+            partes_endereco = []
+
+            if obra["Endereço"]:
+                partes_endereco.append(
+                    str(obra["Endereço"])
+                )
+
+            if obra["Número"]:
+                partes_endereco.append(
+                    str(obra["Número"])
+                )
+
+            if obra["Bairro"]:
+                partes_endereco.append(
+                    str(obra["Bairro"])
+                )
+
+            endereco_completo = (
+                ", ".join(partes_endereco)
+                if partes_endereco
+                else "Não informado"
+            )
+
+            # ------------------------------------------
+            # POPUP
+            # ------------------------------------------
+
+            popup_html = f"""
+            <div style="width: 280px;">
+                <h4>{obra["Obra"]}</h4>
+
+                <b>Contrato:</b>
+                {obra["Contrato"] or "-"}
+                <br>
+
+                <b>Situação:</b>
+                {obra["Situação"] or "-"}
+                <br>
+
+                <b>Tipo:</b>
+                {obra["Tipo"] or "-"}
+                <br><br>
+
+                <b>Valor contratado:</b>
+                {moeda(valor_contratado)}
+                <br>
+
+                <b>Total medido:</b>
+                {moeda(valor_medido_obra)}
+                <br>
+
+                <b>Execução financeira:</b>
+                {percentual_obra:.2f}%
+                <br><br>
+
+                <b>Previsão de entrega:</b>
+                {formatar_data(obra["Data Entrega"])}
+                <br>
+
+                <b>Endereço:</b>
+                {endereco_completo}
+            </div>
+            """
+
+            folium.Marker(
+                location=[
+                    latitude,
+                    longitude
+                ],
+                popup=folium.Popup(
+                    popup_html,
+                    max_width=350
+                ),
+                tooltip=(
+                    f"{obra['Obra']} - "
+                    f"{obra['Situação']}"
+                )
+            ).add_to(mapa)
+
+        st_folium(
+            mapa,
+            width=None,
+            height=500,
+            key="mapa_dashboard"
+        )
+
+    else:
+
+        st.info(
+            "Nenhuma obra dos filtros selecionados "
+            "possui localização cadastrada."
+        )
+
+    # ==================================================
+    # RESUMO GERENCIAL
+    # ==================================================
+
+    st.divider()
+
+    st.markdown(
+        "### 🧠 Resumo Gerencial"
+    )
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+
+        st.markdown(
+            "#### ⚠️ Pontos de Atenção"
+        )
+
+        if total_atrasadas > 0:
+
+            st.error(
+                f"⏰ {total_atrasadas} obra(s) "
+                f"com prazo vencido."
+            )
+
+        if total_paralisadas > 0:
+
+            st.error(
+                f"⛔ {total_paralisadas} obra(s) "
+                f"paralisada(s)."
+            )
+
+        if len(obras_sem_medicao) > 0:
+
+            st.warning(
+                f"📏 {len(obras_sem_medicao)} obra(s) "
+                f"sem nenhuma medição."
+            )
+
+        if (
+            total_atrasadas == 0
+            and total_paralisadas == 0
+            and len(obras_sem_medicao) == 0
+        ):
+
+            st.success(
+                "✅ Nenhum alerta crítico "
+                "identificado."
+            )
+
+    with col2:
+
+        st.markdown(
+            "#### 📊 Indicadores"
+        )
+
+        st.write(
+            f"**Execução financeira geral:** "
+            f"{percentual_medido_geral:.2f}%"
+        )
+
+        st.write(
+            f"**Valor contratado:** "
+            f"{moeda(valor_total_obras)}"
+        )
+
+        st.write(
+            f"**Valor medido:** "
+            f"{moeda(total_medido)}"
+        )
+
+        st.write(
+            f"**Saldo contratual:** "
+            f"{moeda(saldo_contratual)}"
+        )
+
+        st.write(
+            f"**Medições registradas:** "
+            f"{quantidade_medicoes}"
         )
 
 def main():
