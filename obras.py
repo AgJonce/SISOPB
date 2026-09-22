@@ -4696,6 +4696,7 @@ def main():
         menu = [
             "Cadastro de Obras 🛎️",
             "Situação da Obra",
+            "👨‍🔧 Cadastro de Responsavel",
             "Financeiro 💰",
             "Medições",
             "Contabilidade"
@@ -4759,8 +4760,7 @@ def main():
                 None
             )
 
-        # IMPORTANTE:
-        # salva antes de chamar qualquer função
+        # Salva o menu atual
         st.session_state["ultimo_menu"] = escolha
 
     # ==========================================
@@ -4771,11 +4771,15 @@ def main():
 
         cadastro_de_obras()
 
+    elif escolha == "Situação da Obra":
+
+        situacao_da_obra()
+
     elif escolha == "Dashboard 📊":
 
         dashboard()
 
-    elif escolha == "👨‍🔧 Cadastro de Funcionário":
+    elif escolha == "👨‍🔧 Cadastro de Responsavel":
 
         cadastrar_responsavel()
 
@@ -4818,5 +4822,7 @@ def main():
         )
 
         st.rerun()
+
+
 if __name__ == "__main__":
     main()
