@@ -9235,18 +9235,18 @@ def incluir_obra():
             )
 
         # ==================================================
-        # SALVAR RESPONSÁVEL
+        # ADICIONAR RESPONSÁVEL
         # ==================================================
 
         if st.button(
-            "💾 Salvar Responsável",
-            type="primary",
+            "➕ Adicionar Responsável",
             use_container_width=True,
-            key=(
-                f"salvar_responsavel_obra_"
-                f"{cadastro_id}"
-            )
+            key=f"adicionar_responsavel_obra_{cadastro_id}"
         ):
+
+            # ==============================================
+            # VALIDAR ART
+            # ==============================================
 
             if not numero_art_temp.strip():
 
@@ -9254,10 +9254,7 @@ def incluir_obra():
                     "⚠️ Informe o número da ART."
                 )
 
-            elif (
-                data_final_art_temp
-                < data_inicio_art_temp
-            ):
+            elif data_final_art_temp < data_inicio_art_temp:
 
                 st.warning(
                     "⚠️ A data final da ART não pode "
@@ -9265,6 +9262,10 @@ def incluir_obra():
                 )
 
             else:
+
+                # ==========================================
+                # VERIFICAR SE JÁ FOI ADICIONADO
+                # ==========================================
 
                 ja_adicionado = any(
                     item["responsavel_id"]
@@ -9282,6 +9283,10 @@ def incluir_obra():
                     )
 
                 else:
+
+                    # ======================================
+                    # ADICIONAR À LISTA TEMPORÁRIA
+                    # ======================================
 
                     st.session_state[
                         "responsaveis_temp_obra"
@@ -9316,10 +9321,14 @@ def incluir_obra():
                         )
                     })
 
+                    st.success(
+                        "✅ Responsável adicionado."
+                    )
+
                     st.rerun()
 
     # ==================================================
-    # RESPONSÁVEIS SALVOS
+    # RESPONSÁVEIS ADICIONADOS
     # ==================================================
 
     responsaveis_temp = st.session_state[
@@ -9329,7 +9338,7 @@ def incluir_obra():
     if responsaveis_temp:
 
         st.markdown(
-            "### ✅ Responsáveis adicionados"
+            "### 📋 Responsáveis adicionados"
         )
 
         dados_tabela = []
@@ -9370,27 +9379,83 @@ def incluir_obra():
             hide_index=True
         )
 
-        if st.button(
-            "↩️ Remover Último Responsável",
-            use_container_width=True,
-            key=(
-                f"remover_responsavel_obra_"
-                f"{cadastro_id}"
-            )
-        ):
+        # ==================================================
+        # BOTÕES DA LISTA
+        # ==================================================
 
-            st.session_state[
-                "responsaveis_temp_obra"
-            ].pop()
+        col_remover, col_salvar = st.columns(2)
 
-            st.rerun()
+        # ==================================================
+        # REMOVER ÚLTIMO
+        # ==================================================
+
+        with col_remover:
+
+            if st.button(
+                "↩️ Remover Último",
+                use_container_width=True,
+                key=(
+                    f"remover_responsavel_obra_"
+                    f"{cadastro_id}"
+                )
+            ):
+
+                st.session_state[
+                    "responsaveis_temp_obra"
+                ].pop()
+
+                # Se remover depois de salvar,
+                # precisa confirmar novamente
+                st.session_state[
+                    "responsaveis_confirmados_obra"
+                ] = False
+
+                st.rerun()
+
+        # ==================================================
+        # SALVAR RESPONSÁVEIS
+        # ==================================================
+
+        with col_salvar:
+
+            if st.button(
+                "💾 Salvar Responsável",
+                type="primary",
+                use_container_width=True,
+                key=(
+                    f"salvar_responsaveis_obra_"
+                    f"{cadastro_id}"
+                )
+            ):
+
+                st.session_state[
+                    "responsaveis_confirmados_obra"
+                ] = True
+
+                st.rerun()
 
     else:
 
         st.info(
-            "Nenhum responsável foi salvo para esta obra."
+            "Nenhum responsável adicionado à obra."
         )
 
+        st.session_state[
+            "responsaveis_confirmados_obra"
+        ] = False
+
+    # ==================================================
+    # RESPONSÁVEIS CONFIRMADOS
+    # ==================================================
+
+    if st.session_state.get(
+        "responsaveis_confirmados_obra",
+        False
+    ):
+
+        st.success(
+            "✅ Responsáveis salvos para esta obra."
+        )
     # ==================================================
     # SITUAÇÃO
     # ==================================================
