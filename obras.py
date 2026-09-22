@@ -6429,33 +6429,13 @@ def cadastro_de_obras():
 def incluir_obra():
 
     # ==================================================
-    # CONTROLE
+    # CONTROLE DA TELA
     # ==================================================
-
-    if st.session_state.get(
-        "obra_alterada_sucesso",
-        False
-    ):
-        st.success(
-            "✅ Obra alterada com sucesso!"
-        )
-
-        st.session_state[
-            "obra_alterada_sucesso"
-        ] = False
 
     if "cadastro_obra_id" not in st.session_state:
         st.session_state["cadastro_obra_id"] = 0
 
-    cadastro_id = st.session_state[
-        "cadastro_obra_id"
-    ]
-
-    if st.session_state.get("obra_salva"):
-        st.success(
-            "✅ Obra cadastrada com sucesso!"
-        )
-        st.session_state["obra_salva"] = False
+    cadastro_id = st.session_state["cadastro_obra_id"]
 
     # ==================================================
     # INFORMAÇÕES DA OBRA
@@ -6519,120 +6499,6 @@ def incluir_obra():
 
     with col2:
 
-        # ==============================================
-        # RESPONSÁVEL
-        # ==============================================
-
-        cursor.execute("""
-            SELECT
-                id,
-                nome,
-                tipo_responsabilidade,
-                tipo_vinculo
-            FROM responsaveis
-            WHERE ativo = 1
-            ORDER BY nome
-        """)
-
-        responsaveis_cadastrados = cursor.fetchall()
-
-        opcoes_responsaveis = {
-            "Selecione o responsável": {
-                "id": None,
-                "nome": "",
-                "tipo_responsabilidade": "",
-                "tipo_vinculo": ""
-            }
-        }
-
-        for registro in responsaveis_cadastrados:
-
-            id_responsavel = registro[0]
-            nome_responsavel = registro[1]
-            tipo_responsavel = registro[2]
-            vinculo_responsavel = registro[3]
-
-            opcoes_responsaveis[
-                nome_responsavel
-            ] = {
-                "id": id_responsavel,
-                "nome": nome_responsavel,
-                "tipo_responsabilidade": (
-                    tipo_responsavel or ""
-                ),
-                "tipo_vinculo": (
-                    vinculo_responsavel or ""
-                )
-            }
-
-        responsavel_selecionado = st.selectbox(
-            "👤 Responsável pela Obra",
-            options=list(
-                opcoes_responsaveis.keys()
-            ),
-            key=f"responsavel_{cadastro_id}"
-        )
-
-        dados_responsavel = (
-            opcoes_responsaveis[
-                responsavel_selecionado
-            ]
-        )
-
-        responsavel_id = dados_responsavel[
-            "id"
-        ]
-
-        responsavel = dados_responsavel[
-            "nome"
-        ]
-
-        tipo_responsabilidade = (
-            dados_responsavel[
-                "tipo_responsabilidade"
-            ]
-        )
-
-        tipo_vinculo = (
-            dados_responsavel[
-                "tipo_vinculo"
-            ]
-        )
-
-        # ==============================================
-        # RESPONSABILIDADE
-        # ==============================================
-
-        st.text_input(
-            "👷 Tipo de Responsabilidade",
-            value=tipo_responsabilidade,
-            disabled=True,
-            key=(
-                f"tipo_responsabilidade_visual_"
-                f"{cadastro_id}_"
-                f"{responsavel_id}"
-            )
-        )
-
-        # ==============================================
-        # VÍNCULO
-        # ==============================================
-
-        st.text_input(
-            "🔗 Tipo de Vínculo",
-            value=tipo_vinculo,
-            disabled=True,
-            key=(
-                f"tipo_vinculo_visual_"
-                f"{cadastro_id}_"
-                f"{responsavel_id}"
-            )
-        )
-
-        # ==============================================
-        # TIPO DA OBRA
-        # ==============================================
-
         tipo_obra = st.selectbox(
             "🏢 Tipo de Obra",
             [
@@ -6670,16 +6536,12 @@ def incluir_obra():
     # ART
     # ==================================================
 
-    # ==================================================
-    # ART
-    # ==================================================
-
     st.divider()
 
     st.subheader("📑 ART")
 
     # ==================================================
-    # BUSCAR RESPONSÁVEIS CADASTRADOS
+    # BUSCAR RESPONSÁVEIS
     # ==================================================
 
     cursor.execute("""
@@ -6721,20 +6583,19 @@ def incluir_obra():
         }
 
     # ==================================================
-    # PRIMEIRA LINHA DA ART
-    # RESPONSÁVEL + RESPONSABILIDADE + VÍNCULO
+    # RESPONSÁVEL / RESPONSABILIDADE / VÍNCULO
     # ==================================================
 
-    col_art1, col_art2, col_art3 = st.columns(3)
+    col_resp1, col_resp2, col_resp3 = st.columns(3)
 
-    with col_art1:
+    with col_resp1:
 
         responsavel_selecionado = st.selectbox(
             "👤 Responsável pela Obra",
             options=list(
                 opcoes_responsaveis.keys()
             ),
-            key=f"responsavel_{cadastro_id}"
+            key=f"art_responsavel_{cadastro_id}"
         )
 
         dados_responsavel = (
@@ -6743,13 +6604,8 @@ def incluir_obra():
             ]
         )
 
-        responsavel_id = dados_responsavel[
-            "id"
-        ]
-
-        responsavel = dados_responsavel[
-            "nome"
-        ]
+        responsavel_id = dados_responsavel["id"]
+        responsavel = dados_responsavel["nome"]
 
         tipo_responsabilidade = (
             dados_responsavel[
@@ -6763,48 +6619,45 @@ def incluir_obra():
             ]
         )
 
-    with col_art2:
+    with col_resp2:
 
         st.text_input(
             "👷 Tipo de Responsabilidade",
             value=tipo_responsabilidade,
             disabled=True,
             key=(
-                f"tipo_responsabilidade_visual_"
+                f"art_responsabilidade_"
                 f"{cadastro_id}_"
                 f"{responsavel_id}"
             )
         )
 
-    with col_art3:
+    with col_resp3:
 
         st.text_input(
             "🔗 Tipo de Vínculo",
             value=tipo_vinculo,
             disabled=True,
             key=(
-                f"tipo_vinculo_visual_"
+                f"art_vinculo_"
                 f"{cadastro_id}_"
                 f"{responsavel_id}"
             )
         )
 
     # ==================================================
-    # SEGUNDA LINHA DA ART
-    # NÚMERO + TIPO
+    # DADOS DA ART
     # ==================================================
 
-    col_art4, col_art5 = st.columns(2)
+    col_art1, col_art2 = st.columns(2)
 
-    with col_art4:
+    with col_art1:
 
         art = st.text_input(
             "📜 Número da ART",
             placeholder="Informe o número da ART",
-            key=f"art_{cadastro_id}"
+            key=f"numero_art_{cadastro_id}"
         )
-
-    with col_art5:
 
         tipo_art = st.selectbox(
             "🏗️ Tipo de ART",
@@ -6816,26 +6669,37 @@ def incluir_obra():
             key=f"tipo_art_{cadastro_id}"
         )
 
-    # ==================================================
-    # TERCEIRA LINHA DA ART
-    # DATAS
-    # ==================================================
-
-    col_art6, col_art7 = st.columns(2)
-
-    with col_art6:
+    with col_art2:
 
         data_inicio_art = st.date_input(
             "📅 Data Inicial da ART",
             key=f"data_inicio_art_{cadastro_id}"
         )
 
-    with col_art7:
-
         data_final_art = st.date_input(
             "📅 Data Final da ART",
             key=f"data_final_art_{cadastro_id}"
         )
+
+    # ==================================================
+    # SITUAÇÃO DA OBRA
+    # ==================================================
+
+    situacao = st.selectbox(
+        "📊 Situação da Obra",
+        [
+            "1 – Não iniciado",
+            "2 – Iniciado",
+            "3 – Encerrado por rescisão contratual",
+            "4 – Paralisado",
+            "5 – Concluído e não recebido",
+            "6 – Concluído e recebido provisoriamente",
+            "7 – Concluído e recebido definitivamente",
+            "8 – Reiniciado"
+        ],
+        key=f"situacao_{cadastro_id}"
+    )
+
     # ==================================================
     # ESTADO DA LOCALIZAÇÃO
     # ==================================================
@@ -6866,6 +6730,10 @@ def incluir_obra():
         location=[-20.7336, -42.0306],
         zoom_start=15
     )
+
+    # ==================================================
+    # MARCADOR
+    # ==================================================
 
     if (
         st.session_state["latitude_obra"] is not None
@@ -6956,7 +6824,9 @@ def incluir_obra():
                     )
 
                     bairro_mapa = (
-                        dados_endereco.get("suburb")
+                        dados_endereco.get(
+                            "suburb"
+                        )
                         or dados_endereco.get(
                             "neighbourhood"
                         )
@@ -6973,8 +6843,12 @@ def incluir_obra():
                     )
 
                     cidade = (
-                        dados_endereco.get("city")
-                        or dados_endereco.get("town")
+                        dados_endereco.get(
+                            "city"
+                        )
+                        or dados_endereco.get(
+                            "town"
+                        )
                         or dados_endereco.get(
                             "municipality"
                         )
@@ -7017,7 +6891,7 @@ def incluir_obra():
                 )
 
     # ==================================================
-    # MOSTRAR LOCALIZAÇÃO
+    # DADOS DA LOCALIZAÇÃO
     # ==================================================
 
     latitude = st.session_state[
@@ -7035,6 +6909,10 @@ def incluir_obra():
     dados = st.session_state[
         "dados_endereco_obra"
     ]
+
+    # ==================================================
+    # MOSTRAR LOCALIZAÇÃO
+    # ==================================================
 
     if (
         latitude is not None
@@ -7105,6 +6983,10 @@ def incluir_obra():
             f"{longitude:.6f}"
         )
 
+        # ==============================================
+        # MONTAR ENDEREÇO FINAL
+        # ==============================================
+
         endereco = (
             f"{dados.get('rua', 'Não informado')}, "
             f"{numero if numero else 'S/N'} - "
@@ -7126,20 +7008,27 @@ def incluir_obra():
     # SALVAR
     # ==================================================
 
+    st.divider()
+
     if st.button(
         "💾 Salvar Obra",
         type="primary",
+        use_container_width=True,
         key=f"salvar_{cadastro_id}"
     ):
 
-        if not obra:
+        # ==============================================
+        # VALIDAÇÕES
+        # ==============================================
+
+        if not obra.strip():
 
             st.warning(
                 "⚠️ Informe o nome da obra."
             )
             return
 
-        if not contrato:
+        if not contrato.strip():
 
             st.warning(
                 "⚠️ Informe o número do contrato."
@@ -7153,7 +7042,7 @@ def incluir_obra():
             )
             return
 
-        if not art:
+        if not art.strip():
 
             st.warning(
                 "⚠️ Informe o número da ART."
@@ -7163,8 +7052,8 @@ def incluir_obra():
         if data_final_art < data_inicio_art:
 
             st.warning(
-                "⚠️ A data final da ART não pode ser "
-                "anterior à data inicial."
+                "⚠️ A data final da ART não pode "
+                "ser anterior à data inicial da ART."
             )
             return
 
@@ -7175,6 +7064,10 @@ def incluir_obra():
             )
             return
 
+        # ==============================================
+        # SALVAR NO BANCO
+        # ==============================================
+
         try:
 
             cursor.execute("""
@@ -7184,19 +7077,24 @@ def incluir_obra():
                     data_inicio,
                     data_entrega,
                     recurso,
+
                     art,
                     tipo_art,
                     data_inicio_art,
                     data_final_art,
+
                     tipo_responsabilidade,
                     tipo_vinculo,
+
                     latitude,
                     longitude,
                     endereco,
                     numero,
                     bairro,
+
                     responsavel,
                     responsavel_id,
+
                     tipo_obra,
                     valor_obra,
                     situacao,
@@ -7204,42 +7102,55 @@ def incluir_obra():
                     data_cadastro
                 )
                 VALUES (
-                    ?, ?, ?, ?, ?, ?,
-                    ?, ?, ?, ?, ?, ?,
-                    ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?,
+                    ?, ?,
+                    ?, ?, ?, ?, ?,
+                    ?, ?,
                     ?, ?, ?, ?, ?
                 )
             """, (
-                obra,
-                contrato,
+                obra.strip(),
+                contrato.strip(),
+
                 data_inicio.strftime(
                     "%Y-%m-%d"
                 ),
+
                 data_entrega.strftime(
                     "%Y-%m-%d"
                 ),
+
                 recurso,
-                art,
+
+                art.strip(),
                 tipo_art,
+
                 data_inicio_art.strftime(
                     "%Y-%m-%d"
                 ),
+
                 data_final_art.strftime(
                     "%Y-%m-%d"
                 ),
+
                 tipo_responsabilidade,
                 tipo_vinculo,
+
                 latitude,
                 longitude,
                 endereco,
-                numero,
-                bairro,
+                numero.strip(),
+                bairro.strip(),
+
                 responsavel,
                 responsavel_id,
+
                 tipo_obra,
                 valor_obra,
                 situacao,
                 prazo,
+
                 datetime.now().strftime(
                     "%Y-%m-%d"
                 )
@@ -7247,13 +7158,25 @@ def incluir_obra():
 
             conn.commit()
 
+            # ==========================================
+            # MENSAGEM DE SUCESSO
+            # ==========================================
+
             st.session_state[
                 "obra_cadastrada_sucesso"
             ] = True
 
+            # ==========================================
+            # VOLTAR PARA PRINCIPAL
+            # ==========================================
+
             st.session_state[
                 "tela_obras"
             ] = "Principal"
+
+            # ==========================================
+            # LIMPAR LOCALIZAÇÃO
+            # ==========================================
 
             st.session_state.pop(
                 "latitude_obra",
@@ -7274,6 +7197,10 @@ def incluir_obra():
                 "dados_endereco_obra",
                 None
             )
+
+            # ==========================================
+            # NOVAS KEYS PARA PRÓXIMO CADASTRO
+            # ==========================================
 
             st.session_state[
                 "cadastro_obra_id"
