@@ -460,18 +460,18 @@ def situacao_da_obra():
     # EXIBIR TABELA
     # ==========================================
 
-resposta = AgGrid(
-    df,
-    gridOptions=grid_options,
-    height=350,
-    fit_columns_on_grid_load=True,
-    update_mode=GridUpdateMode.SELECTION_CHANGED,
-    allow_unsafe_jscode=True,
-    key=(
-        f"grid_situacao_obra_"
-        f"{st.session_state.get('grid_situacao_versao', 0)}"
+    resposta = AgGrid(
+        df,
+        gridOptions=grid_options,
+        height=350,
+        fit_columns_on_grid_load=True,
+        update_mode=GridUpdateMode.SELECTION_CHANGED,
+        allow_unsafe_jscode=True,
+        key=(
+            f"grid_situacao_obra_"
+            f"{st.session_state.get('grid_situacao_versao', 0)}"
+        )
     )
-)
 
     # ==========================================
     # PEGAR OBRA SELECIONADA
@@ -486,7 +486,6 @@ resposta = AgGrid(
         selecionados,
         pd.DataFrame
     ):
-
         selecionados = selecionados.to_dict(
             "records"
         )
@@ -500,7 +499,6 @@ resposta = AgGrid(
         ] = int(
             selecionado["ID"]
         )
-
     # ==========================================
     # OBRA SELECIONADA
     # ==========================================
