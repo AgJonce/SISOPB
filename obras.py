@@ -81,6 +81,29 @@ cursor.execute('''
 
 conn.commit()
 
+
+# ==========================================
+# GARANTIR COLUNA MOTIVO_PARALISACAO
+# ==========================================
+
+cursor.execute("""
+    PRAGMA table_info(obras)
+""")
+
+colunas_obras = [
+    coluna[1]
+    for coluna in cursor.fetchall()
+]
+
+if "motivo_paralisacao" not in colunas_obras:
+
+    cursor.execute("""
+        ALTER TABLE obras
+        ADD COLUMN motivo_paralisacao TEXT
+    """)
+
+    conn.commit()
+
 cursor.execute("""
     CREATE TABLE IF NOT EXISTS itens (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
