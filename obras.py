@@ -6670,19 +6670,141 @@ def incluir_obra():
     # ART
     # ==================================================
 
+    # ==================================================
+    # ART
+    # ==================================================
+
     st.divider()
 
     st.subheader("📑 ART")
 
-    col_art1, col_art2 = st.columns(2)
+    # ==================================================
+    # BUSCAR RESPONSÁVEIS CADASTRADOS
+    # ==================================================
+
+    cursor.execute("""
+        SELECT
+            id,
+            nome,
+            tipo_responsabilidade,
+            tipo_vinculo
+        FROM responsaveis
+        WHERE ativo = 1
+        ORDER BY nome
+    """)
+
+    responsaveis_cadastrados = cursor.fetchall()
+
+    opcoes_responsaveis = {
+        "Selecione o responsável": {
+            "id": None,
+            "nome": "",
+            "tipo_responsabilidade": "",
+            "tipo_vinculo": ""
+        }
+    }
+
+    for registro in responsaveis_cadastrados:
+
+        id_responsavel = registro[0]
+        nome_responsavel = registro[1]
+        tipo_responsavel = registro[2] or ""
+        vinculo_responsavel = registro[3] or ""
+
+        opcoes_responsaveis[
+            nome_responsavel
+        ] = {
+            "id": id_responsavel,
+            "nome": nome_responsavel,
+            "tipo_responsabilidade": tipo_responsavel,
+            "tipo_vinculo": vinculo_responsavel
+        }
+
+    # ==================================================
+    # PRIMEIRA LINHA DA ART
+    # RESPONSÁVEL + RESPONSABILIDADE + VÍNCULO
+    # ==================================================
+
+    col_art1, col_art2, col_art3 = st.columns(3)
 
     with col_art1:
+
+        responsavel_selecionado = st.selectbox(
+            "👤 Responsável pela Obra",
+            options=list(
+                opcoes_responsaveis.keys()
+            ),
+            key=f"responsavel_{cadastro_id}"
+        )
+
+        dados_responsavel = (
+            opcoes_responsaveis[
+                responsavel_selecionado
+            ]
+        )
+
+        responsavel_id = dados_responsavel[
+            "id"
+        ]
+
+        responsavel = dados_responsavel[
+            "nome"
+        ]
+
+        tipo_responsabilidade = (
+            dados_responsavel[
+                "tipo_responsabilidade"
+            ]
+        )
+
+        tipo_vinculo = (
+            dados_responsavel[
+                "tipo_vinculo"
+            ]
+        )
+
+    with col_art2:
+
+        st.text_input(
+            "👷 Tipo de Responsabilidade",
+            value=tipo_responsabilidade,
+            disabled=True,
+            key=(
+                f"tipo_responsabilidade_visual_"
+                f"{cadastro_id}_"
+                f"{responsavel_id}"
+            )
+        )
+
+    with col_art3:
+
+        st.text_input(
+            "🔗 Tipo de Vínculo",
+            value=tipo_vinculo,
+            disabled=True,
+            key=(
+                f"tipo_vinculo_visual_"
+                f"{cadastro_id}_"
+                f"{responsavel_id}"
+            )
+        )
+
+    # ==================================================
+    # SEGUNDA LINHA DA ART
+    # NÚMERO + TIPO
+    # ==================================================
+
+    col_art4, col_art5 = st.columns(2)
+
+    with col_art4:
 
         art = st.text_input(
             "📜 Número da ART",
             placeholder="Informe o número da ART",
             key=f"art_{cadastro_id}"
         )
+
+    with col_art5:
 
         tipo_art = st.selectbox(
             "🏗️ Tipo de ART",
@@ -6694,33 +6816,26 @@ def incluir_obra():
             key=f"tipo_art_{cadastro_id}"
         )
 
-    with col_art2:
+    # ==================================================
+    # TERCEIRA LINHA DA ART
+    # DATAS
+    # ==================================================
+
+    col_art6, col_art7 = st.columns(2)
+
+    with col_art6:
 
         data_inicio_art = st.date_input(
             "📅 Data Inicial da ART",
             key=f"data_inicio_art_{cadastro_id}"
         )
 
+    with col_art7:
+
         data_final_art = st.date_input(
             "📅 Data Final da ART",
             key=f"data_final_art_{cadastro_id}"
         )
-
-    # ==================================================
-    # SITUAÇÃO
-    # ==================================================
-
-    situacao = st.selectbox(
-        "📊 Situação da Obra",
-        [
-            "Em andamento",
-            "Concluída",
-            "Paralisada",
-            "Planejada"
-        ],
-        key=f"situacao_{cadastro_id}"
-    )
-
     # ==================================================
     # ESTADO DA LOCALIZAÇÃO
     # ==================================================
