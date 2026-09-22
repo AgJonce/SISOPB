@@ -1259,8 +1259,7 @@ def alterar_responsavel():
                 st.error(
                     f"❌ Erro ao alterar responsável: {e}"
                 )
-
-	def alterar_item_obra():
+def alterar_item_obra():
 
     st.subheader("✏️ Alterar Item da Obra")
 
