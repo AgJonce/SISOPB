@@ -55,7 +55,11 @@ cursor.execute("""
     "Administrador"
 ))
 
-cursor.execute('''
+# =========================================================
+# TABELA DE OBRAS
+# =========================================================
+
+cursor.execute("""
     CREATE TABLE IF NOT EXISTS obras (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         obra TEXT NOT NULL,
@@ -63,28 +67,44 @@ cursor.execute('''
         data_inicio TEXT,
         data_entrega TEXT,
         recurso TEXT,
+
         art TEXT,
+        tipo_art TEXT,
+        data_inicio_art TEXT,
+        data_final_art TEXT,
+
         tipo_responsabilidade TEXT,
+        tipo_vinculo TEXT,
+
         latitude REAL,
         longitude REAL,
         endereco TEXT,
         numero TEXT,
         bairro TEXT,
+
         responsavel TEXT,
+        responsavel_id INTEGER,
+
         tipo_obra TEXT,
         valor_obra REAL,
+
         situacao TEXT,
+        motivo_paralisacao TEXT,
+
         prazo_dias INTEGER,
-        data_cadastro TEXT
+        data_cadastro TEXT,
+
+        FOREIGN KEY (responsavel_id)
+            REFERENCES responsaveis(id)
     )
-''')
+""")
 
 conn.commit()
 
 
-# ==========================================
-# GARANTIR COLUNA MOTIVO_PARALISACAO
-# ==========================================
+# =========================================================
+# GARANTIR COLUNAS NOVAS EM BANCOS ANTIGOS
+# =========================================================
 
 cursor.execute("""
     PRAGMA table_info(obras)
@@ -95,6 +115,95 @@ colunas_obras = [
     for coluna in cursor.fetchall()
 ]
 
+
+# ---------------------------------------------------------
+# NÚMERO
+# ---------------------------------------------------------
+
+if "numero" not in colunas_obras:
+
+    cursor.execute("""
+        ALTER TABLE obras
+        ADD COLUMN numero TEXT
+    """)
+
+
+# ---------------------------------------------------------
+# BAIRRO
+# ---------------------------------------------------------
+
+if "bairro" not in colunas_obras:
+
+    cursor.execute("""
+        ALTER TABLE obras
+        ADD COLUMN bairro TEXT
+    """)
+
+
+# ---------------------------------------------------------
+# RESPONSÁVEL ID
+# ---------------------------------------------------------
+
+if "responsavel_id" not in colunas_obras:
+
+    cursor.execute("""
+        ALTER TABLE obras
+        ADD COLUMN responsavel_id INTEGER
+    """)
+
+
+# ---------------------------------------------------------
+# TIPO DE VÍNCULO
+# ---------------------------------------------------------
+
+if "tipo_vinculo" not in colunas_obras:
+
+    cursor.execute("""
+        ALTER TABLE obras
+        ADD COLUMN tipo_vinculo TEXT
+    """)
+
+
+# ---------------------------------------------------------
+# TIPO DA ART
+# ---------------------------------------------------------
+
+if "tipo_art" not in colunas_obras:
+
+    cursor.execute("""
+        ALTER TABLE obras
+        ADD COLUMN tipo_art TEXT
+    """)
+
+
+# ---------------------------------------------------------
+# DATA INICIAL DA ART
+# ---------------------------------------------------------
+
+if "data_inicio_art" not in colunas_obras:
+
+    cursor.execute("""
+        ALTER TABLE obras
+        ADD COLUMN data_inicio_art TEXT
+    """)
+
+
+# ---------------------------------------------------------
+# DATA FINAL DA ART
+# ---------------------------------------------------------
+
+if "data_final_art" not in colunas_obras:
+
+    cursor.execute("""
+        ALTER TABLE obras
+        ADD COLUMN data_final_art TEXT
+    """)
+
+
+# ---------------------------------------------------------
+# MOTIVO DA PARALISAÇÃO
+# ---------------------------------------------------------
+
 if "motivo_paralisacao" not in colunas_obras:
 
     cursor.execute("""
@@ -102,53 +211,128 @@ if "motivo_paralisacao" not in colunas_obras:
         ADD COLUMN motivo_paralisacao TEXT
     """)
 
-    conn.commit()
-
-cursor.execute("""
-    CREATE TABLE IF NOT EXISTS itens (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        codigo TEXT UNIQUE NOT NULL,
-        descricao TEXT NOT NULL,
-        unidade TEXT NOT NULL,
-        categoria TEXT,
-        observacao TEXT,
-        ativo INTEGER DEFAULT 1,
-        data_cadastro TEXT
-    )
-""")
-
-cursor.execute("""
-    CREATE TABLE IF NOT EXISTS itens_obra (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        obra_id INTEGER NOT NULL,
-        item_id INTEGER NOT NULL,
-        quantidade REAL DEFAULT 0,
-        valor_unitario REAL DEFAULT 0,
-        valor_total REAL DEFAULT 0,
-        observacao TEXT,
-
-        FOREIGN KEY (obra_id) REFERENCES obras(id),
-        FOREIGN KEY (item_id) REFERENCES itens(id)
-    )
-""")
 
 conn.commit()
+
+
+# =========================================================
+# TABELA DE RESPONSÁVEIS
+# =========================================================
 
 cursor.execute("""
     CREATE TABLE IF NOT EXISTS responsaveis (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+
         nome TEXT NOT NULL,
+
         cpf TEXT UNIQUE NOT NULL,
+
         documento TEXT,
+
         tipo_responsabilidade TEXT NOT NULL,
+
+        tipo_vinculo TEXT,
+
         conselho TEXT NOT NULL,
+
         numero_conselho TEXT,
+
         ativo INTEGER DEFAULT 1,
+
         data_cadastro TEXT
     )
 """)
 
 conn.commit()
+
+
+# =========================================================
+# GARANTIR COLUNAS NOVAS EM RESPONSÁVEIS ANTIGOS
+# =========================================================
+
+cursor.execute("""
+    PRAGMA table_info(responsaveis)
+""")
+
+colunas_responsaveis = [
+    coluna[1]
+    for coluna in cursor.fetchall()
+]
+
+
+# ---------------------------------------------------------
+# TIPO DE VÍNCULO
+# ---------------------------------------------------------
+
+if "tipo_vinculo" not in colunas_responsaveis:
+
+    cursor.execute("""
+        ALTER TABLE responsaveis
+        ADD COLUMN tipo_vinculo TEXT
+    """)
+
+
+conn.commit()
+
+
+# =========================================================
+# TABELA DE ITENS
+# =========================================================
+
+cursor.execute("""
+    CREATE TABLE IF NOT EXISTS itens (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+        codigo TEXT UNIQUE NOT NULL,
+
+        descricao TEXT NOT NULL,
+
+        unidade TEXT NOT NULL,
+
+        categoria TEXT,
+
+        observacao TEXT,
+
+        ativo INTEGER DEFAULT 1,
+
+        data_cadastro TEXT
+    )
+""")
+
+conn.commit()
+
+
+# =========================================================
+# ITENS DA OBRA
+# =========================================================
+
+cursor.execute("""
+    CREATE TABLE IF NOT EXISTS itens_obra (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+        obra_id INTEGER NOT NULL,
+
+        item_id INTEGER NOT NULL,
+
+        quantidade REAL DEFAULT 0,
+
+        valor_unitario REAL DEFAULT 0,
+
+        valor_total REAL DEFAULT 0,
+
+        observacao TEXT,
+
+        FOREIGN KEY (obra_id)
+            REFERENCES obras(id),
+
+        FOREIGN KEY (item_id)
+            REFERENCES itens(id)
+    )
+""")
+
+conn.commit()
+
+
 # =========================================================
 # MEDIÇÕES
 # =========================================================
@@ -156,24 +340,44 @@ conn.commit()
 cursor.execute("""
     CREATE TABLE IF NOT EXISTS medicoes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+
         obra_id INTEGER NOT NULL,
+
         valor REAL DEFAULT 0,
+
         tipo_medicao TEXT,
+
         data_medicao TEXT,
+
         data_inicio TEXT,
+
         data_final TEXT,
+
         percentual_obra REAL DEFAULT 0,
+
         foto_nome TEXT,
+
         foto_arquivo BLOB,
+
         boletim_nome TEXT,
+
         boletim_arquivo BLOB,
+
         nota_fiscal TEXT,
+
         data_nota TEXT,
+
         empenho TEXT,
+
         data_cadastro TEXT,
-        FOREIGN KEY (obra_id) REFERENCES obras(id)
+
+        FOREIGN KEY (obra_id)
+            REFERENCES obras(id)
     )
 """)
+
+conn.commit()
+
 
 # =========================================================
 # ITENS DA MEDIÇÃO
@@ -182,13 +386,23 @@ cursor.execute("""
 cursor.execute("""
     CREATE TABLE IF NOT EXISTS itens_medicao (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+
         medicao_id INTEGER NOT NULL,
+
         item_obra_id INTEGER NOT NULL,
+
         valor_medido REAL DEFAULT 0,
-        FOREIGN KEY (medicao_id) REFERENCES medicoes(id),
-        FOREIGN KEY (item_obra_id) REFERENCES itens_obra(id)
+
+        FOREIGN KEY (medicao_id)
+            REFERENCES medicoes(id),
+
+        FOREIGN KEY (item_obra_id)
+            REFERENCES itens_obra(id)
     )
 """)
+
+conn.commit()
+
 
 # =========================================================
 # FISCAIS DA MEDIÇÃO
@@ -197,9 +411,13 @@ cursor.execute("""
 cursor.execute("""
     CREATE TABLE IF NOT EXISTS fiscais_medicao (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+
         medicao_id INTEGER NOT NULL,
+
         fiscal TEXT NOT NULL,
-        FOREIGN KEY (medicao_id) REFERENCES medicoes(id)
+
+        FOREIGN KEY (medicao_id)
+            REFERENCES medicoes(id)
     )
 """)
 
@@ -3151,194 +3369,243 @@ def incluir_responsavel():
 
     st.divider()
 
-    with st.container(border=True):
+    # ==========================================
+    # FORMULÁRIO
+    # ==========================================
 
-        st.markdown("### 👤 Dados do Profissional")
+    with st.form(
+        "form_incluir_responsavel",
+        clear_on_submit=True
+    ):
 
-        with st.form(
-            "form_incluir_responsavel",
-            clear_on_submit=True
-        ):
+        col1, col2 = st.columns(2)
 
-            col1, col2 = st.columns(2)
+        # ======================================
+        # COLUNA 1
+        # ======================================
 
-            with col1:
+        with col1:
 
-                nome = st.text_input(
-                    "👤 Nome Completo *",
-                    placeholder="Ex: João da Silva"
-                )
-
-                cpf = st.text_input(
-                    "🪪 CPF *",
-                    placeholder="Ex: 000.000.000-00"
-                )
-
-                documento = st.text_input(
-                    "📄 Documento",
-                    placeholder="Ex: MG-12.345.678"
-                )
-
-            with col2:
-
-                tipo_responsabilidade = st.selectbox(
-                    "👷 Tipo de Responsabilidade *",
-                    [
-                        "Engenheiro",
-                        "Arquiteto",
-                        "Técnico",
-                        "Fiscal de Obra",
-                        "Outro"
-                    ]
-                )
-
-                conselho = st.selectbox(
-                    "🏛️ Conselho Profissional *",
-                    [
-                        "CREA",
-                        "CAU",
-                        "CFT",
-                        "CRT",
-                        "Outro"
-                    ]
-                )
-
-                numero_conselho = st.text_input(
-                    "🔢 Número do Conselho",
-                    placeholder="Ex: CREA-MG 123456/D"
-                )
-
-            st.divider()
-
-            salvar = st.form_submit_button(
-                "💾 Salvar Responsável",
-                type="primary",
-                use_container_width=True
+            nome = st.text_input(
+                "👤 Nome do Responsável",
+                placeholder="Nome completo"
             )
+
+            cpf = st.text_input(
+                "🪪 CPF",
+                placeholder="000.000.000-00"
+            )
+
+            documento = st.text_input(
+                "📄 Documento",
+                placeholder="RG ou outro documento"
+            )
+
+            tipo_vinculo = st.selectbox(
+                "🔗 Tipo de Vínculo",
+                [
+                    "Selecione",
+                    "Servidor Efetivo",
+                    "Servidor Comissionado",
+                    "Contratado",
+                    "Terceirizado",
+                    "Prestador de Serviço",
+                    "Empresa Contratada",
+                    "Outro"
+                ]
+            )
+
+        # ======================================
+        # COLUNA 2
+        # ======================================
+
+        with col2:
+
+            tipo_responsabilidade = st.selectbox(
+                "👷 Tipo de Responsabilidade",
+                [
+                    "Selecione",
+                    "Engenheiro",
+                    "Arquiteto",
+                    "Técnico",
+                    "Fiscal de Obra",
+                    "Outro"
+                ]
+            )
+
+            conselho = st.selectbox(
+                "🏛️ Conselho Profissional",
+                [
+                    "Selecione",
+                    "CREA",
+                    "CAU",
+                    "CFT",
+                    "CRT",
+                    "Outro"
+                ]
+            )
+
+            numero_conselho = st.text_input(
+                "🔢 Número do Conselho",
+                placeholder="Ex: 123456"
+            )
+
+        st.divider()
+
+        salvar = st.form_submit_button(
+            "💾 Salvar Responsável",
+            type="primary",
+            use_container_width=True
+        )
+
+    # ==========================================
+    # SALVAR
+    # ==========================================
 
     if salvar:
 
-        nome = nome.strip()
-        cpf = cpf.strip()
-        documento = documento.strip()
-        numero_conselho = numero_conselho.strip()
-
-        if not nome:
+        if not nome.strip():
 
             st.warning(
                 "⚠️ Informe o nome do responsável."
             )
+            return
 
-        elif not cpf:
+        if not cpf.strip():
 
             st.warning(
                 "⚠️ Informe o CPF."
             )
+            return
 
-        else:
+        if tipo_vinculo == "Selecione":
 
-            try:
+            st.warning(
+                "⚠️ Selecione o tipo de vínculo."
+            )
+            return
 
-                cursor.execute("""
-                    SELECT id
-                    FROM responsaveis
-                    WHERE cpf = ?
-                """, (
+        if tipo_responsabilidade == "Selecione":
+
+            st.warning(
+                "⚠️ Selecione o tipo de responsabilidade."
+            )
+            return
+
+        if conselho == "Selecione":
+
+            st.warning(
+                "⚠️ Selecione o conselho profissional."
+            )
+            return
+
+        # ======================================
+        # VERIFICAR CPF
+        # ======================================
+
+        cursor.execute("""
+            SELECT id
+            FROM responsaveis
+            WHERE cpf = ?
+        """, (
+            cpf.strip(),
+        ))
+
+        cpf_existente = cursor.fetchone()
+
+        if cpf_existente:
+
+            st.warning(
+                "⚠️ Já existe um responsável "
+                "cadastrado com este CPF."
+            )
+            return
+
+        # ======================================
+        # INSERT
+        # ======================================
+
+        try:
+
+            cursor.execute("""
+                INSERT INTO responsaveis (
+                    nome,
                     cpf,
-                ))
-
-                existente = cursor.fetchone()
-
-                if existente:
-
-                    st.warning(
-                        "⚠️ Já existe um responsável "
-                        "cadastrado com este CPF."
-                    )
-
-                else:
-
-                    cursor.execute("""
-                        INSERT INTO responsaveis (
-                            nome,
-                            cpf,
-                            documento,
-                            tipo_responsabilidade,
-                            conselho,
-                            numero_conselho,
-                            ativo,
-                            data_cadastro
-                        )
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (
-                        nome,
-                        cpf,
-                        documento,
-                        tipo_responsabilidade,
-                        conselho,
-                        numero_conselho,
-                        1,
-                        datetime.now().strftime(
-                            "%Y-%m-%d %H:%M:%S"
-                        )
-                    ))
-
-                    conn.commit()
-
-                    st.session_state[
-                        "responsavel_cadastrado_sucesso"
-                    ] = True
-
-                    st.session_state[
-                        "tela_responsavel"
-                    ] = "Principal"
-
-                    st.rerun()
-
-            except Exception as e:
-
-                st.error(
-                    f"❌ Erro ao cadastrar responsável: {e}"
+                    documento,
+                    tipo_responsabilidade,
+                    tipo_vinculo,
+                    conselho,
+                    numero_conselho,
+                    ativo,
+                    data_cadastro
                 )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                nome.strip(),
+                cpf.strip(),
+                documento.strip(),
+                tipo_responsabilidade,
+                tipo_vinculo,
+                conselho,
+                numero_conselho.strip(),
+                1,
+                datetime.now().strftime(
+                    "%Y-%m-%d %H:%M:%S"
+                )
+            ))
+
+            conn.commit()
+
+            st.session_state[
+                "responsavel_cadastrado_sucesso"
+            ] = True
+
+            st.session_state[
+                "tela_responsavel"
+            ] = "Principal"
+
+            st.rerun()
+
+        except Exception as e:
+
+            conn.rollback()
+
+            st.error(
+                f"❌ Erro ao cadastrar responsável: {e}"
+            )
 def localizar_responsavel():
 
     st.subheader("🔎 Localizar Responsável")
-
-    # ==========================================
-    # BOTÃO VOLTAR
-    # ==========================================
 
     if st.button(
         "⬅️ Voltar",
         key="voltar_localizar_responsavel"
     ):
-        st.session_state["tela_responsavel"] = "Principal"
 
         st.session_state.pop(
             "responsavel_edicao_id",
             None
         )
 
+        st.session_state[
+            "tela_responsavel"
+        ] = "Principal"
+
         st.rerun()
 
     st.divider()
 
     # ==========================================
-    # CAMPO DE PESQUISA
+    # PESQUISA
     # ==========================================
 
     busca = st.text_input(
-        "🔍 Pesquisar responsável",
+        "🔍 Pesquisar",
         placeholder=(
-            "Digite nome, CPF, conselho "
-            "ou número do conselho"
+            "Nome, CPF, responsabilidade ou vínculo"
         ),
         key="pesquisa_responsavel"
     )
-
-    # ==========================================
-    # CONSULTAR RESPONSÁVEIS
-    # ==========================================
 
     if busca:
 
@@ -3349,24 +3616,21 @@ def localizar_responsavel():
                 id,
                 nome,
                 cpf,
-                documento,
                 tipo_responsabilidade,
+                tipo_vinculo,
                 conselho,
                 numero_conselho
             FROM responsaveis
-            WHERE ativo = 1
-            AND (
-                nome LIKE ?
-                OR cpf LIKE ?
-                OR documento LIKE ?
-                OR tipo_responsabilidade LIKE ?
-                OR conselho LIKE ?
-                OR numero_conselho LIKE ?
-            )
+            WHERE
+                ativo = 1
+                AND (
+                    nome LIKE ?
+                    OR cpf LIKE ?
+                    OR tipo_responsabilidade LIKE ?
+                    OR tipo_vinculo LIKE ?
+                )
             ORDER BY nome
         """, (
-            termo,
-            termo,
             termo,
             termo,
             termo,
@@ -3380,8 +3644,8 @@ def localizar_responsavel():
                 id,
                 nome,
                 cpf,
-                documento,
                 tipo_responsabilidade,
+                tipo_vinculo,
                 conselho,
                 numero_conselho
             FROM responsaveis
@@ -3391,16 +3655,11 @@ def localizar_responsavel():
 
     registros = cursor.fetchall()
 
-    # ==========================================
-    # VERIFICAR RESULTADOS
-    # ==========================================
-
     if not registros:
 
         st.info(
             "Nenhum responsável encontrado."
         )
-
         return
 
     # ==========================================
@@ -3413,36 +3672,29 @@ def localizar_responsavel():
             "ID",
             "Nome",
             "CPF",
-            "Documento",
             "Responsabilidade",
+            "Vínculo",
             "Conselho",
             "Nº Conselho"
         ]
     )
 
     # ==========================================
-    # JAVASCRIPT - DUPLO CLIQUE
+    # DUPLO CLIQUE
     # ==========================================
 
     js_duplo_clique = JsCode("""
         function(params) {
-
             if (params.data) {
-
                 params.api.deselectAll();
-
                 params.node.setSelected(true);
-
             }
-
         }
     """)
 
-    # ==========================================
-    # CONFIGURAÇÃO DO AGGRID
-    # ==========================================
-
-    gb = GridOptionsBuilder.from_dataframe(df)
+    gb = GridOptionsBuilder.from_dataframe(
+        df
+    )
 
     gb.configure_default_column(
         sortable=True,
@@ -3463,12 +3715,12 @@ def localizar_responsavel():
     grid_options = gb.build()
 
     grid_options[
+        "suppressRowClickSelection"
+    ] = True
+
+    grid_options[
         "onRowDoubleClicked"
     ] = js_duplo_clique
-
-    # ==========================================
-    # EXIBIR TABELA
-    # ==========================================
 
     resposta = AgGrid(
         df,
@@ -3480,10 +3732,6 @@ def localizar_responsavel():
         key="grid_localizar_responsavel"
     )
 
-    # ==========================================
-    # PEGAR LINHA SELECIONADA
-    # ==========================================
-
     selecionados = resposta.get(
         "selected_rows",
         []
@@ -3493,32 +3741,29 @@ def localizar_responsavel():
         selecionados,
         pd.DataFrame
     ):
-
         selecionados = selecionados.to_dict(
             "records"
         )
-
-    # ==========================================
-    # ABRIR ALTERAÇÃO
-    # ==========================================
 
     if selecionados:
 
         selecionado = selecionados[0]
 
-        id_responsavel = int(
-            selecionado["ID"]
-        )
-
         st.session_state[
             "responsavel_edicao_id"
-        ] = id_responsavel
+        ] = int(
+            selecionado["ID"]
+        )
 
         st.session_state[
             "tela_responsavel"
         ] = "Alterar"
 
         st.rerun()
+
+    st.info(
+        "👆 Dê dois cliques no responsável para alterar."
+    )
 def excluir_item_obra():
 
     st.subheader("🗑️ Excluir Item da Obra")
@@ -3819,17 +4064,33 @@ def alterar_responsavel():
             "⚠️ Nenhum responsável selecionado."
         )
 
-        if st.button(
-            "⬅️ Voltar",
-            key="voltar_alterar_sem_responsavel"
-        ):
-            st.session_state[
-                "tela_responsavel"
-            ] = "Principal"
-
-            st.rerun()
+        st.session_state[
+            "tela_responsavel"
+        ] = "Localizar"
 
         return
+
+    if st.button(
+        "⬅️ Voltar",
+        key="voltar_alterar_responsavel"
+    ):
+
+        st.session_state.pop(
+            "responsavel_edicao_id",
+            None
+        )
+
+        st.session_state[
+            "tela_responsavel"
+        ] = "Localizar"
+
+        st.rerun()
+
+    st.divider()
+
+    # ==========================================
+    # BUSCAR RESPONSÁVEL
+    # ==========================================
 
     cursor.execute("""
         SELECT
@@ -3837,6 +4098,7 @@ def alterar_responsavel():
             cpf,
             documento,
             tipo_responsabilidade,
+            tipo_vinculo,
             conselho,
             numero_conselho
         FROM responsaveis
@@ -3852,217 +4114,230 @@ def alterar_responsavel():
         st.error(
             "❌ Responsável não encontrado."
         )
-
-        st.session_state.pop(
-            "responsavel_edicao_id",
-            None
-        )
-
         return
 
-    (
-        nome_atual,
-        cpf_atual,
-        documento_atual,
-        responsabilidade_atual,
-        conselho_atual,
-        numero_conselho_atual
-    ) = registro
+    nome_atual = registro[0] or ""
+    cpf_atual = registro[1] or ""
+    documento_atual = registro[2] or ""
+    responsabilidade_atual = registro[3] or ""
+    vinculo_atual = registro[4] or ""
+    conselho_atual = registro[5] or ""
+    numero_conselho_atual = registro[6] or ""
 
-    if st.button(
-        "⬅️ Voltar",
-        key="voltar_alterar_responsavel"
-    ):
-        st.session_state[
-            "tela_responsavel"
-        ] = "Localizar"
+    # ==========================================
+    # OPÇÕES
+    # ==========================================
 
-        st.rerun()
+    tipos_responsabilidade = [
+        "Engenheiro",
+        "Arquiteto",
+        "Técnico",
+        "Fiscal de Obra",
+        "Outro"
+    ]
 
-    st.divider()
+    tipos_vinculo = [
+        "Servidor Efetivo",
+        "Servidor Comissionado",
+        "Contratado",
+        "Terceirizado",
+        "Prestador de Serviço",
+        "Empresa Contratada",
+        "Outro"
+    ]
 
-    with st.container(border=True):
+    conselhos = [
+        "CREA",
+        "CAU",
+        "CFT",
+        "CRT",
+        "Outro"
+    ]
 
-        st.markdown(
-            f"### 👤 {nome_atual}"
+    # ==========================================
+    # ÍNDICES
+    # ==========================================
+
+    indice_responsabilidade = 0
+
+    if responsabilidade_atual in tipos_responsabilidade:
+        indice_responsabilidade = (
+            tipos_responsabilidade.index(
+                responsabilidade_atual
+            )
         )
 
-        with st.form(
-            "form_alterar_responsavel"
-        ):
+    indice_vinculo = 0
 
-            col1, col2 = st.columns(2)
+    if vinculo_atual in tipos_vinculo:
+        indice_vinculo = tipos_vinculo.index(
+            vinculo_atual
+        )
 
-            with col1:
+    indice_conselho = 0
 
-                nome = st.text_input(
-                    "👤 Nome Completo *",
-                    value=nome_atual or ""
-                )
+    if conselho_atual in conselhos:
+        indice_conselho = conselhos.index(
+            conselho_atual
+        )
 
-                cpf = st.text_input(
-                    "🪪 CPF *",
-                    value=cpf_atual or ""
-                )
+    # ==========================================
+    # FORMULÁRIO
+    # ==========================================
 
-                documento = st.text_input(
-                    "📄 Documento",
-                    value=documento_atual or ""
-                )
+    with st.form(
+        f"form_alterar_responsavel_{id_responsavel}"
+    ):
 
-            responsabilidades = [
-                "Engenheiro",
-                "Arquiteto",
-                "Técnico",
-                "Fiscal de Obra",
-                "Outro"
-            ]
+        col1, col2 = st.columns(2)
 
-            conselhos = [
-                "CREA",
-                "CAU",
-                "CFT",
-                "CRT",
-                "Outro"
-            ]
+        with col1:
 
-            with col2:
-
-                if responsabilidade_atual in responsabilidades:
-
-                    indice_responsabilidade = (
-                        responsabilidades.index(
-                            responsabilidade_atual
-                        )
-                    )
-
-                else:
-
-                    indice_responsabilidade = 0
-
-                tipo_responsabilidade = st.selectbox(
-                    "👷 Tipo de Responsabilidade *",
-                    responsabilidades,
-                    index=indice_responsabilidade
-                )
-
-                if conselho_atual in conselhos:
-
-                    indice_conselho = (
-                        conselhos.index(
-                            conselho_atual
-                        )
-                    )
-
-                else:
-
-                    indice_conselho = 0
-
-                conselho = st.selectbox(
-                    "🏛️ Conselho Profissional *",
-                    conselhos,
-                    index=indice_conselho
-                )
-
-                numero_conselho = st.text_input(
-                    "🔢 Número do Conselho",
-                    value=numero_conselho_atual or ""
-                )
-
-            st.divider()
-
-            salvar = st.form_submit_button(
-                "💾 Salvar Alterações",
-                type="primary",
-                use_container_width=True
+            nome = st.text_input(
+                "👤 Nome do Responsável",
+                value=nome_atual
             )
+
+            cpf = st.text_input(
+                "🪪 CPF",
+                value=cpf_atual
+            )
+
+            documento = st.text_input(
+                "📄 Documento",
+                value=documento_atual
+            )
+
+            tipo_vinculo = st.selectbox(
+                "🔗 Tipo de Vínculo",
+                tipos_vinculo,
+                index=indice_vinculo
+            )
+
+        with col2:
+
+            tipo_responsabilidade = st.selectbox(
+                "👷 Tipo de Responsabilidade",
+                tipos_responsabilidade,
+                index=indice_responsabilidade
+            )
+
+            conselho = st.selectbox(
+                "🏛️ Conselho Profissional",
+                conselhos,
+                index=indice_conselho
+            )
+
+            numero_conselho = st.text_input(
+                "🔢 Número do Conselho",
+                value=numero_conselho_atual
+            )
+
+        st.divider()
+
+        salvar = st.form_submit_button(
+            "💾 Salvar Alterações",
+            type="primary",
+            use_container_width=True
+        )
+
+    # ==========================================
+    # SALVAR ALTERAÇÃO
+    # ==========================================
 
     if salvar:
 
-        nome = nome.strip()
-        cpf = cpf.strip()
-        documento = documento.strip()
-        numero_conselho = numero_conselho.strip()
-
-        if not nome:
+        if not nome.strip():
 
             st.warning(
-                "⚠️ Informe o nome."
+                "⚠️ Informe o nome do responsável."
             )
+            return
 
-        elif not cpf:
+        if not cpf.strip():
 
             st.warning(
                 "⚠️ Informe o CPF."
             )
+            return
 
-        else:
+        # ======================================
+        # CPF DUPLICADO
+        # ======================================
 
-            try:
+        cursor.execute("""
+            SELECT id
+            FROM responsaveis
+            WHERE
+                cpf = ?
+                AND id != ?
+        """, (
+            cpf.strip(),
+            id_responsavel
+        ))
 
-                cursor.execute("""
-                    SELECT id
-                    FROM responsaveis
-                    WHERE cpf = ?
-                    AND id <> ?
-                """, (
-                    cpf,
-                    id_responsavel
-                ))
+        cpf_existente = cursor.fetchone()
 
-                cpf_existente = cursor.fetchone()
+        if cpf_existente:
 
-                if cpf_existente:
+            st.warning(
+                "⚠️ Já existe outro responsável "
+                "com este CPF."
+            )
+            return
 
-                    st.warning(
-                        "⚠️ Já existe outro responsável "
-                        "com este CPF."
-                    )
+        # ======================================
+        # UPDATE
+        # ======================================
 
-                else:
+        try:
 
-                    cursor.execute("""
-                        UPDATE responsaveis
-                        SET
-                            nome = ?,
-                            cpf = ?,
-                            documento = ?,
-                            tipo_responsabilidade = ?,
-                            conselho = ?,
-                            numero_conselho = ?
-                        WHERE id = ?
-                    """, (
-                        nome,
-                        cpf,
-                        documento,
-                        tipo_responsabilidade,
-                        conselho,
-                        numero_conselho,
-                        id_responsavel
-                    ))
+            cursor.execute("""
+                UPDATE responsaveis
+                SET
+                    nome = ?,
+                    cpf = ?,
+                    documento = ?,
+                    tipo_responsabilidade = ?,
+                    tipo_vinculo = ?,
+                    conselho = ?,
+                    numero_conselho = ?
+                WHERE id = ?
+            """, (
+                nome.strip(),
+                cpf.strip(),
+                documento.strip(),
+                tipo_responsabilidade,
+                tipo_vinculo,
+                conselho,
+                numero_conselho.strip(),
+                id_responsavel
+            ))
 
-                    conn.commit()
+            conn.commit()
 
-                    st.session_state[
-                        "responsavel_alterado_sucesso"
-                    ] = True
+            st.session_state.pop(
+                "responsavel_edicao_id",
+                None
+            )
 
-                    st.session_state.pop(
-                        "responsavel_edicao_id",
-                        None
-                    )
+            st.session_state[
+                "responsavel_alterado_sucesso"
+            ] = True
 
-                    st.session_state[
-                        "tela_responsavel"
-                    ] = "Principal"
+            st.session_state[
+                "tela_responsavel"
+            ] = "Principal"
 
-                    st.rerun()
+            st.rerun()
 
-            except Exception as e:
+        except Exception as e:
 
-                st.error(
-                    f"❌ Erro ao alterar responsável: {e}"
-                )
+            conn.rollback()
+
+            st.error(
+                f"❌ Erro ao alterar responsável: {e}"
+            )
 def alterar_item_obra():
 
     st.subheader("✏️ Alterar Item da Obra")
@@ -6152,12 +6427,18 @@ def cadastro_de_obras():
         incluir_item_obra()
 
 def incluir_obra():
+
     # ==================================================
+    # CONTROLE
+    # ==================================================
+
     if st.session_state.get(
         "obra_alterada_sucesso",
         False
     ):
-        st.success("✅ Obra alterada com sucesso!")
+        st.success(
+            "✅ Obra alterada com sucesso!"
+        )
 
         st.session_state[
             "obra_alterada_sucesso"
@@ -6166,11 +6447,14 @@ def incluir_obra():
     if "cadastro_obra_id" not in st.session_state:
         st.session_state["cadastro_obra_id"] = 0
 
-    cadastro_id = st.session_state["cadastro_obra_id"]
+    cadastro_id = st.session_state[
+        "cadastro_obra_id"
+    ]
 
-    # Mensagem após salvar
     if st.session_state.get("obra_salva"):
-        st.success("✅ Obra cadastrada com sucesso!")
+        st.success(
+            "✅ Obra cadastrada com sucesso!"
+        )
         st.session_state["obra_salva"] = False
 
     # ==================================================
@@ -6180,6 +6464,10 @@ def incluir_obra():
     st.subheader("📋 Informações da Obra")
 
     col1, col2 = st.columns(2)
+
+    # ==================================================
+    # COLUNA 1
+    # ==================================================
 
     with col1:
 
@@ -6224,17 +6512,23 @@ def incluir_obra():
             placeholder="Ex: Centro",
             key=f"bairro_{cadastro_id}"
         )
+
+    # ==================================================
+    # COLUNA 2
+    # ==================================================
+
     with col2:
 
-        # ==========================================
-        # RESPONSÁVEL PELA OBRA
-        # ==========================================
+        # ==============================================
+        # RESPONSÁVEL
+        # ==============================================
 
         cursor.execute("""
             SELECT
                 id,
                 nome,
-                tipo_responsabilidade
+                tipo_responsabilidade,
+                tipo_vinculo
             FROM responsaveis
             WHERE ativo = 1
             ORDER BY nome
@@ -6246,7 +6540,8 @@ def incluir_obra():
             "Selecione o responsável": {
                 "id": None,
                 "nome": "",
-                "tipo_responsabilidade": ""
+                "tipo_responsabilidade": "",
+                "tipo_vinculo": ""
             }
         }
 
@@ -6255,11 +6550,19 @@ def incluir_obra():
             id_responsavel = registro[0]
             nome_responsavel = registro[1]
             tipo_responsavel = registro[2]
+            vinculo_responsavel = registro[3]
 
-            opcoes_responsaveis[nome_responsavel] = {
+            opcoes_responsaveis[
+                nome_responsavel
+            ] = {
                 "id": id_responsavel,
                 "nome": nome_responsavel,
-                "tipo_responsabilidade": tipo_responsavel
+                "tipo_responsabilidade": (
+                    tipo_responsavel or ""
+                ),
+                "tipo_vinculo": (
+                    vinculo_responsavel or ""
+                )
             }
 
         responsavel_selecionado = st.selectbox(
@@ -6276,9 +6579,13 @@ def incluir_obra():
             ]
         )
 
-        responsavel = (
-            dados_responsavel["nome"]
-        )
+        responsavel_id = dados_responsavel[
+            "id"
+        ]
+
+        responsavel = dados_responsavel[
+            "nome"
+        ]
 
         tipo_responsabilidade = (
             dados_responsavel[
@@ -6286,9 +6593,15 @@ def incluir_obra():
             ]
         )
 
-        # ==========================================
-        # TIPO DE RESPONSABILIDADE
-        # ==========================================
+        tipo_vinculo = (
+            dados_responsavel[
+                "tipo_vinculo"
+            ]
+        )
+
+        # ==============================================
+        # RESPONSABILIDADE
+        # ==============================================
 
         st.text_input(
             "👷 Tipo de Responsabilidade",
@@ -6297,14 +6610,28 @@ def incluir_obra():
             key=(
                 f"tipo_responsabilidade_visual_"
                 f"{cadastro_id}_"
-                f"{dados_responsavel['id']}"
+                f"{responsavel_id}"
             )
         )
 
-        art = st.text_input(
-            "📜 ART",
-            key=f"art_{cadastro_id}"
+        # ==============================================
+        # VÍNCULO
+        # ==============================================
+
+        st.text_input(
+            "🔗 Tipo de Vínculo",
+            value=tipo_vinculo,
+            disabled=True,
+            key=(
+                f"tipo_vinculo_visual_"
+                f"{cadastro_id}_"
+                f"{responsavel_id}"
+            )
         )
+
+        # ==============================================
+        # TIPO DA OBRA
+        # ==============================================
 
         tipo_obra = st.selectbox(
             "🏢 Tipo de Obra",
@@ -6329,12 +6656,59 @@ def incluir_obra():
             key=f"data_inicio_{cadastro_id}"
         )
 
-        data_entrega = data_inicio + timedelta(days=prazo)
+        data_entrega = (
+            data_inicio
+            + timedelta(days=prazo)
+        )
 
         st.info(
             f"📅 Previsão de entrega: "
             f"{data_entrega.strftime('%d/%m/%Y')}"
         )
+
+    # ==================================================
+    # ART
+    # ==================================================
+
+    st.divider()
+
+    st.subheader("📑 ART")
+
+    col_art1, col_art2 = st.columns(2)
+
+    with col_art1:
+
+        art = st.text_input(
+            "📜 Número da ART",
+            placeholder="Informe o número da ART",
+            key=f"art_{cadastro_id}"
+        )
+
+        tipo_art = st.selectbox(
+            "🏗️ Tipo de ART",
+            [
+                "Fiscalização",
+                "Execução",
+                "Projeto"
+            ],
+            key=f"tipo_art_{cadastro_id}"
+        )
+
+    with col_art2:
+
+        data_inicio_art = st.date_input(
+            "📅 Data Inicial da ART",
+            key=f"data_inicio_art_{cadastro_id}"
+        )
+
+        data_final_art = st.date_input(
+            "📅 Data Final da ART",
+            key=f"data_final_art_{cadastro_id}"
+        )
+
+    # ==================================================
+    # SITUAÇÃO
+    # ==================================================
 
     situacao = st.selectbox(
         "📊 Situação da Obra",
@@ -6378,7 +6752,6 @@ def incluir_obra():
         zoom_start=15
     )
 
-    # Marcador do local selecionado
     if (
         st.session_state["latitude_obra"] is not None
         and st.session_state["longitude_obra"] is not None
@@ -6406,17 +6779,28 @@ def incluir_obra():
 
     if map_data and map_data.get("last_clicked"):
 
-        latitude = map_data["last_clicked"]["lat"]
-        longitude = map_data["last_clicked"]["lng"]
+        latitude = map_data[
+            "last_clicked"
+        ]["lat"]
 
-        # Só consulta novamente se mudou o ponto
+        longitude = map_data[
+            "last_clicked"
+        ]["lng"]
+
         if (
-            latitude != st.session_state["latitude_obra"]
-            or longitude != st.session_state["longitude_obra"]
+            latitude
+            != st.session_state["latitude_obra"]
+            or longitude
+            != st.session_state["longitude_obra"]
         ):
 
-            st.session_state["latitude_obra"] = latitude
-            st.session_state["longitude_obra"] = longitude
+            st.session_state[
+                "latitude_obra"
+            ] = latitude
+
+            st.session_state[
+                "longitude_obra"
+            ] = longitude
 
             try:
 
@@ -6431,49 +6815,58 @@ def incluir_obra():
 
                 if location:
 
-                    dados_endereco = location.raw.get(
-                        "address",
-                        {}
+                    dados_endereco = (
+                        location.raw.get(
+                            "address",
+                            {}
+                        )
                     )
 
                     rua = (
                         dados_endereco.get("road")
-                        or dados_endereco.get("pedestrian")
-                        or dados_endereco.get("residential")
+                        or dados_endereco.get(
+                            "pedestrian"
+                        )
+                        or dados_endereco.get(
+                            "residential"
+                        )
                         or "Não informado"
                     )
 
                     numero_mapa = (
-                        dados_endereco.get("house_number")
+                        dados_endereco.get(
+                            "house_number"
+                        )
                         or "Não informado"
                     )
 
                     bairro_mapa = (
                         dados_endereco.get("suburb")
-                        or dados_endereco.get("neighbourhood")
-                        or dados_endereco.get("quarter")
-                        or dados_endereco.get("city_district")
-                        or dados_endereco.get("district")
+                        or dados_endereco.get(
+                            "neighbourhood"
+                        )
+                        or dados_endereco.get(
+                            "quarter"
+                        )
+                        or dados_endereco.get(
+                            "city_district"
+                        )
+                        or dados_endereco.get(
+                            "district"
+                        )
                         or "Não informado"
                     )
 
                     cidade = (
                         dados_endereco.get("city")
                         or dados_endereco.get("town")
-                        or dados_endereco.get("municipality")
-                        or dados_endereco.get("village")
-                        or "Não informado"
-                    )
-
-                    cidade = dados_endereco.get(
-                        "city",
-                        dados_endereco.get(
-                            "town",
-                            dados_endereco.get(
-                                "municipality",
-                                "Não informado"
-                            )
+                        or dados_endereco.get(
+                            "municipality"
                         )
+                        or dados_endereco.get(
+                            "village"
+                        )
+                        or "Não informado"
                     )
 
                     estado = dados_endereco.get(
@@ -6486,11 +6879,13 @@ def incluir_obra():
                         "Brasil"
                     )
 
-                    st.session_state["endereco_obra"] = (
-                        location.address
-                    )
+                    st.session_state[
+                        "endereco_obra"
+                    ] = location.address
 
-                    st.session_state["dados_endereco_obra"] = {
+                    st.session_state[
+                        "dados_endereco_obra"
+                    ] = {
                         "rua": rua,
                         "numero": numero_mapa,
                         "bairro": bairro_mapa,
@@ -6510,14 +6905,30 @@ def incluir_obra():
     # MOSTRAR LOCALIZAÇÃO
     # ==================================================
 
-    latitude = st.session_state["latitude_obra"]
-    longitude = st.session_state["longitude_obra"]
-    endereco = st.session_state["endereco_obra"]
-    dados = st.session_state["dados_endereco_obra"]
+    latitude = st.session_state[
+        "latitude_obra"
+    ]
 
-    if latitude is not None and longitude is not None:
+    longitude = st.session_state[
+        "longitude_obra"
+    ]
 
-        st.success("✅ Local selecionado")
+    endereco = st.session_state[
+        "endereco_obra"
+    ]
+
+    dados = st.session_state[
+        "dados_endereco_obra"
+    ]
+
+    if (
+        latitude is not None
+        and longitude is not None
+    ):
+
+        st.success(
+            "✅ Local selecionado"
+        )
 
         col1, col2, col3 = st.columns(3)
 
@@ -6525,41 +6936,58 @@ def incluir_obra():
 
             st.write(
                 "🛣️ **Rua:**",
-                dados.get("rua", "Não informado")
+                dados.get(
+                    "rua",
+                    "Não informado"
+                )
             )
 
             st.write(
                 "🔢 **Número:**",
-                numero if numero else "Não informado"
+                numero
+                if numero
+                else "Não informado"
             )
 
         with col2:
 
             st.write(
                 "🏘️ **Bairro:**",
-                bairro if bairro else "Não informado"
+                bairro
+                if bairro
+                else "Não informado"
             )
 
             st.write(
                 "🏙️ **Cidade:**",
-                dados.get("cidade", "Não informado")
+                dados.get(
+                    "cidade",
+                    "Não informado"
+                )
             )
 
         with col3:
 
             st.write(
                 "🗺️ **Estado:**",
-                dados.get("estado", "Não informado")
+                dados.get(
+                    "estado",
+                    "Não informado"
+                )
             )
 
             st.write(
                 "🌎 **País:**",
-                dados.get("pais", "Brasil")
+                dados.get(
+                    "pais",
+                    "Brasil"
+                )
             )
 
         st.info(
             f"📌 Coordenadas: "
-            f"{latitude:.6f}, {longitude:.6f}"
+            f"{latitude:.6f}, "
+            f"{longitude:.6f}"
         )
 
         endereco = (
@@ -6571,7 +6999,9 @@ def incluir_obra():
             f"{dados.get('pais', 'Brasil')}"
         )
 
-        st.session_state["endereco_obra"] = endereco
+        st.session_state[
+            "endereco_obra"
+        ] = endereco
 
         st.info(
             f"🏠 Endereço: {endereco}"
@@ -6588,99 +7018,179 @@ def incluir_obra():
     ):
 
         if not obra:
-            st.warning("⚠️ Informe o nome da obra.")
 
-        elif not contrato:
-            st.warning("⚠️ Informe o número do contrato.")
+            st.warning(
+                "⚠️ Informe o nome da obra."
+            )
+            return
 
-        elif latitude is None or longitude is None:
-            st.warning("⚠️ Selecione o local da obra no mapa.")
+        if not contrato:
 
-        else:
-            try:
-                cursor.execute("""
-                    INSERT INTO obras (
-                        obra,
-                        contrato,
-                        data_inicio,
-                        data_entrega,
-                        recurso,
-                        art,
-                        tipo_responsabilidade,
-                        latitude,
-                        longitude,
-                        endereco,
-                        responsavel,
-                        tipo_obra,
-                        valor_obra,
-                        situacao,
-                        prazo_dias,
-                        data_cadastro
-                    )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
+            st.warning(
+                "⚠️ Informe o número do contrato."
+            )
+            return
+
+        if responsavel_id is None:
+
+            st.warning(
+                "⚠️ Selecione o responsável pela obra."
+            )
+            return
+
+        if not art:
+
+            st.warning(
+                "⚠️ Informe o número da ART."
+            )
+            return
+
+        if data_final_art < data_inicio_art:
+
+            st.warning(
+                "⚠️ A data final da ART não pode ser "
+                "anterior à data inicial."
+            )
+            return
+
+        if latitude is None or longitude is None:
+
+            st.warning(
+                "⚠️ Selecione o local da obra no mapa."
+            )
+            return
+
+        try:
+
+            cursor.execute("""
+                INSERT INTO obras (
                     obra,
                     contrato,
-                    data_inicio.strftime("%Y-%m-%d"),
-                    data_entrega.strftime("%Y-%m-%d"),
+                    data_inicio,
+                    data_entrega,
                     recurso,
                     art,
+                    tipo_art,
+                    data_inicio_art,
+                    data_final_art,
                     tipo_responsabilidade,
+                    tipo_vinculo,
                     latitude,
                     longitude,
                     endereco,
+                    numero,
+                    bairro,
                     responsavel,
+                    responsavel_id,
                     tipo_obra,
                     valor_obra,
                     situacao,
-                    prazo,
-                    datetime.now().strftime("%Y-%m-%d")
-                ))
-
-                conn.commit()
-
-                # Guarda a confirmação
-                st.session_state["obra_cadastrada_sucesso"] = True
-
-                # Fecha os campos de Incluir
-                st.session_state["tela_obras"] = "Principal"
-
-                # Limpa dados temporários da localização
-                st.session_state.pop("latitude_obra", None)
-                st.session_state.pop("longitude_obra", None)
-                st.session_state.pop("endereco_obra", None)
-                st.session_state.pop("dados_endereco_obra", None)
-
-                # Reinicia a tela
-                st.rerun()
-
-            except Exception as e:
-                st.error(
-                    f"❌ Erro ao cadastrar obra: {e}"
+                    prazo_dias,
+                    data_cadastro
                 )
+                VALUES (
+                    ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?
+                )
+            """, (
+                obra,
+                contrato,
+                data_inicio.strftime(
+                    "%Y-%m-%d"
+                ),
+                data_entrega.strftime(
+                    "%Y-%m-%d"
+                ),
+                recurso,
+                art,
+                tipo_art,
+                data_inicio_art.strftime(
+                    "%Y-%m-%d"
+                ),
+                data_final_art.strftime(
+                    "%Y-%m-%d"
+                ),
+                tipo_responsabilidade,
+                tipo_vinculo,
+                latitude,
+                longitude,
+                endereco,
+                numero,
+                bairro,
+                responsavel,
+                responsavel_id,
+                tipo_obra,
+                valor_obra,
+                situacao,
+                prazo,
+                datetime.now().strftime(
+                    "%Y-%m-%d"
+                )
+            ))
+
+            conn.commit()
+
+            st.session_state[
+                "obra_cadastrada_sucesso"
+            ] = True
+
+            st.session_state[
+                "tela_obras"
+            ] = "Principal"
+
+            st.session_state.pop(
+                "latitude_obra",
+                None
+            )
+
+            st.session_state.pop(
+                "longitude_obra",
+                None
+            )
+
+            st.session_state.pop(
+                "endereco_obra",
+                None
+            )
+
+            st.session_state.pop(
+                "dados_endereco_obra",
+                None
+            )
+
+            st.session_state[
+                "cadastro_obra_id"
+            ] += 1
+
+            st.rerun()
+
+        except Exception as e:
+
+            conn.rollback()
+
+            st.error(
+                f"❌ Erro ao cadastrar obra: {e}"
+            )
 def alterar_obra():
 
     st.subheader("✏️ Alterar Obra")
 
-    # Pega o ID da obra escolhida na tela Localizar
-    id_obra = st.session_state.get("obra_edicao_id")
+    # ==========================================
+    # ID DA OBRA
+    # ==========================================
 
-    # Se nenhuma obra foi selecionada
+    id_obra = st.session_state.get(
+        "obra_edicao_id"
+    )
+
     if id_obra is None:
-        st.warning("⚠️ Nenhuma obra foi selecionada para alteração.")
-        return
 
-    # Busca a obra no banco
-    cursor.execute("""
-        SELECT *
-        FROM obras
-        WHERE id = ?
-    """, (id_obra,))
-
-    dados = cursor.fetchone()
-
-    if dados is None:
-        st.error("❌ Obra não encontrada no banco de dados.")
+        st.warning(
+            "⚠️ Nenhuma obra foi selecionada "
+            "para alteração."
+        )
         return
 
     # ==========================================
@@ -6696,11 +7206,18 @@ def alterar_obra():
             data_entrega,
             recurso,
             art,
+            tipo_art,
+            data_inicio_art,
+            data_final_art,
             tipo_responsabilidade,
+            tipo_vinculo,
             latitude,
             longitude,
             endereco,
+            numero,
+            bairro,
             responsavel,
+            responsavel_id,
             tipo_obra,
             valor_obra,
             situacao,
@@ -6719,32 +7236,46 @@ def alterar_obra():
         st.error(
             "❌ Obra não encontrada."
         )
-
         return
 
     # ==========================================
-    # DADOS
+    # DADOS ATUAIS
     # ==========================================
 
     nome_atual = dados[1]
     contrato_atual = dados[2]
     data_inicio_atual = dados[3]
     recurso_atual = dados[5]
+
     art_atual = dados[6]
-    responsabilidade_atual = dados[7]
-    endereco_atual = dados[10]
-    responsavel_atual = dados[11]
-    tipo_atual = dados[12]
-    valor_atual = dados[13]
-    situacao_atual = dados[14]
-    prazo_atual = dados[15]
+    tipo_art_atual = dados[7]
+    data_inicio_art_atual = dados[8]
+    data_final_art_atual = dados[9]
+
+    responsabilidade_atual = dados[10]
+    vinculo_atual = dados[11]
+
+    latitude_atual = dados[12]
+    longitude_atual = dados[13]
+    endereco_atual = dados[14]
+
+    numero_atual = dados[15]
+    bairro_atual = dados[16]
+
+    responsavel_atual = dados[17]
+    responsavel_id_atual = dados[18]
+
+    tipo_atual = dados[19]
+    valor_atual = dados[20]
+    situacao_atual = dados[21]
+    prazo_atual = dados[22]
 
     st.info(
         f"Editando obra #{id_obra} - {nome_atual}"
     )
 
     # ==========================================
-    # CONVERTER DATA
+    # CONVERTER DATAS
     # ==========================================
 
     try:
@@ -6756,7 +7287,39 @@ def alterar_obra():
 
     except Exception:
 
-        data_convertida = datetime.now().date()
+        data_convertida = (
+            datetime.now().date()
+        )
+
+    try:
+
+        data_inicio_art_convertida = (
+            datetime.strptime(
+                data_inicio_art_atual,
+                "%Y-%m-%d"
+            ).date()
+        )
+
+    except Exception:
+
+        data_inicio_art_convertida = (
+            datetime.now().date()
+        )
+
+    try:
+
+        data_final_art_convertida = (
+            datetime.strptime(
+                data_final_art_atual,
+                "%Y-%m-%d"
+            ).date()
+        )
+
+    except Exception:
+
+        data_final_art_convertida = (
+            datetime.now().date()
+        )
 
     # ==========================================
     # CAMPOS
@@ -6764,11 +7327,15 @@ def alterar_obra():
 
     col1, col2 = st.columns(2)
 
+    # ==========================================
+    # COLUNA 1
+    # ==========================================
+
     with col1:
 
         nome = st.text_input(
             "🏗️ Nome da Obra",
-            value=nome_atual,
+            value=nome_atual or "",
             key=f"editar_nome_{id_obra}"
         )
 
@@ -6786,7 +7353,9 @@ def alterar_obra():
         ]
 
         indice_recurso = (
-            recursos.index(recurso_atual)
+            recursos.index(
+                recurso_atual
+            )
             if recurso_atual in recursos
             else 0
         )
@@ -6801,47 +7370,183 @@ def alterar_obra():
         valor = st.number_input(
             "💵 Valor da Obra",
             min_value=0.0,
-            value=float(valor_atual or 0),
+            value=float(
+                valor_atual or 0
+            ),
             format="%.2f",
             key=f"editar_valor_{id_obra}"
         )
 
-        responsavel = st.text_input(
-            "👤 Responsável",
-            value=responsavel_atual or "",
-            key=f"editar_responsavel_{id_obra}"
+        numero = st.text_input(
+            "🔢 Número",
+            value=numero_atual or "",
+            key=f"editar_numero_{id_obra}"
         )
+
+        bairro = st.text_input(
+            "🏘️ Bairro",
+            value=bairro_atual or "",
+            key=f"editar_bairro_{id_obra}"
+        )
+
+    # ==========================================
+    # COLUNA 2
+    # ==========================================
 
     with col2:
 
-        responsabilidades = [
-            "Engenheiro",
-            "Arquiteto",
-            "Técnico",
-            "Outros"
-        ]
+        # ======================================
+        # RESPONSÁVEIS CADASTRADOS
+        # ======================================
 
-        indice_responsabilidade = (
-            responsabilidades.index(
-                responsabilidade_atual
+        cursor.execute("""
+            SELECT
+                id,
+                nome,
+                tipo_responsabilidade,
+                tipo_vinculo
+            FROM responsaveis
+            WHERE ativo = 1
+            ORDER BY nome
+        """)
+
+        registros_responsaveis = (
+            cursor.fetchall()
+        )
+
+        opcoes_responsaveis = {}
+
+        for registro in registros_responsaveis:
+
+            opcoes_responsaveis[
+                registro[1]
+            ] = {
+                "id": registro[0],
+                "nome": registro[1],
+                "tipo_responsabilidade": (
+                    registro[2] or ""
+                ),
+                "tipo_vinculo": (
+                    registro[3] or ""
+                )
+            }
+
+        # ======================================
+        # RESPONSÁVEL ANTIGO NÃO ENCONTRADO
+        # ======================================
+
+        if (
+            responsavel_atual
+            and responsavel_atual
+            not in opcoes_responsaveis
+        ):
+
+            opcoes_responsaveis[
+                responsavel_atual
+            ] = {
+                "id": responsavel_id_atual,
+                "nome": responsavel_atual,
+                "tipo_responsabilidade": (
+                    responsabilidade_atual or ""
+                ),
+                "tipo_vinculo": (
+                    vinculo_atual or ""
+                )
+            }
+
+        nomes_responsaveis = list(
+            opcoes_responsaveis.keys()
+        )
+
+        if not nomes_responsaveis:
+
+            st.warning(
+                "⚠️ Nenhum responsável cadastrado."
             )
-            if responsabilidade_atual
-            in responsabilidades
-            else 0
-        )
 
-        tipo_responsabilidade = st.selectbox(
-            "👷 Tipo de Responsabilidade",
-            responsabilidades,
-            index=indice_responsabilidade,
-            key=f"editar_resp_tipo_{id_obra}"
-        )
+            responsavel = ""
+            responsavel_id = None
+            tipo_responsabilidade = ""
+            tipo_vinculo = ""
 
-        art = st.text_input(
-            "📜 ART",
-            value=art_atual or "",
-            key=f"editar_art_{id_obra}"
-        )
+        else:
+
+            indice_responsavel = 0
+
+            if (
+                responsavel_atual
+                in nomes_responsaveis
+            ):
+
+                indice_responsavel = (
+                    nomes_responsaveis.index(
+                        responsavel_atual
+                    )
+                )
+
+            responsavel_selecionado = (
+                st.selectbox(
+                    "👤 Responsável pela Obra",
+                    nomes_responsaveis,
+                    index=indice_responsavel,
+                    key=(
+                        f"editar_responsavel_"
+                        f"{id_obra}"
+                    )
+                )
+            )
+
+            dados_responsavel = (
+                opcoes_responsaveis[
+                    responsavel_selecionado
+                ]
+            )
+
+            responsavel = (
+                dados_responsavel["nome"]
+            )
+
+            responsavel_id = (
+                dados_responsavel["id"]
+            )
+
+            tipo_responsabilidade = (
+                dados_responsavel[
+                    "tipo_responsabilidade"
+                ]
+            )
+
+            tipo_vinculo = (
+                dados_responsavel[
+                    "tipo_vinculo"
+                ]
+            )
+
+            st.text_input(
+                "👷 Tipo de Responsabilidade",
+                value=tipo_responsabilidade,
+                disabled=True,
+                key=(
+                    f"editar_responsabilidade_"
+                    f"{id_obra}_"
+                    f"{responsavel_id}"
+                )
+            )
+
+            st.text_input(
+                "🔗 Tipo de Vínculo",
+                value=tipo_vinculo,
+                disabled=True,
+                key=(
+                    f"editar_vinculo_"
+                    f"{id_obra}_"
+                    f"{responsavel_id}"
+                )
+            )
+
+        # ======================================
+        # TIPO DA OBRA
+        # ======================================
 
         tipos = [
             "Construção",
@@ -6866,7 +7571,9 @@ def alterar_obra():
         prazo = st.number_input(
             "📅 Prazo em dias",
             min_value=1,
-            value=int(prazo_atual or 1),
+            value=int(
+                prazo_atual or 1
+            ),
             step=1,
             key=f"editar_prazo_{id_obra}"
         )
@@ -6877,27 +7584,10 @@ def alterar_obra():
             key=f"editar_data_{id_obra}"
         )
 
-        situacoes = [
-            "Em andamento",
-            "Concluída",
-            "Paralisada",
-            "Planejada"
-        ]
+    # ==========================================
+    # PREVISÃO DE ENTREGA
+    # ==========================================
 
-        indice_situacao = (
-            situacoes.index(situacao_atual)
-            if situacao_atual in situacoes
-            else 0
-        )
-
-        situacao = st.selectbox(
-            "📊 Situação",
-            situacoes,
-            index=indice_situacao,
-            key=f"editar_situacao_{id_obra}"
-        )
-
-    # Calcula nova entrega
     data_entrega = (
         data_inicio
         + timedelta(days=prazo)
@@ -6908,18 +7598,130 @@ def alterar_obra():
         f"{data_entrega.strftime('%d/%m/%Y')}"
     )
 
+    # ==========================================
+    # ART
+    # ==========================================
+
+    st.divider()
+
+    st.subheader("📑 ART")
+
+    col_art1, col_art2 = st.columns(2)
+
+    with col_art1:
+
+        art = st.text_input(
+            "📜 Número da ART",
+            value=art_atual or "",
+            key=f"editar_art_{id_obra}"
+        )
+
+        tipos_art = [
+            "Fiscalização",
+            "Execução",
+            "Projeto"
+        ]
+
+        indice_tipo_art = (
+            tipos_art.index(
+                tipo_art_atual
+            )
+            if tipo_art_atual in tipos_art
+            else 0
+        )
+
+        tipo_art = st.selectbox(
+            "🏗️ Tipo de ART",
+            tipos_art,
+            index=indice_tipo_art,
+            key=f"editar_tipo_art_{id_obra}"
+        )
+
+    with col_art2:
+
+        data_inicio_art = st.date_input(
+            "📅 Data Inicial da ART",
+            value=data_inicio_art_convertida,
+            key=(
+                f"editar_inicio_art_"
+                f"{id_obra}"
+            )
+        )
+
+        data_final_art = st.date_input(
+            "📅 Data Final da ART",
+            value=data_final_art_convertida,
+            key=(
+                f"editar_final_art_"
+                f"{id_obra}"
+            )
+        )
+
+    # ==========================================
+    # SITUAÇÃO
+    # ==========================================
+
+    situacoes = [
+        "1 – Não iniciado",
+        "2 – Iniciado",
+        "3 – Encerrado por rescisão contratual",
+        "4 – Paralisado",
+        "5 – Concluído e não recebido",
+        "6 – Concluído e recebido provisoriamente",
+        "7 – Concluído e recebido definitivamente",
+        "8 – Reiniciado"
+    ]
+
+    indice_situacao = (
+        situacoes.index(
+            situacao_atual
+        )
+        if situacao_atual in situacoes
+        else 0
+    )
+
+    situacao = st.selectbox(
+        "📊 Situação",
+        situacoes,
+        index=indice_situacao,
+        key=f"editar_situacao_{id_obra}"
+    )
+
+    # ==========================================
+    # LOCAL ATUAL
+    # ==========================================
+
+    st.divider()
+
+    st.subheader("📍 Localização")
+
     st.write(
         f"📍 **Local atual:** "
         f"{endereco_atual or 'Não informado'}"
     )
 
+    if (
+        latitude_atual is not None
+        and longitude_atual is not None
+    ):
+
+        st.info(
+            f"📌 Coordenadas: "
+            f"{float(latitude_atual):.6f}, "
+            f"{float(longitude_atual):.6f}"
+        )
+
     # ==========================================
-    # SALVAR ALTERAÇÕES
+    # SALVAR
     # ==========================================
+
+    st.divider()
 
     if st.button(
         "💾 Salvar Alterações",
-        type="primary"
+        type="primary",
+        use_container_width=True,
+        key=f"salvar_alterar_obra_{id_obra}"
     ):
 
         if not nome:
@@ -6927,7 +7729,35 @@ def alterar_obra():
             st.warning(
                 "⚠️ Informe o nome da obra."
             )
+            return
 
+        if not contrato:
+
+            st.warning(
+                "⚠️ Informe o contrato."
+            )
+            return
+
+        if responsavel_id is None:
+
+            st.warning(
+                "⚠️ Selecione um responsável."
+            )
+            return
+
+        if not art:
+
+            st.warning(
+                "⚠️ Informe o número da ART."
+            )
+            return
+
+        if data_final_art < data_inicio_art:
+
+            st.warning(
+                "⚠️ A data final da ART não pode "
+                "ser anterior à data inicial."
+            )
             return
 
         try:
@@ -6941,9 +7771,21 @@ def alterar_obra():
                     data_inicio = ?,
                     data_entrega = ?,
                     recurso = ?,
+
                     art = ?,
+                    tipo_art = ?,
+                    data_inicio_art = ?,
+                    data_final_art = ?,
+
                     tipo_responsabilidade = ?,
+                    tipo_vinculo = ?,
+
                     responsavel = ?,
+                    responsavel_id = ?,
+
+                    numero = ?,
+                    bairro = ?,
+
                     tipo_obra = ?,
                     valor_obra = ?,
                     situacao = ?,
@@ -6953,58 +7795,90 @@ def alterar_obra():
             """, (
                 nome,
                 contrato,
-                data_inicio.strftime("%Y-%m-%d"),
-                data_entrega.strftime("%Y-%m-%d"),
+                data_inicio.strftime(
+                    "%Y-%m-%d"
+                ),
+                data_entrega.strftime(
+                    "%Y-%m-%d"
+                ),
                 recurso,
+
                 art,
+                tipo_art,
+                data_inicio_art.strftime(
+                    "%Y-%m-%d"
+                ),
+                data_final_art.strftime(
+                    "%Y-%m-%d"
+                ),
+
                 tipo_responsabilidade,
+                tipo_vinculo,
+
                 responsavel,
+                responsavel_id,
+
+                numero,
+                bairro,
+
                 tipo_obra,
                 valor,
                 situacao,
                 prazo,
+
                 id_obra
             ))
 
             conn.commit()
 
-            # ==========================================
-            # LIMPAR OBRA QUE ESTAVA SENDO ALTERADA
-            # ==========================================
+            # ==================================
+            # LIMPAR EDIÇÃO
+            # ==================================
 
-            if "obra_edicao_id" in st.session_state:
-                del st.session_state["obra_edicao_id"]
+            st.session_state.pop(
+                "obra_edicao_id",
+                None
+            )
 
-            # ==========================================
-            # LIMPAR LOCALIZAÇÃO
-            # ==========================================
+            st.session_state.pop(
+                "latitude_obra",
+                None
+            )
 
-            st.session_state["latitude_obra"] = None
-            st.session_state["longitude_obra"] = None
-            st.session_state["endereco_obra"] = None
-            st.session_state["dados_endereco_obra"] = {}
+            st.session_state.pop(
+                "longitude_obra",
+                None
+            )
 
-            # ==========================================
-            # LIMPAR CAMPOS DA TELA INCLUIR
-            # ==========================================
+            st.session_state.pop(
+                "endereco_obra",
+                None
+            )
 
-            if "cadastro_obra_id" not in st.session_state:
-                st.session_state["cadastro_obra_id"] = 0
+            st.session_state.pop(
+                "dados_endereco_obra",
+                None
+            )
 
-            st.session_state["cadastro_obra_id"] += 1
+            # ==================================
+            # SUCESSO
+            # ==================================
 
-            # ==========================================
-            # VOLTAR PARA TELA INCLUIR
-            # ==========================================
+            st.session_state[
+                "obra_alterada_sucesso"
+            ] = True
 
-            st.session_state["tela_obras"] = "Incluir"
-
-            # Mensagem para aparecer depois do rerun
-            st.session_state["obra_alterada_sucesso"] = True
+            # Volta para os botões do
+            # Cadastro de Obras
+            st.session_state[
+                "tela_obras"
+            ] = "Principal"
 
             st.rerun()
 
         except Exception as e:
+
+            conn.rollback()
 
             st.error(
                 f"❌ Erro ao alterar obra: {e}"
