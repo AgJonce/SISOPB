@@ -442,6 +442,29 @@ cursor.execute("""
 """)
 
 conn.commit()
+
+cursor.execute("""
+    CREATE TABLE IF NOT EXISTS responsaveis_obra (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        obra_id INTEGER NOT NULL,
+        responsavel_id INTEGER NOT NULL,
+        tipo_responsabilidade TEXT,
+        tipo_vinculo TEXT,
+        numero_art TEXT,
+        tipo_art TEXT,
+        data_inicio_art TEXT,
+        data_final_art TEXT,
+
+        FOREIGN KEY (obra_id)
+            REFERENCES obras(id),
+
+        FOREIGN KEY (responsavel_id)
+            REFERENCES responsaveis(id)
+    )
+""")
+
+conn.commit()
+
 def main ():
     st.set_page_config(page_title="Sistemas de Obras Públicas ", page_icon="🏗️", layout="wide")
     st.title("🏗️SISOPB")
@@ -7069,12 +7092,19 @@ def incluir_obra():
         )
 
     # ==================================================
-    # ART
+    # ART / RESPONSÁVEIS DA OBRA
     # ==================================================
 
     st.divider()
 
     st.subheader("📑 ART")
+
+    # ==================================================
+    # LISTA TEMPORÁRIA DE RESPONSÁVEIS
+    # ==================================================
+
+    if "responsaveis_temp_obra" not in st.session_state:
+        st.session_state["responsaveis_temp_obra"] = []
 
     # ==================================================
     # BUSCAR RESPONSÁVEIS
@@ -7117,6 +7147,284 @@ def incluir_obra():
             "tipo_responsabilidade": tipo_responsavel,
             "tipo_vinculo": vinculo_responsavel
         }
+
+    # ==================================================
+    # SELECIONAR RESPONSÁVEL
+    # ==================================================
+
+    responsavel_selecionado = st.selectbox(
+        "👤 Responsável pela Obra",
+        options=list(opcoes_responsaveis.keys()),
+        key=f"art_responsavel_{cadastro_id}"
+    )
+
+    dados_responsavel = opcoes_responsaveis[
+        responsavel_selecionado
+    ]
+
+    responsavel_id_selecionado = (
+        dados_responsavel["id"]
+    )
+
+    # ==================================================
+    # SE RESPONSÁVEL FOI SELECIONADO
+    # ==================================================
+
+    if responsavel_id_selecionado is not None:
+
+        tipo_responsabilidade_selecionado = (
+            dados_responsavel[
+                "tipo_responsabilidade"
+            ]
+        )
+
+        tipo_vinculo_selecionado = (
+            dados_responsavel[
+                "tipo_vinculo"
+            ]
+        )
+
+        # ==============================================
+        # RESPONSABILIDADE E VÍNCULO
+        # ==============================================
+
+        col_resp1, col_resp2 = st.columns(2)
+
+        with col_resp1:
+
+            st.text_input(
+                "👷 Tipo de Responsabilidade",
+                value=tipo_responsabilidade_selecionado,
+                disabled=True,
+                key=(
+                    f"art_resp_visual_"
+                    f"{cadastro_id}_"
+                    f"{responsavel_id_selecionado}"
+                )
+            )
+
+        with col_resp2:
+
+            st.text_input(
+                "🔗 Tipo de Vínculo",
+                value=tipo_vinculo_selecionado,
+                disabled=True,
+                key=(
+                    f"art_vinculo_visual_"
+                    f"{cadastro_id}_"
+                    f"{responsavel_id_selecionado}"
+                )
+            )
+
+        # ==============================================
+        # NÚMERO E TIPO DA ART
+        # ==============================================
+
+        col_art1, col_art2 = st.columns(2)
+
+        with col_art1:
+
+            numero_art_temp = st.text_input(
+                "📜 Número da ART",
+                placeholder="Informe o número da ART",
+                key=(
+                    f"numero_art_temp_"
+                    f"{cadastro_id}_"
+                    f"{responsavel_id_selecionado}"
+                )
+            )
+
+        with col_art2:
+
+            tipo_art_temp = st.selectbox(
+                "🏗️ Tipo da ART",
+                [
+                    "Fiscalização",
+                    "Execução",
+                    "Projeto"
+                ],
+                key=(
+                    f"tipo_art_temp_"
+                    f"{cadastro_id}_"
+                    f"{responsavel_id_selecionado}"
+                )
+            )
+
+        # ==============================================
+        # DATAS DA ART
+        # ==============================================
+
+        col_data1, col_data2 = st.columns(2)
+
+        with col_data1:
+
+            data_inicio_art_temp = st.date_input(
+                "📅 Data Inicial da ART",
+                key=(
+                    f"inicio_art_temp_"
+                    f"{cadastro_id}_"
+                    f"{responsavel_id_selecionado}"
+                )
+            )
+
+        with col_data2:
+
+            data_final_art_temp = st.date_input(
+                "📅 Data Final da ART",
+                key=(
+                    f"final_art_temp_"
+                    f"{cadastro_id}_"
+                    f"{responsavel_id_selecionado}"
+                )
+            )
+
+        # ==============================================
+        # ADICIONAR RESPONSÁVEL
+        # ==============================================
+
+        if st.button(
+            "➕ Adicionar Responsável",
+            use_container_width=True,
+            key=f"adicionar_responsavel_obra_{cadastro_id}"
+        ):
+
+            if not numero_art_temp.strip():
+
+                st.warning(
+                    "⚠️ Informe o número da ART."
+                )
+
+            elif (
+                data_final_art_temp
+                < data_inicio_art_temp
+            ):
+
+                st.warning(
+                    "⚠️ A data final da ART não pode "
+                    "ser anterior à data inicial."
+                )
+
+            else:
+
+                ja_adicionado = any(
+                    item["responsavel_id"]
+                    == responsavel_id_selecionado
+                    for item in st.session_state[
+                        "responsaveis_temp_obra"
+                    ]
+                )
+
+                if ja_adicionado:
+
+                    st.warning(
+                        "⚠️ Este responsável já foi "
+                        "adicionado à obra."
+                    )
+
+                else:
+
+                    st.session_state[
+                        "responsaveis_temp_obra"
+                    ].append({
+                        "responsavel_id": (
+                            responsavel_id_selecionado
+                        ),
+                        "nome": (
+                            dados_responsavel["nome"]
+                        ),
+                        "tipo_responsabilidade": (
+                            tipo_responsabilidade_selecionado
+                        ),
+                        "tipo_vinculo": (
+                            tipo_vinculo_selecionado
+                        ),
+                        "numero_art": (
+                            numero_art_temp.strip()
+                        ),
+                        "tipo_art": (
+                            tipo_art_temp
+                        ),
+                        "data_inicio_art": (
+                            data_inicio_art_temp.strftime(
+                                "%Y-%m-%d"
+                            )
+                        ),
+                        "data_final_art": (
+                            data_final_art_temp.strftime(
+                                "%Y-%m-%d"
+                            )
+                        )
+                    })
+
+                    st.rerun()
+
+    # ==================================================
+    # RESPONSÁVEIS ADICIONADOS
+    # ==================================================
+
+    responsaveis_temp = st.session_state[
+        "responsaveis_temp_obra"
+    ]
+
+    if responsaveis_temp:
+
+        st.markdown(
+            "#### 📋 Responsáveis adicionados"
+        )
+
+        dados_tabela = []
+
+        for item in responsaveis_temp:
+
+            dados_tabela.append({
+                "Responsável": (
+                    item["nome"]
+                ),
+                "Responsabilidade": (
+                    item["tipo_responsabilidade"]
+                ),
+                "Vínculo": (
+                    item["tipo_vinculo"]
+                ),
+                "Número ART": (
+                    item["numero_art"]
+                ),
+                "Tipo ART": (
+                    item["tipo_art"]
+                )
+            })
+
+        df_responsaveis = pd.DataFrame(
+            dados_tabela
+        )
+
+        st.dataframe(
+            df_responsaveis,
+            use_container_width=True,
+            hide_index=True
+        )
+
+        # ==============================================
+        # REMOVER ÚLTIMO
+        # ==============================================
+
+        if st.button(
+            "↩️ Remover Último",
+            use_container_width=True,
+            key=f"remover_responsavel_obra_{cadastro_id}"
+        ):
+
+            st.session_state[
+                "responsaveis_temp_obra"
+            ].pop()
+
+            st.rerun()
+
+    else:
+
+        st.info(
+            "Nenhum responsável adicionado à obra."
+        )
 
     # ==================================================
     # RESPONSÁVEL / RESPONSABILIDADE / VÍNCULO
