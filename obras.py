@@ -132,7 +132,7 @@ def main ():
             "Cadastro de Obras 🛎️",
             "Situação da Obra",
             "Dashboard 📊",
-            "👨‍🔧 Cadastro de Funcionário",
+            "👨‍🔧 Cadastro de Responsavel",
             "Financeiro 💰",
             "Contabilidade",
             "Medições",
@@ -143,6 +143,7 @@ def main ():
         menu = [
             "Cadastro de Obras 🛎️",
             "Situação da Obra",
+			"👨‍🔧 Cadastro de Responsavel",
             "Financeiro 💰",
             "Medições",
             "Contabilidade"
@@ -171,7 +172,7 @@ def main ():
     elif escolha == "Dashboard 📊":
         dashboard()
 
-    elif escolha == "👨‍🔧 Cadastro de Funcionário":
+    elif escolha == "👨‍🔧 Cadastro de Responsavel":
         cadastrar_funcionario()
 
     elif escolha == "Contabilidade":
