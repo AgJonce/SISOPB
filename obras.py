@@ -863,7 +863,11 @@ def incluir_medicao():
         INNER JOIN itens_obra io
             ON io.obra_id = o.id
 
-        ORDER BY o.obra
+         WHERE
+          o.situacao IS NULL   
+		  OR o.situacao != '7 – Concluído e recebido definitivamente'
+		  
+		ORDER BY o.obra
     """)
 
     obras_cadastradas = cursor.fetchall()
