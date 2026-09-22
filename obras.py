@@ -126,6 +126,7 @@ cursor.execute("""
 """)
 
 conn.commit()
+
 def main ():
     st.set_page_config(page_title="Sistemas de Obras Públicas ", page_icon="🏗️", layout="wide")
     st.title("🏗️SISOPB")
@@ -4776,7 +4777,7 @@ def main():
 
     elif escolha == "👨‍🔧 Cadastro de Funcionário":
 
-        cadastrar_funcionario()
+        cadastrar_responsavel()
 
     elif escolha == "Financeiro 💰":
 
