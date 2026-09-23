@@ -26758,9 +26758,63 @@ def assistente_sisopb():
     # EXIBIR CONVERSA
     # =========================================================
 
+    historico_corrigido = []
+
     for mensagem in st.session_state[
         "historico_assistente_sisopb"
     ]:
+
+        if not isinstance(
+            mensagem,
+            dict
+        ):
+            continue
+
+        role = mensagem.get(
+            "role"
+        )
+
+        content = mensagem.get(
+            "content"
+        )
+
+        # Compatibilidade com histórico antigo
+        if role is None:
+
+            if "pergunta" in mensagem:
+
+                role = "user"
+                content = mensagem.get(
+                    "pergunta",
+                    ""
+                )
+
+            elif "resposta" in mensagem:
+
+                role = "assistant"
+                content = mensagem.get(
+                    "resposta",
+                    ""
+                )
+
+        if (
+            role in [
+                "user",
+                "assistant"
+            ]
+            and content
+        ):
+
+            historico_corrigido.append({
+                "role": role,
+                "content": str(content)
+            })
+
+    st.session_state[
+        "historico_assistente_sisopb"
+    ] = historico_corrigido
+
+    for mensagem in historico_corrigido:
 
         with st.chat_message(
             mensagem["role"]
