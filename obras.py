@@ -24481,12 +24481,13 @@ def gestao_financeiro():
 def main():
 
     st.set_page_config(
-        page_title="Sistemas de Obras Públicas",
+        page_title="SISOPB - Sistema Integrado de Obras Públicas",
         page_icon="🏗️",
         layout="wide"
     )
 
     st.title("🏗️ SISOPB")
+    st.subheader("Sistema Integrado de Obras Públicas")
     st.markdown("---")
 
     # ==========================================
@@ -24494,7 +24495,11 @@ def main():
     # ==========================================
 
     if "usuario_logado" not in st.session_state:
-        st.warning("Faça login para acessar o sistema.")
+
+        st.warning(
+            "Faça login para acessar o sistema."
+        )
+
         login()
         return
 
@@ -24504,7 +24509,8 @@ def main():
     )
 
     st.sidebar.success(
-        f"👤 Usuário: {st.session_state['usuario_logado']}"
+        f"👤 Usuário: "
+        f"{st.session_state['usuario_logado']}"
     )
 
     st.sidebar.info(
@@ -24518,37 +24524,37 @@ def main():
     if funcao == "Administrador":
 
         menu = [
-            "Cadastro de Obras 🛎️",
-            "Situação da Obra",
-            "Dashboard 📊",
-            "👨‍🔧 Cadastro de Responsavel",
-            "Financeiro 💰",
-            "Contabilidade",
-            "Medições",
-            "➕ Cadastrar Usuário"
+            "🏗️ Cadastro de Obras",
+            "🚧 Situação da Obra",
+            "📊 Dashboard",
+            "👨‍🔧 Cadastro de Responsável",
+            "💰 Financeiro",
+            "📚 Contabilidade",
+            "📏 Medições",
+            "👤 Cadastrar Usuário"
         ]
 
     elif funcao == "Engenheiro":
 
         menu = [
-            "Cadastro de Obras 🛎️",
-            "Situação da Obra",
-            "👨‍🔧 Cadastro de Responsavel",
-            "Financeiro 💰",
-            "Medições",
-            "Contabilidade"
+            "🏗️ Cadastro de Obras",
+            "🚧 Situação da Obra",
+            "👨‍🔧 Cadastro de Responsável",
+            "💰 Financeiro",
+            "📏 Medições",
+            "📚 Contabilidade"
         ]
 
     elif funcao == "Financeiro":
 
         menu = [
-            "Financeiro 💰"
+            "💰 Financeiro"
         ]
 
     elif funcao == "Contador":
 
         menu = [
-            "Contabilidade"
+            "📚 Contabilidade"
         ]
 
     else:
@@ -24566,7 +24572,9 @@ def main():
 
     escolha = st.sidebar.selectbox(
         "📋 Menu",
-        menu + ["🔓 Logout"]
+        menu + [
+            "🔓 Logout"
+        ]
     )
 
     # ==========================================
@@ -24579,64 +24587,75 @@ def main():
 
     if menu_anterior != escolha:
 
-        # Entrou novamente em Cadastro de Obras
-        if escolha == "Cadastro de Obras 🛎️":
+        # ======================================
+        # CADASTRO DE OBRAS
+        # ======================================
 
-            # Volta para tela inicial
-            st.session_state["tela_obras"] = "Principal"
+        if escolha == "🏗️ Cadastro de Obras":
 
-            # Limpa obra em edição
+            st.session_state[
+                "tela_obras"
+            ] = "Principal"
+
             st.session_state.pop(
                 "obra_edicao_id",
                 None
             )
 
-            # Limpa obra localizada
             st.session_state.pop(
                 "obra_selecionada_localizar",
                 None
             )
 
-        # Salva o menu atual
-        st.session_state["ultimo_menu"] = escolha
+        # ======================================
+        # SALVAR MENU ATUAL
+        # ======================================
+
+        st.session_state[
+            "ultimo_menu"
+        ] = escolha
 
     # ==========================================
     # ABRIR TELAS
     # ==========================================
 
-    if escolha == "Cadastro de Obras 🛎️":
+    if escolha == "🏗️ Cadastro de Obras":
 
         cadastro_de_obras()
 
-    elif escolha == "Situação da Obra":
+    elif escolha == "🚧 Situação da Obra":
 
         situacao_da_obra()
 
-    elif escolha == "Dashboard 📊":
+    elif escolha == "📊 Dashboard":
 
         dashboard()
 
-    elif escolha == "👨‍🔧 Cadastro de Responsavel":
+    elif escolha == "👨‍🔧 Cadastro de Responsável":
 
         cadastrar_responsavel()
 
-    elif escolha == "Financeiro 💰":
+    elif escolha == "💰 Financeiro":
 
         financeiro()
 
-    elif escolha == "Contabilidade":
+    elif escolha == "📚 Contabilidade":
 
         contabilidade()
 
-    elif escolha == "Medições":
+    elif escolha == "📏 Medições":
 
         medicoes()
 
-    elif escolha == "➕ Cadastrar Usuário":
+    elif escolha == "👤 Cadastrar Usuário":
 
         cadastrar_usuario()
 
     elif escolha == "🔓 Logout":
+
+        # ======================================
+        # LIMPAR LOGIN
+        # ======================================
 
         st.session_state.pop(
             "usuario_logado",
@@ -24648,6 +24667,10 @@ def main():
             None
         )
 
+        # ======================================
+        # LIMPAR NAVEGAÇÃO
+        # ======================================
+
         st.session_state.pop(
             "ultimo_menu",
             None
@@ -24658,8 +24681,13 @@ def main():
             None
         )
 
+        # ======================================
+        # REINICIAR SISTEMA
+        # ======================================
+
         st.rerun()
 
 
 if __name__ == "__main__":
+
     main()
