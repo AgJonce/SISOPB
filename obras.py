@@ -17635,6 +17635,568 @@ def gerar_pdf_empenho(id_empenho):
     buffer.seek(0)
 
     return buffer
+def gestao_empenhos():
+    st.title("📊 Gestão de Empenhos")
+
+    st.caption(
+        "Acompanhe a execução orçamentária e financeira "
+        "dos empenhos vinculados às obras."
+    )
+
+    st.divider()
+
+    # =========================================================
+    # BUSCAR OBRAS
+    # =========================================================
+
+    cursor.execute("""
+        SELECT
+            id,
+            obra,
+            contrato,
+            valor_obra,
+            recurso,
+            situacao
+        FROM obras
+        ORDER BY obra
+    """)
+
+    obras = cursor.fetchall()
+
+    if not obras:
+        st.warning(
+            "⚠️ Nenhuma obra cadastrada."
+        )
+
+        if st.button(
+            "⬅️ Voltar",
+            use_container_width=True,
+            key="voltar_gestao_empenhos_sem_obra"
+        ):
+            st.session_state[
+                "tela_contabilidade"
+            ] = "Principal"
+
+            st.rerun()
+
+        return
+
+    # =========================================================
+    # SELEÇÃO DA OBRA
+    # =========================================================
+
+    opcoes_obras = {
+        "Selecione uma obra": None
+    }
+
+    dados_obras = {}
+
+    for registro in obras:
+        obra_id = registro[0]
+        nome_obra = registro[1]
+        contrato = registro[2]
+
+        descricao = nome_obra
+
+        if contrato:
+            descricao += (
+                f" | Contrato: {contrato}"
+            )
+
+        opcoes_obras[
+            descricao
+        ] = obra_id
+
+        dados_obras[
+            obra_id
+        ] = {
+            "obra": registro[1],
+            "contrato": registro[2],
+            "valor_obra": registro[3] or 0,
+            "recurso": registro[4],
+            "situacao": registro[5]
+        }
+
+    obra_selecionada = st.selectbox(
+        "🏗️ Selecione a Obra",
+        options=list(
+            opcoes_obras.keys()
+        ),
+        key="gestao_empenhos_obra"
+    )
+
+    obra_id = opcoes_obras[
+        obra_selecionada
+    ]
+
+    # =========================================================
+    # NENHUMA OBRA SELECIONADA
+    # =========================================================
+
+    if obra_id is None:
+        st.info(
+            "Selecione uma obra para visualizar "
+            "a gestão dos empenhos."
+        )
+
+        st.divider()
+
+        if st.button(
+            "⬅️ Voltar",
+            use_container_width=True,
+            key="voltar_gestao_empenhos"
+        ):
+            st.session_state[
+                "tela_contabilidade"
+            ] = "Principal"
+
+            st.rerun()
+
+        return
+
+    dados_obra = dados_obras[
+        obra_id
+    ]
+
+    valor_obra = (
+        dados_obra["valor_obra"]
+        or 0
+    )
+
+    # =========================================================
+    # DADOS DA OBRA
+    # =========================================================
+
+    st.subheader("🏗️ Dados da Obra")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.write(
+            f"**🏗️ Obra:** "
+            f"{dados_obra['obra']}"
+        )
+
+        st.write(
+            f"**📜 Contrato:** "
+            f"{dados_obra['contrato'] or 'Não informado'}"
+        )
+
+    with col2:
+        st.write(
+            f"**💰 Recurso:** "
+            f"{dados_obra['recurso'] or 'Não informado'}"
+        )
+
+        st.write(
+            f"**🚧 Situação:** "
+            f"{dados_obra['situacao'] or 'Não informado'}"
+        )
+
+    # =========================================================
+    # BUSCAR EMPENHOS DA OBRA
+    # =========================================================
+
+    cursor.execute("""
+        SELECT
+            id,
+            numero_empenho,
+            ano_empenho,
+            data_empenho,
+            tipo_empenho,
+            credor,
+            valor_empenhado,
+            valor_anulado,
+            valor_liquidado,
+            valor_pago,
+            situacao
+        FROM empenhos
+        WHERE obra_id = ?
+        ORDER BY
+            ano_empenho DESC,
+            numero_empenho DESC
+    """, (
+        obra_id,
+    ))
+
+    empenhos = cursor.fetchall()
+
+    # =========================================================
+    # CALCULAR TOTAIS
+    # =========================================================
+
+    total_empenhado = 0
+    total_anulado = 0
+    total_liquidado = 0
+    total_pago = 0
+
+    for empenho in empenhos:
+        total_empenhado += (
+            empenho[6] or 0
+        )
+
+        total_anulado += (
+            empenho[7] or 0
+        )
+
+        total_liquidado += (
+            empenho[8] or 0
+        )
+
+        total_pago += (
+            empenho[9] or 0
+        )
+
+    empenho_liquido = (
+        total_empenhado
+        - total_anulado
+    )
+
+    saldo_contrato = (
+        valor_obra
+        - empenho_liquido
+    )
+
+    saldo_liquidar = (
+        empenho_liquido
+        - total_liquidado
+    )
+
+    liquidado_a_pagar = (
+        total_liquidado
+        - total_pago
+    )
+
+    # =========================================================
+    # INDICADORES
+    # =========================================================
+
+    st.divider()
+
+    st.subheader(
+        "💰 Execução Orçamentária e Financeira"
+    )
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+        st.metric(
+            "💵 Valor da Obra",
+            f"R$ {valor_obra:,.2f}"
+        )
+
+    with col2:
+        st.metric(
+            "📄 Empenhado",
+            f"R$ {total_empenhado:,.2f}"
+        )
+
+    with col3:
+        st.metric(
+            "↩️ Anulado",
+            f"R$ {total_anulado:,.2f}"
+        )
+
+    with col4:
+        st.metric(
+            "💼 Empenho Líquido",
+            f"R$ {empenho_liquido:,.2f}"
+        )
+
+    col5, col6, col7, col8 = st.columns(4)
+
+    with col5:
+        st.metric(
+            "📋 Liquidado",
+            f"R$ {total_liquidado:,.2f}"
+        )
+
+    with col6:
+        st.metric(
+            "💳 Pago",
+            f"R$ {total_pago:,.2f}"
+        )
+
+    with col7:
+        st.metric(
+            "⏳ Saldo a Liquidar",
+            f"R$ {saldo_liquidar:,.2f}"
+        )
+
+    with col8:
+        st.metric(
+            "🏦 A Pagar",
+            f"R$ {liquidado_a_pagar:,.2f}"
+        )
+
+    # =========================================================
+    # SALDO CONTRATUAL
+    # =========================================================
+
+    st.markdown(
+        "#### 📊 Relação entre Obra e Empenhos"
+    )
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.metric(
+            "Valor Contratado",
+            f"R$ {valor_obra:,.2f}"
+        )
+
+    with col2:
+        st.metric(
+            "Total Empenhado Líquido",
+            f"R$ {empenho_liquido:,.2f}"
+        )
+
+    with col3:
+        st.metric(
+            "Saldo não Empenhado",
+            f"R$ {saldo_contrato:,.2f}"
+        )
+
+    # =========================================================
+    # PERCENTUAIS
+    # =========================================================
+
+    if valor_obra > 0:
+        percentual_empenhado = (
+            empenho_liquido
+            / valor_obra
+        ) * 100
+    else:
+        percentual_empenhado = 0
+
+    if empenho_liquido > 0:
+        percentual_liquidado = (
+            total_liquidado
+            / empenho_liquido
+        ) * 100
+
+        percentual_pago = (
+            total_pago
+            / empenho_liquido
+        ) * 100
+    else:
+        percentual_liquidado = 0
+        percentual_pago = 0
+
+    st.markdown(
+        "#### 📈 Percentuais de Execução"
+    )
+
+    st.write(
+        f"**Empenhado em relação ao valor da obra:** "
+        f"{percentual_empenhado:.2f}%"
+    )
+
+    progresso_empenhado = (
+        percentual_empenhado / 100
+    )
+
+    progresso_empenhado = max(
+        0,
+        min(
+            progresso_empenhado,
+            1
+        )
+    )
+
+    st.progress(
+        progresso_empenhado
+    )
+
+    st.write(
+        f"**Liquidado em relação ao empenho líquido:** "
+        f"{percentual_liquidado:.2f}%"
+    )
+
+    progresso_liquidado = (
+        percentual_liquidado / 100
+    )
+
+    progresso_liquidado = max(
+        0,
+        min(
+            progresso_liquidado,
+            1
+        )
+    )
+
+    st.progress(
+        progresso_liquidado
+    )
+
+    st.write(
+        f"**Pago em relação ao empenho líquido:** "
+        f"{percentual_pago:.2f}%"
+    )
+
+    progresso_pago = (
+        percentual_pago / 100
+    )
+
+    progresso_pago = max(
+        0,
+        min(
+            progresso_pago,
+            1
+        )
+    )
+
+    st.progress(
+        progresso_pago
+    )
+
+    # =========================================================
+    # ALERTAS
+    # =========================================================
+
+    if empenho_liquido > valor_obra:
+        st.error(
+            "🚨 O total empenhado líquido ultrapassa "
+            "o valor cadastrado da obra."
+        )
+
+    if total_liquidado > empenho_liquido:
+        st.error(
+            "🚨 O valor liquidado ultrapassa "
+            "o valor empenhado líquido."
+        )
+
+    if total_pago > total_liquidado:
+        st.error(
+            "🚨 O valor pago ultrapassa "
+            "o valor liquidado."
+        )
+
+    # =========================================================
+    # EMPENHOS
+    # =========================================================
+
+    st.divider()
+
+    st.subheader("📄 Empenhos da Obra")
+
+    if empenhos:
+        dados_tabela = []
+
+        for empenho in empenhos:
+            empenhado = (
+                empenho[6] or 0
+            )
+
+            anulado = (
+                empenho[7] or 0
+            )
+
+            liquidado = (
+                empenho[8] or 0
+            )
+
+            pago = (
+                empenho[9] or 0
+            )
+
+            liquido = (
+                empenhado
+                - anulado
+            )
+
+            saldo = (
+                liquido
+                - liquidado
+            )
+
+            a_pagar = (
+                liquidado
+                - pago
+            )
+
+            dados_tabela.append({
+                "Empenho": (
+                    f"{empenho[1]}/"
+                    f"{empenho[2]}"
+                ),
+                "Data": empenho[3],
+                "Tipo": empenho[4],
+                "Credor": empenho[5],
+                "Empenhado": empenhado,
+                "Anulado": anulado,
+                "Líquido": liquido,
+                "Liquidado": liquidado,
+                "Pago": pago,
+                "Saldo a Liquidar": saldo,
+                "A Pagar": a_pagar,
+                "Situação": (
+                    empenho[10]
+                    or "Ativo"
+                )
+            })
+
+        df = pd.DataFrame(
+            dados_tabela
+        )
+
+        st.dataframe(
+            df,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Empenhado": st.column_config.NumberColumn(
+                    "Empenhado",
+                    format="R$ %.2f"
+                ),
+                "Anulado": st.column_config.NumberColumn(
+                    "Anulado",
+                    format="R$ %.2f"
+                ),
+                "Líquido": st.column_config.NumberColumn(
+                    "Líquido",
+                    format="R$ %.2f"
+                ),
+                "Liquidado": st.column_config.NumberColumn(
+                    "Liquidado",
+                    format="R$ %.2f"
+                ),
+                "Pago": st.column_config.NumberColumn(
+                    "Pago",
+                    format="R$ %.2f"
+                ),
+                "Saldo a Liquidar": st.column_config.NumberColumn(
+                    "Saldo a Liquidar",
+                    format="R$ %.2f"
+                ),
+                "A Pagar": st.column_config.NumberColumn(
+                    "A Pagar",
+                    format="R$ %.2f"
+                )
+            }
+        )
+
+    else:
+        st.info(
+            "Esta obra ainda não possui empenhos cadastrados."
+        )
+
+    # =========================================================
+    # VOLTAR
+    # =========================================================
+
+    st.divider()
+
+    if st.button(
+        "⬅️ Voltar",
+        use_container_width=True,
+        key="voltar_gestao_empenhos"
+    ):
+        st.session_state[
+            "tela_contabilidade"
+        ] = "Principal"
+
+        st.rerun()
 def main():
 
     st.set_page_config(
