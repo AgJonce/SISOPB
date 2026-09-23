@@ -21049,6 +21049,18 @@ def incluir_liquidacao():
         with col1:
 
             # =====================================================
+            # DATA DA LIQUIDAÇÃO
+            # =====================================================
+
+            data_liquidacao = st.date_input(
+                "📅 Data da Liquidação *",
+                key=(
+                    f"data_liquidacao_"
+                    f"{empenho_id}"
+                )
+            )
+
+            # =====================================================
             # NÚMERO AUTOMÁTICO DA LIQUIDAÇÃO
             # =====================================================
 
@@ -21070,7 +21082,11 @@ def incluir_liquidacao():
 
                 try:
                     numeros_utilizados.add(
-                        int(str(registro[0]).strip())
+                        int(
+                            str(
+                                registro[0]
+                            ).strip()
+                        )
                     )
 
                 except (TypeError, ValueError):
@@ -21078,7 +21094,10 @@ def incluir_liquidacao():
 
             numero_sequencial = 1
 
-            while numero_sequencial in numeros_utilizados:
+            while (
+                numero_sequencial
+                in numeros_utilizados
+            ):
                 numero_sequencial += 1
 
             numero_liquidacao = (
