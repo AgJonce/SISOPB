@@ -487,7 +487,15 @@ cursor.execute("""
     CREATE TABLE IF NOT EXISTS empenhos (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
 
+        -- =============================================
+        -- OBRA
+        -- =============================================
+
         obra_id INTEGER NOT NULL,
+
+        -- =============================================
+        -- IDENTIFICAÇÃO DO EMPENHO
+        -- =============================================
 
         numero_empenho TEXT NOT NULL,
         ano_empenho INTEGER NOT NULL,
@@ -495,19 +503,69 @@ cursor.execute("""
 
         tipo_empenho TEXT NOT NULL,
 
-        credor TEXT,
+        numero_processo TEXT,
+        numero_licitacao TEXT,
+
+        -- =============================================
+        -- CREDOR
+        -- =============================================
+
+        credor TEXT NOT NULL,
         cpf_cnpj TEXT,
+
+        banco TEXT,
+        agencia TEXT,
+        conta TEXT,
+
+        -- =============================================
+        -- CLASSIFICAÇÃO ORÇAMENTÁRIA
+        -- =============================================
+
+        unidade_orcamentaria TEXT,
+
+        funcao TEXT,
+        subfuncao TEXT,
+
+        programa TEXT,
+        acao TEXT,
+
+        elemento_despesa TEXT,
 
         fonte_recurso TEXT,
 
-        valor_empenhado REAL DEFAULT 0,
-        valor_anulado REAL DEFAULT 0,
-        valor_liquidado REAL DEFAULT 0,
-        valor_pago REAL DEFAULT 0,
+        ficha_dotacao TEXT,
+
+        -- =============================================
+        -- VALORES
+        -- =============================================
+
+        valor_empenhado REAL NOT NULL DEFAULT 0,
+
+        valor_anulado REAL NOT NULL DEFAULT 0,
+
+        valor_liquidado REAL NOT NULL DEFAULT 0,
+
+        valor_pago REAL NOT NULL DEFAULT 0,
+
+        -- =============================================
+        -- INFORMAÇÕES COMPLEMENTARES
+        -- =============================================
+
+        historico TEXT,
 
         observacao TEXT,
 
-        data_cadastro TEXT,
+        -- =============================================
+        -- CONTROLE
+        -- =============================================
+
+        situacao TEXT DEFAULT 'Ativo',
+
+        data_cadastro TEXT NOT NULL,
+
+        -- =============================================
+        -- RELACIONAMENTO
+        -- =============================================
 
         FOREIGN KEY (obra_id)
             REFERENCES obras(id)
