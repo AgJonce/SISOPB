@@ -26364,12 +26364,8 @@ def main():
     elif escolha == "🤖 Assistente SISOPB":
 
         assistente_sisopb()
-	
-	elif escolha == "🔓 Logout":
 
-        # ======================================
-        # LIMPAR LOGIN
-        # ======================================
+    elif escolha == "🔓 Logout":
 
         st.session_state.pop(
             "usuario_logado",
@@ -26381,10 +26377,6 @@ def main():
             None
         )
 
-        # ======================================
-        # LIMPAR NAVEGAÇÃO
-        # ======================================
-
         st.session_state.pop(
             "ultimo_menu",
             None
@@ -26395,9 +26387,10 @@ def main():
             None
         )
 
-        # ======================================
-        # REINICIAR SISTEMA
-        # ======================================
+        st.session_state.pop(
+            "historico_assistente_sisopb",
+            None
+        )
 
         st.rerun()
 
