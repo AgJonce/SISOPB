@@ -20994,43 +20994,6 @@ def incluir_liquidacao():
         return
 
     # =========================================================
-    # MEDIÇÃO
-    # =========================================================
-
-    cursor.execute("""
-        SELECT
-            id,
-            tipo_medicao,
-            data_medicao,
-            valor
-        FROM medicoes
-        WHERE obra_id = ?
-        ORDER BY
-            data_medicao DESC,
-            id DESC
-    """, (
-        obra_id,
-    ))
-
-    medicoes = cursor.fetchall()
-
-    opcoes_medicoes = {
-        "Sem medição vinculada": None
-    }
-
-    for medicao in medicoes:
-        descricao_medicao = (
-            f"Medição #{medicao[0]}"
-            f" | {medicao[1] or 'Não informado'}"
-            f" | {medicao[2] or 'Sem data'}"
-            f" | R$ {(medicao[3] or 0):,.2f}"
-        )
-
-        opcoes_medicoes[
-            descricao_medicao
-        ] = medicao[0]
-
-    # =========================================================
     # FORMULÁRIO
     # =========================================================
 
@@ -21044,66 +21007,68 @@ def incluir_liquidacao():
         "form_incluir_liquidacao",
         clear_on_submit=True
     ):
+
         col1, col2 = st.columns(2)
 
+        # =====================================================
+        # DATA DA LIQUIDAÇÃO
+        # =====================================================
+
         with col1:
-
-            # =====================================================
-            # DATA DA LIQUIDAÇÃO
-            # =====================================================
-
             data_liquidacao = st.date_input(
                 "📅 Data da Liquidação *",
+                value=datetime.now().date(),
                 key=(
                     f"data_liquidacao_"
                     f"{empenho_id}"
                 )
             )
 
-            # =====================================================
-            # NÚMERO AUTOMÁTICO DA LIQUIDAÇÃO
-            # =====================================================
+        # =====================================================
+        # NÚMERO AUTOMÁTICO DA LIQUIDAÇÃO
+        # =====================================================
 
-            ano_liquidacao = data_liquidacao.year
+        ano_liquidacao = data_liquidacao.year
 
-            cursor.execute("""
-                SELECT numero_liquidacao
-                FROM liquidacoes
-                WHERE substr(data_liquidacao, 1, 4) = ?
-            """, (
-                str(ano_liquidacao),
-            ))
+        cursor.execute("""
+            SELECT numero_liquidacao
+            FROM liquidacoes
+            WHERE substr(data_liquidacao, 1, 4) = ?
+        """, (
+            str(ano_liquidacao),
+        ))
 
-            numeros_existentes = cursor.fetchall()
+        numeros_existentes = cursor.fetchall()
 
-            numeros_utilizados = set()
+        numeros_utilizados = set()
 
-            for registro in numeros_existentes:
+        for numero_registrado in numeros_existentes:
 
-                try:
-                    numeros_utilizados.add(
-                        int(
-                            str(
-                                registro[0]
-                            ).strip()
-                        )
+            try:
+                numeros_utilizados.add(
+                    int(
+                        str(
+                            numero_registrado[0]
+                        ).strip()
                     )
+                )
 
-                except (TypeError, ValueError):
-                    pass
+            except (TypeError, ValueError):
+                pass
 
-            numero_sequencial = 1
+        numero_sequencial = 1
 
-            while (
-                numero_sequencial
-                in numeros_utilizados
-            ):
-                numero_sequencial += 1
+        while (
+            numero_sequencial
+            in numeros_utilizados
+        ):
+            numero_sequencial += 1
 
-            numero_liquidacao = (
-                f"{numero_sequencial:06d}"
-            )
+        numero_liquidacao = (
+            f"{numero_sequencial:06d}"
+        )
 
+        with col2:
             st.text_input(
                 "🔢 Número da Liquidação",
                 value=numero_liquidacao,
@@ -21114,29 +21079,32 @@ def incluir_liquidacao():
                     f"{ano_liquidacao}"
                 )
             )
-        with col2:
-            data_liquidacao = st.date_input(
-                "📅 Data da Liquidação *",
-                value=datetime.now().date()
-            )
+
+        # =====================================================
+        # VALOR
+        # =====================================================
 
         valor_liquidado = st.number_input(
             "💰 Valor da Liquidação *",
             min_value=0.0,
+            max_value=float(
+                max(
+                    0,
+                    saldo_a_liquidar
+                )
+            ),
             step=0.01,
             format="%.2f"
         )
 
-        medicao_selecionada = st.selectbox(
-            "📐 Medição Relacionada",
-            options=list(
-                opcoes_medicoes.keys()
-            )
+        st.caption(
+            f"Saldo disponível para liquidação: "
+            f"R$ {saldo_a_liquidar:,.2f}"
         )
 
-        medicao_id = opcoes_medicoes[
-            medicao_selecionada
-        ]
+        # =====================================================
+        # DOCUMENTO FISCAL
+        # =====================================================
 
         st.markdown(
             "##### 🧾 Documento Fiscal"
@@ -21170,7 +21138,7 @@ def incluir_liquidacao():
             "📝 Histórico",
             placeholder=(
                 "Ex: Liquidação referente à "
-                "1ª medição da obra..."
+                "execução dos serviços da obra..."
             )
         )
 
@@ -21251,7 +21219,10 @@ def incluir_liquidacao():
                     COALESCE(SUM(valor_liquidado), 0)
                 FROM liquidacoes
                 WHERE empenho_id = ?
-                  AND COALESCE(situacao, 'Ativa') <> 'Cancelada'
+                  AND COALESCE(
+                        situacao,
+                        'Ativa'
+                      ) <> 'Cancelada'
             """, (
                 empenho_id,
             ))
@@ -21312,6 +21283,11 @@ def incluir_liquidacao():
         # =====================================================
 
         try:
+
+            # A medição será vinculada posteriormente
+            # pela tela de Medições.
+            medicao_id = None
+
             cursor.execute("""
                 INSERT INTO liquidacoes (
                     empenho_id,
@@ -21328,7 +21304,10 @@ def incluir_liquidacao():
                     situacao,
                     data_cadastro
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (
+                    ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?, ?
+                )
             """, (
                 empenho_id,
                 obra_id,
@@ -21401,7 +21380,6 @@ def incluir_liquidacao():
             st.exception(
                 erro
             )
-
 
 def incluir_pagamento():
     st.subheader("💳 Registrar Pagamento")
