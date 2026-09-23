@@ -18964,6 +18964,338 @@ def gerar_pdf_empenho(id_empenho):
     buffer.seek(0)
 
     return buffer
+def imprimir_empenho():
+    st.title("🖨️ Imprimir Empenho")
+
+    st.caption(
+        "Selecione um empenho para gerar a ficha em PDF."
+    )
+
+    st.divider()
+
+    # =========================================================
+    # BUSCAR EMPENHOS
+    # =========================================================
+
+    cursor.execute("""
+        SELECT
+            e.id,
+            e.numero_empenho,
+            e.ano_empenho,
+            e.data_empenho,
+            e.credor,
+            e.valor_empenhado,
+            e.valor_anulado,
+            e.valor_liquidado,
+            e.valor_pago,
+            e.situacao,
+            o.obra,
+            o.contrato
+
+        FROM empenhos e
+
+        INNER JOIN obras o
+            ON o.id = e.obra_id
+
+        ORDER BY
+            e.ano_empenho DESC,
+            e.numero_empenho DESC
+    """)
+
+    empenhos = cursor.fetchall()
+
+    # =========================================================
+    # SEM EMPENHOS
+    # =========================================================
+
+    if not empenhos:
+        st.warning(
+            "⚠️ Nenhum empenho cadastrado."
+        )
+
+        st.divider()
+
+        if st.button(
+            "⬅️ Voltar",
+            use_container_width=True,
+            key="voltar_imprimir_empenho_sem_registro"
+        ):
+            st.session_state[
+                "tela_contabilidade"
+            ] = "Principal"
+
+            st.rerun()
+
+        return
+
+    # =========================================================
+    # MONTAR OPÇÕES
+    # =========================================================
+
+    opcoes = {
+        "Selecione um empenho": None
+    }
+
+    dados_empenhos = {}
+
+    for registro in empenhos:
+        empenho_id = registro[0]
+
+        descricao = (
+            f"{registro[1]}/{registro[2]}"
+            f" | {registro[10]}"
+            f" | {registro[4]}"
+        )
+
+        opcoes[
+            descricao
+        ] = empenho_id
+
+        dados_empenhos[
+            empenho_id
+        ] = registro
+
+    # =========================================================
+    # SELECIONAR EMPENHO
+    # =========================================================
+
+    empenho_selecionado = st.selectbox(
+        "📄 Empenho",
+        options=list(
+            opcoes.keys()
+        ),
+        key="imprimir_empenho_selecionado"
+    )
+
+    empenho_id = opcoes[
+        empenho_selecionado
+    ]
+
+    # =========================================================
+    # EMPENHO SELECIONADO
+    # =========================================================
+
+    if empenho_id is not None:
+
+        registro = dados_empenhos[
+            empenho_id
+        ]
+
+        numero_empenho = registro[1]
+        ano_empenho = registro[2]
+        data_empenho = registro[3]
+        credor = registro[4]
+
+        valor_empenhado = (
+            registro[5] or 0
+        )
+
+        valor_anulado = (
+            registro[6] or 0
+        )
+
+        valor_liquidado = (
+            registro[7] or 0
+        )
+
+        valor_pago = (
+            registro[8] or 0
+        )
+
+        situacao = (
+            registro[9]
+            or "Ativo"
+        )
+
+        obra = registro[10]
+
+        contrato = (
+            registro[11]
+            or "Não informado"
+        )
+
+        empenho_liquido = (
+            valor_empenhado
+            - valor_anulado
+        )
+
+        saldo_liquidar = (
+            empenho_liquido
+            - valor_liquidado
+        )
+
+        a_pagar = (
+            valor_liquidado
+            - valor_pago
+        )
+
+        # =====================================================
+        # RESUMO
+        # =====================================================
+
+        st.subheader(
+            "📋 Dados do Empenho"
+        )
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.write(
+                f"**📄 Empenho:** "
+                f"{numero_empenho}/{ano_empenho}"
+            )
+
+            st.write(
+                f"**📅 Data:** "
+                f"{data_empenho}"
+            )
+
+            st.write(
+                f"**🏗️ Obra:** "
+                f"{obra}"
+            )
+
+            st.write(
+                f"**📜 Contrato:** "
+                f"{contrato}"
+            )
+
+        with col2:
+            st.write(
+                f"**🏢 Credor:** "
+                f"{credor}"
+            )
+
+            st.write(
+                f"**📌 Situação:** "
+                f"{situacao}"
+            )
+
+        # =====================================================
+        # VALORES
+        # =====================================================
+
+        st.markdown(
+            "#### 💰 Execução Financeira"
+        )
+
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            st.metric(
+                "Empenhado",
+                f"R$ {valor_empenhado:,.2f}"
+            )
+
+        with col2:
+            st.metric(
+                "Anulado",
+                f"R$ {valor_anulado:,.2f}"
+            )
+
+        with col3:
+            st.metric(
+                "Empenho Líquido",
+                f"R$ {empenho_liquido:,.2f}"
+            )
+
+        col4, col5, col6 = st.columns(3)
+
+        with col4:
+            st.metric(
+                "Liquidado",
+                f"R$ {valor_liquidado:,.2f}"
+            )
+
+        with col5:
+            st.metric(
+                "Saldo a Liquidar",
+                f"R$ {saldo_liquidar:,.2f}"
+            )
+
+        with col6:
+            st.metric(
+                "A Pagar",
+                f"R$ {a_pagar:,.2f}"
+            )
+
+        # =====================================================
+        # GERAR PDF
+        # =====================================================
+
+        st.divider()
+
+        try:
+            pdf = gerar_pdf_empenho(
+                empenho_id
+            )
+
+            if pdf is not None:
+
+                nome_arquivo = (
+                    f"empenho_"
+                    f"{numero_empenho}_"
+                    f"{ano_empenho}.pdf"
+                )
+
+                # Evita caracteres problemáticos
+                # no nome do arquivo.
+                nome_arquivo = (
+                    nome_arquivo
+                    .replace("/", "-")
+                    .replace("\\", "-")
+                    .replace(" ", "_")
+                )
+
+                st.download_button(
+                    label="📥 Baixar PDF do Empenho",
+                    data=pdf.getvalue(),
+                    file_name=nome_arquivo,
+                    mime="application/pdf",
+                    use_container_width=True,
+                    key=(
+                        f"download_empenho_"
+                        f"{empenho_id}"
+                    )
+                )
+
+            else:
+                st.error(
+                    "❌ Não foi possível localizar "
+                    "os dados do empenho."
+                )
+
+        except Exception as erro:
+            st.error(
+                "❌ Erro ao gerar o PDF do empenho."
+            )
+
+            st.exception(
+                erro
+            )
+
+    else:
+        st.info(
+            "Selecione um empenho acima "
+            "para visualizar e gerar o PDF."
+        )
+
+    # =========================================================
+    # VOLTAR
+    # =========================================================
+
+    st.divider()
+
+    if st.button(
+        "⬅️ Voltar",
+        use_container_width=True,
+        key="voltar_imprimir_empenho"
+    ):
+        st.session_state[
+            "tela_contabilidade"
+        ] = "Principal"
+
+        st.rerun()
 def main():
 
     st.set_page_config(
