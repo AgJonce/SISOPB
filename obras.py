@@ -23873,6 +23873,611 @@ def imprimir_financeiro():
 
         st.rerun()
 
+def gestao_financeiro():
+
+    st.subheader("📊 Gestão Financeira")
+
+    # ==================================================
+    # VOLTAR
+    # ==================================================
+
+    if st.button(
+        "⬅️ Voltar",
+        key="voltar_gestao_financeiro"
+    ):
+        st.session_state["tela_financeiro"] = "Principal"
+        st.rerun()
+
+    st.divider()
+
+    # ==================================================
+    # TOTAIS DOS EMPENHOS
+    # ==================================================
+
+    cursor.execute("""
+        SELECT
+            COUNT(*),
+            COALESCE(SUM(valor_empenhado), 0),
+            COALESCE(SUM(valor_anulado), 0)
+        FROM empenhos
+        WHERE COALESCE(situacao, 'Ativo') <> 'Anulado'
+    """)
+
+    resultado_empenhos = cursor.fetchone()
+
+    quantidade_empenhos = int(
+        resultado_empenhos[0] or 0
+    )
+
+    total_empenhado = float(
+        resultado_empenhos[1] or 0
+    )
+
+    total_anulado = float(
+        resultado_empenhos[2] or 0
+    )
+
+    empenho_liquido = (
+        total_empenhado
+        - total_anulado
+    )
+
+    # ==================================================
+    # TOTAL LIQUIDADO
+    # ==================================================
+
+    cursor.execute("""
+        SELECT
+            COUNT(*),
+            COALESCE(SUM(valor_liquidado), 0)
+        FROM liquidacoes
+        WHERE COALESCE(situacao, 'Ativa') <> 'Cancelada'
+    """)
+
+    resultado_liquidacoes = cursor.fetchone()
+
+    quantidade_liquidacoes = int(
+        resultado_liquidacoes[0] or 0
+    )
+
+    total_liquidado = float(
+        resultado_liquidacoes[1] or 0
+    )
+
+    # ==================================================
+    # TOTAL PAGO
+    # ==================================================
+
+    cursor.execute("""
+        SELECT
+            COUNT(*),
+            COALESCE(SUM(valor_pago), 0)
+        FROM pagamentos
+        WHERE COALESCE(situacao, 'Ativo') <> 'Cancelado'
+    """)
+
+    resultado_pagamentos = cursor.fetchone()
+
+    quantidade_pagamentos = int(
+        resultado_pagamentos[0] or 0
+    )
+
+    total_pago = float(
+        resultado_pagamentos[1] or 0
+    )
+
+    # ==================================================
+    # SALDOS
+    # ==================================================
+
+    saldo_a_liquidar = (
+        empenho_liquido
+        - total_liquidado
+    )
+
+    liquidado_a_pagar = (
+        total_liquidado
+        - total_pago
+    )
+
+    # ==================================================
+    # RESUMO GERAL
+    # ==================================================
+
+    st.markdown("### 💰 Resumo Geral")
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+
+        st.metric(
+            "Empenhado",
+            f"R$ {total_empenhado:,.2f}"
+        )
+
+    with col2:
+
+        st.metric(
+            "Anulado",
+            f"R$ {total_anulado:,.2f}"
+        )
+
+    with col3:
+
+        st.metric(
+            "Empenho Líquido",
+            f"R$ {empenho_liquido:,.2f}"
+        )
+
+    with col4:
+
+        st.metric(
+            "Liquidado",
+            f"R$ {total_liquidado:,.2f}"
+        )
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+
+        st.metric(
+            "Pago",
+            f"R$ {total_pago:,.2f}"
+        )
+
+    with col2:
+
+        st.metric(
+            "Saldo a Liquidar",
+            f"R$ {saldo_a_liquidar:,.2f}"
+        )
+
+    with col3:
+
+        st.metric(
+            "Liquidado a Pagar",
+            f"R$ {liquidado_a_pagar:,.2f}"
+        )
+
+    with col4:
+
+        st.metric(
+            "Movimentos",
+            (
+                quantidade_liquidacoes
+                + quantidade_pagamentos
+            )
+        )
+
+    # ==================================================
+    # PROGRESSO FINANCEIRO
+    # ==================================================
+
+    st.divider()
+
+    st.markdown(
+        "### 📈 Execução Financeira"
+    )
+
+    if empenho_liquido > 0:
+
+        percentual_liquidado = (
+            total_liquidado
+            / empenho_liquido
+        )
+
+        percentual_pago = (
+            total_pago
+            / empenho_liquido
+        )
+
+        percentual_liquidado_barra = min(
+            max(
+                percentual_liquidado,
+                0.0
+            ),
+            1.0
+        )
+
+        percentual_pago_barra = min(
+            max(
+                percentual_pago,
+                0.0
+            ),
+            1.0
+        )
+
+        st.write(
+            "📋 **Liquidado sobre o empenhado líquido:** "
+            f"{percentual_liquidado * 100:.2f}%"
+        )
+
+        st.progress(
+            percentual_liquidado_barra
+        )
+
+        st.write(
+            "💳 **Pago sobre o empenhado líquido:** "
+            f"{percentual_pago * 100:.2f}%"
+        )
+
+        st.progress(
+            percentual_pago_barra
+        )
+
+    else:
+
+        st.info(
+            "Não há valor empenhado líquido "
+            "para calcular a execução financeira."
+        )
+
+    # ==================================================
+    # ALERTAS
+    # ==================================================
+
+    st.divider()
+
+    st.markdown(
+        "### ⚠️ Verificações"
+    )
+
+    possui_alerta = False
+
+    if total_liquidado > empenho_liquido + 0.01:
+
+        possui_alerta = True
+
+        st.error(
+            "❌ O total liquidado está superior "
+            "ao total empenhado líquido."
+        )
+
+    if total_pago > total_liquidado + 0.01:
+
+        possui_alerta = True
+
+        st.error(
+            "❌ O total pago está superior "
+            "ao total liquidado."
+        )
+
+    if not possui_alerta:
+
+        st.success(
+            "✅ Não foram encontradas inconsistências "
+            "nos totais financeiros."
+        )
+
+    # ==================================================
+    # GESTÃO POR OBRA
+    # ==================================================
+
+    st.divider()
+
+    st.markdown(
+        "### 🏗️ Situação Financeira por Obra"
+    )
+
+    cursor.execute("""
+        SELECT
+            o.id,
+            o.obra,
+            o.contrato,
+
+            COALESCE(
+                (
+                    SELECT SUM(
+                        e.valor_empenhado
+                        - e.valor_anulado
+                    )
+                    FROM empenhos e
+                    WHERE e.obra_id = o.id
+                      AND COALESCE(
+                            e.situacao,
+                            'Ativo'
+                          ) <> 'Anulado'
+                ),
+                0
+            ) AS empenhado_liquido,
+
+            COALESCE(
+                (
+                    SELECT SUM(
+                        l.valor_liquidado
+                    )
+                    FROM liquidacoes l
+                    WHERE l.obra_id = o.id
+                      AND COALESCE(
+                            l.situacao,
+                            'Ativa'
+                          ) <> 'Cancelada'
+                ),
+                0
+            ) AS liquidado,
+
+            COALESCE(
+                (
+                    SELECT SUM(
+                        p.valor_pago
+                    )
+                    FROM pagamentos p
+                    WHERE p.obra_id = o.id
+                      AND COALESCE(
+                            p.situacao,
+                            'Ativo'
+                          ) <> 'Cancelado'
+                ),
+                0
+            ) AS pago
+
+        FROM obras o
+
+        WHERE EXISTS (
+            SELECT 1
+            FROM empenhos e
+            WHERE e.obra_id = o.id
+        )
+
+        ORDER BY o.obra
+    """)
+
+    obras_financeiro = cursor.fetchall()
+
+    if obras_financeiro:
+
+        dados_obras = []
+
+        for registro in obras_financeiro:
+
+            empenhado_obra = float(
+                registro[3] or 0
+            )
+
+            liquidado_obra = float(
+                registro[4] or 0
+            )
+
+            pago_obra = float(
+                registro[5] or 0
+            )
+
+            saldo_liquidar_obra = (
+                empenhado_obra
+                - liquidado_obra
+            )
+
+            saldo_pagar_obra = (
+                liquidado_obra
+                - pago_obra
+            )
+
+            dados_obras.append({
+                "Obra": registro[1],
+                "Contrato": (
+                    registro[2] or ""
+                ),
+                "Empenhado Líquido": (
+                    empenhado_obra
+                ),
+                "Liquidado": (
+                    liquidado_obra
+                ),
+                "Pago": (
+                    pago_obra
+                ),
+                "Saldo a Liquidar": (
+                    saldo_liquidar_obra
+                ),
+                "Liquidado a Pagar": (
+                    saldo_pagar_obra
+                )
+            })
+
+        df_obras = pd.DataFrame(
+            dados_obras
+        )
+
+        st.dataframe(
+            df_obras,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Empenhado Líquido": (
+                    st.column_config.NumberColumn(
+                        format="R$ %.2f"
+                    )
+                ),
+                "Liquidado": (
+                    st.column_config.NumberColumn(
+                        format="R$ %.2f"
+                    )
+                ),
+                "Pago": (
+                    st.column_config.NumberColumn(
+                        format="R$ %.2f"
+                    )
+                ),
+                "Saldo a Liquidar": (
+                    st.column_config.NumberColumn(
+                        format="R$ %.2f"
+                    )
+                ),
+                "Liquidado a Pagar": (
+                    st.column_config.NumberColumn(
+                        format="R$ %.2f"
+                    )
+                )
+            }
+        )
+
+    else:
+
+        st.info(
+            "Nenhuma obra possui movimentação "
+            "financeira cadastrada."
+        )
+
+    # ==================================================
+    # GESTÃO POR EMPENHO
+    # ==================================================
+
+    st.divider()
+
+    st.markdown(
+        "### 📑 Situação por Empenho"
+    )
+
+    cursor.execute("""
+        SELECT
+            e.id,
+            e.numero_empenho,
+            e.ano_empenho,
+            o.obra,
+            e.credor,
+            e.valor_empenhado,
+            e.valor_anulado,
+
+            COALESCE(
+                (
+                    SELECT SUM(
+                        l.valor_liquidado
+                    )
+                    FROM liquidacoes l
+                    WHERE l.empenho_id = e.id
+                      AND COALESCE(
+                            l.situacao,
+                            'Ativa'
+                          ) <> 'Cancelada'
+                ),
+                0
+            ) AS liquidado,
+
+            COALESCE(
+                (
+                    SELECT SUM(
+                        p.valor_pago
+                    )
+                    FROM pagamentos p
+                    WHERE p.empenho_id = e.id
+                      AND COALESCE(
+                            p.situacao,
+                            'Ativo'
+                          ) <> 'Cancelado'
+                ),
+                0
+            ) AS pago
+
+        FROM empenhos e
+
+        INNER JOIN obras o
+            ON o.id = e.obra_id
+
+        WHERE COALESCE(
+            e.situacao,
+            'Ativo'
+        ) <> 'Anulado'
+
+        ORDER BY
+            e.ano_empenho DESC,
+            e.numero_empenho
+    """)
+
+    empenhos = cursor.fetchall()
+
+    if empenhos:
+
+        dados = []
+
+        for registro in empenhos:
+
+            valor_empenhado = float(
+                registro[5] or 0
+            )
+
+            valor_anulado = float(
+                registro[6] or 0
+            )
+
+            liquidado = float(
+                registro[7] or 0
+            )
+
+            pago = float(
+                registro[8] or 0
+            )
+
+            liquido = (
+                valor_empenhado
+                - valor_anulado
+            )
+
+            saldo_liquidar = (
+                liquido
+                - liquidado
+            )
+
+            saldo_pagar = (
+                liquidado
+                - pago
+            )
+
+            dados.append({
+                "Empenho": (
+                    f"{registro[1]}/"
+                    f"{registro[2]}"
+                ),
+                "Obra": registro[3],
+                "Credor": registro[4],
+                "Empenhado Líquido": liquido,
+                "Liquidado": liquidado,
+                "Pago": pago,
+                "Saldo a Liquidar": saldo_liquidar,
+                "Liquidado a Pagar": saldo_pagar
+            })
+
+        df_empenhos = pd.DataFrame(
+            dados
+        )
+
+        st.dataframe(
+            df_empenhos,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Empenhado Líquido": (
+                    st.column_config.NumberColumn(
+                        format="R$ %.2f"
+                    )
+                ),
+                "Liquidado": (
+                    st.column_config.NumberColumn(
+                        format="R$ %.2f"
+                    )
+                ),
+                "Pago": (
+                    st.column_config.NumberColumn(
+                        format="R$ %.2f"
+                    )
+                ),
+                "Saldo a Liquidar": (
+                    st.column_config.NumberColumn(
+                        format="R$ %.2f"
+                    )
+                ),
+                "Liquidado a Pagar": (
+                    st.column_config.NumberColumn(
+                        format="R$ %.2f"
+                    )
+                )
+            }
+        )
+
+    else:
+
+        st.info(
+            "Nenhum empenho ativo encontrado."
+        )
 def main():
 
     st.set_page_config(
