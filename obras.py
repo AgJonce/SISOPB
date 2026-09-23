@@ -1049,16 +1049,18 @@ def incluir_medicao():
         INNER JOIN itens_obra io
             ON io.obra_id = o.id
 
-         WHERE
-          o.situacao IS NULL   
-		  OR o.situacao != '7 – Concluído e recebido definitivamente'
-		  
-		ORDER BY o.obra
+        WHERE
+            o.situacao IS NULL
+            OR o.situacao !=
+            '7 – Concluído e recebido definitivamente'
+
+        ORDER BY o.obra
     """)
 
     obras_cadastradas = cursor.fetchall()
 
     if not obras_cadastradas:
+
         st.warning(
             "⚠️ Nenhuma obra com itens cadastrados foi encontrada."
         )
@@ -1221,7 +1223,7 @@ def incluir_medicao():
         return
 
     # ==================================================
-    # MONTAR OPÇÕES
+    # MONTAR OPÇÕES DOS RESPONSÁVEIS
     # ==================================================
 
     opcoes_responsaveis = {
@@ -1251,9 +1253,6 @@ def incluir_medicao():
         tipo_art = (
             registro[6] or ""
         )
-
-        # Permite inclusive o mesmo profissional
-        # possuir mais de uma ART na mesma obra.
 
         chave = (
             f"{nome} | "
@@ -1286,7 +1285,7 @@ def incluir_medicao():
         }
 
     # ==================================================
-    # ESCOLHER RESPONSÁVEL PELA MEDIÇÃO
+    # ESCOLHER RESPONSÁVEL
     # ==================================================
 
     responsavel_escolhido = st.selectbox(
@@ -1304,7 +1303,7 @@ def incluir_medicao():
     )
 
     # ==================================================
-    # MOSTRAR DADOS DO RESPONSÁVEL
+    # MOSTRAR RESPONSÁVEL
     # ==================================================
 
     if vinculo_escolhido is not None:
@@ -1374,7 +1373,7 @@ def incluir_medicao():
             )
 
         # ==================================================
-        # ADICIONAR RESPONSÁVEL À MEDIÇÃO
+        # ADICIONAR RESPONSÁVEL
         # ==================================================
 
         if st.button(
@@ -1385,9 +1384,6 @@ def incluir_medicao():
                 f"{obra_id}"
             )
         ):
-
-            # A medição terá apenas o responsável
-            # escolhido pelo usuário.
 
             st.session_state[
                 "fiscais_temp_medicao"
@@ -1429,7 +1425,7 @@ def incluir_medicao():
             st.rerun()
 
     # ==================================================
-    # RESPONSÁVEL DEFINIDO PARA A MEDIÇÃO
+    # RESPONSÁVEL DEFINIDO
     # ==================================================
 
     fiscais_temp = st.session_state[
@@ -1514,10 +1510,6 @@ def incluir_medicao():
 
     col1, col2 = st.columns(2)
 
-    # ==================================================
-    # COLUNA 1
-    # ==================================================
-
     with col1:
 
         tipo_medicao = st.selectbox(
@@ -1540,10 +1532,6 @@ def incluir_medicao():
             key=f"inicio_medicao_{obra_id}"
         )
 
-    # ==================================================
-    # COLUNA 2
-    # ==================================================
-
     with col2:
 
         data_final = st.date_input(
@@ -1556,7 +1544,7 @@ def incluir_medicao():
     # ==================================================
 
     st.markdown(
-        "#### 💰 Empenho e Nota Fiscal"
+        "#### 💰 Empenho"
     )
 
     cursor.execute("""
@@ -1566,11 +1554,13 @@ def incluir_medicao():
             ano_empenho,
             credor,
             valor_empenhado,
-            valor_anulado,
-            situacao
+            valor_anulado
         FROM empenhos
         WHERE obra_id = ?
-          AND COALESCE(situacao, 'Ativo') <> 'Anulado'
+          AND COALESCE(
+                situacao,
+                'Ativo'
+              ) <> 'Anulado'
         ORDER BY
             ano_empenho DESC,
             numero_empenho
@@ -1586,47 +1576,30 @@ def incluir_medicao():
 
     dados_empenhos = {}
 
-    for registro_empenho in empenhos_obra:
+    for registro in empenhos_obra:
 
-        empenho_id_registro = (
-            registro_empenho[0]
+        empenho_id_registro = registro[0]
+        numero_empenho = registro[1] or ""
+        ano_empenho = registro[2] or ""
+        credor = registro[3] or ""
+
+        valor_empenhado = float(
+            registro[4] or 0
         )
 
-        numero_empenho_registro = (
-            registro_empenho[1]
-            or ""
+        valor_anulado = float(
+            registro[5] or 0
         )
 
-        ano_empenho_registro = (
-            registro_empenho[2]
-            or ""
-        )
-
-        credor_empenho = (
-            registro_empenho[3]
-            or "Credor não informado"
-        )
-
-        valor_empenhado_registro = float(
-            registro_empenho[4]
-            or 0
-        )
-
-        valor_anulado_registro = float(
-            registro_empenho[5]
-            or 0
-        )
-
-        valor_liquido_empenho = (
-            valor_empenhado_registro
-            - valor_anulado_registro
+        valor_liquido = (
+            valor_empenhado
+            - valor_anulado
         )
 
         descricao_empenho = (
-            f"{numero_empenho_registro}/"
-            f"{ano_empenho_registro}"
-            f" | {credor_empenho}"
-            f" | R$ {valor_liquido_empenho:,.2f}"
+            f"{numero_empenho}/{ano_empenho}"
+            f" | {credor}"
+            f" | R$ {valor_liquido:,.2f}"
         )
 
         opcoes_empenhos[
@@ -1636,26 +1609,14 @@ def incluir_medicao():
         dados_empenhos[
             empenho_id_registro
         ] = {
-            "numero": (
-                numero_empenho_registro
-            ),
-            "ano": (
-                ano_empenho_registro
-            ),
-            "credor": (
-                credor_empenho
-            ),
-            "valor_liquido": (
-                valor_liquido_empenho
-            )
+            "numero": numero_empenho,
+            "ano": ano_empenho,
+            "credor": credor,
+            "valor_liquido": valor_liquido
         }
 
-    # ==================================================
-    # SELECIONAR EMPENHO
-    # ==================================================
-
     empenho_selecionado = st.selectbox(
-        "💰 Empenho",
+        "💰 Empenho vinculado à obra",
         options=list(
             opcoes_empenhos.keys()
         ),
@@ -1666,14 +1627,20 @@ def incluir_medicao():
         empenho_selecionado
     ]
 
-    # Valores padrão para o salvamento.
+    # Valores padrão
     empenho = ""
     liquidacao_id = None
     nota_fiscal = ""
     data_nota = None
 
+    if not empenhos_obra:
+
+        st.warning(
+            "⚠️ Esta obra não possui empenhos cadastrados."
+        )
+
     # ==================================================
-    # SE EMPENHO FOI SELECIONADO
+    # EMPENHO SELECIONADO
     # ==================================================
 
     if empenho_id is not None:
@@ -1682,58 +1649,56 @@ def incluir_medicao():
             empenho_id
         ]
 
-        # Mantém compatibilidade com sua coluna atual
-        # medicoes.empenho.
         empenho = (
             f"{dados_empenho['numero']}/"
             f"{dados_empenho['ano']}"
         )
 
-        # ==================================================
-        # MOSTRAR DADOS DO EMPENHO
-        # ==================================================
+        col1, col2, col3 = st.columns(3)
 
-        col_emp1, col_emp2, col_emp3 = (
-            st.columns(3)
-        )
+        with col1:
 
-        with col_emp1:
-
-            st.metric(
-                "📄 Empenho",
-                empenho
+            st.text_input(
+                "📄 Número do Empenho",
+                value=empenho,
+                disabled=True,
+                key=(
+                    f"numero_empenho_medicao_"
+                    f"{obra_id}_{empenho_id}"
+                )
             )
 
-        with col_emp2:
+        with col2:
+
+            st.text_input(
+                "🏢 Credor",
+                value=dados_empenho[
+                    "credor"
+                ],
+                disabled=True,
+                key=(
+                    f"credor_medicao_"
+                    f"{obra_id}_{empenho_id}"
+                )
+            )
+
+        with col3:
 
             st.metric(
-                "💰 Valor Líquido",
+                "💰 Valor Líquido do Empenho",
                 (
                     f"R$ "
                     f"{dados_empenho['valor_liquido']:,.2f}"
                 )
             )
 
-        with col_emp3:
-
-            st.text_input(
-                "🏢 Credor",
-                value=(
-                    dados_empenho[
-                        "credor"
-                    ]
-                ),
-                disabled=True,
-                key=(
-                    f"credor_empenho_medicao_"
-                    f"{obra_id}_"
-                    f"{empenho_id}"
-                )
-            )
-
         # ==================================================
-        # BUSCAR NOTAS FISCAIS DAS LIQUIDAÇÕES
+        # NOTAS FISCAIS DAS LIQUIDAÇÕES
         # ==================================================
+
+        st.markdown(
+            "#### 🧾 Nota Fiscal"
+        )
 
         cursor.execute("""
             SELECT
@@ -1750,9 +1715,7 @@ def incluir_medicao():
                     'Ativa'
                   ) <> 'Cancelada'
               AND numero_nota_fiscal IS NOT NULL
-              AND TRIM(
-                    numero_nota_fiscal
-                  ) <> ''
+              AND TRIM(numero_nota_fiscal) <> ''
             ORDER BY
                 data_liquidacao DESC,
                 id DESC
@@ -1762,48 +1725,27 @@ def incluir_medicao():
 
         notas_fiscais = cursor.fetchall()
 
-        # ==================================================
-        # OPÇÕES DAS NOTAS
-        # ==================================================
-
         opcoes_notas = {
             "Selecione a Nota Fiscal": None
         }
 
         dados_notas = {}
 
-        for registro_nota in notas_fiscais:
+        for registro in notas_fiscais:
 
-            id_liquidacao = (
-                registro_nota[0]
-            )
+            id_liquidacao = registro[0]
+            numero_liquidacao = registro[1] or ""
+            numero_nf = registro[2] or ""
+            data_nf = registro[3] or ""
 
-            numero_liquidacao = (
-                registro_nota[1]
-                or ""
-            )
-
-            numero_nf = (
-                registro_nota[2]
-                or ""
-            )
-
-            data_nf = (
-                registro_nota[3]
-                or ""
-            )
-
-            valor_liquidado_nf = float(
-                registro_nota[4]
-                or 0
+            valor_liquidado = float(
+                registro[4] or 0
             )
 
             descricao_nota = (
                 f"NF {numero_nf}"
-                f" | Liquidação "
-                f"{numero_liquidacao}"
-                f" | R$ "
-                f"{valor_liquidado_nf:,.2f}"
+                f" | Liquidação {numero_liquidacao}"
+                f" | R$ {valor_liquidado:,.2f}"
             )
 
             opcoes_notas[
@@ -1816,42 +1758,29 @@ def incluir_medicao():
                 "numero_liquidacao": (
                     numero_liquidacao
                 ),
-                "numero_nota": (
-                    numero_nf
-                ),
-                "data_nota": (
-                    data_nf
-                ),
+                "numero_nota": numero_nf,
+                "data_nota": data_nf,
                 "valor_liquidado": (
-                    valor_liquidado_nf
+                    valor_liquidado
                 )
             }
-
-        # ==================================================
-        # SE EXISTEM NOTAS
-        # ==================================================
 
         if notas_fiscais:
 
             nota_selecionada = st.selectbox(
-                "🧾 Nota Fiscal",
+                "🧾 Nota Fiscal vinculada à liquidação",
                 options=list(
                     opcoes_notas.keys()
                 ),
                 key=(
                     f"nota_medicao_"
-                    f"{obra_id}_"
-                    f"{empenho_id}"
+                    f"{obra_id}_{empenho_id}"
                 )
             )
 
             liquidacao_id = opcoes_notas[
                 nota_selecionada
             ]
-
-            # ==================================================
-            # NOTA SELECIONADA
-            # ==================================================
 
             if liquidacao_id is not None:
 
@@ -1864,10 +1793,6 @@ def incluir_medicao():
                         "numero_nota"
                     ]
                 )
-
-                # ==================================================
-                # CONVERTER DATA
-                # ==================================================
 
                 data_nota_texto = (
                     dados_nota[
@@ -1886,19 +1811,18 @@ def incluir_medicao():
                             ).date()
                         )
 
-                    except Exception:
+                    except (
+                        TypeError,
+                        ValueError
+                    ):
 
                         data_nota = None
 
-                # ==================================================
-                # MOSTRAR DADOS DA NOTA
-                # ==================================================
-
-                col_nf1, col_nf2, col_nf3 = (
+                col1, col2, col3 = (
                     st.columns(3)
                 )
 
-                with col_nf1:
+                with col1:
 
                     st.text_input(
                         "🧾 Número da Nota Fiscal",
@@ -1906,12 +1830,11 @@ def incluir_medicao():
                         disabled=True,
                         key=(
                             f"numero_nf_medicao_"
-                            f"{obra_id}_"
                             f"{liquidacao_id}"
                         )
                     )
 
-                with col_nf2:
+                with col2:
 
                     st.text_input(
                         "📅 Data da Nota Fiscal",
@@ -1925,15 +1848,14 @@ def incluir_medicao():
                         disabled=True,
                         key=(
                             f"data_nf_medicao_"
-                            f"{obra_id}_"
                             f"{liquidacao_id}"
                         )
                     )
 
-                with col_nf3:
+                with col3:
 
                     st.metric(
-                        "💵 Valor Liquidado",
+                        "💵 Valor da Liquidação",
                         (
                             f"R$ "
                             f"{dados_nota['valor_liquidado']:,.2f}"
@@ -1945,37 +1867,66 @@ def incluir_medicao():
                     f"{dados_nota['numero_liquidacao']}"
                 )
 
-            else:
-
-                st.info(
-                    "Selecione uma Nota Fiscal "
-                    "para vinculá-la à medição."
-                )
-
         else:
 
             st.warning(
-                "⚠️ Este empenho não possui "
-                "Nota Fiscal vinculada a uma "
-                "liquidação ativa."
+                "⚠️ O empenho selecionado não possui "
+                "Nota Fiscal vinculada a uma liquidação ativa."
             )
 
-    else:
+    # ==================================================
+    # ITENS DA OBRA
+    # ==================================================
 
-        if empenhos_obra:
+    st.divider()
 
-            st.info(
-                "Selecione um empenho para "
-                "visualizar as Notas Fiscais "
-                "das liquidações."
-            )
+    st.markdown(
+        "### 🧱 Itens da Medição"
+    )
 
-        else:
+    cursor.execute("""
+        SELECT
+            io.id,
+            i.codigo,
+            i.descricao,
+            i.unidade,
+            io.quantidade,
+            io.valor_unitario,
+            io.valor_total,
 
-            st.warning(
-                "⚠️ Esta obra não possui "
-                "empenhos cadastrados."
-            )
+            COALESCE(
+                (
+                    SELECT SUM(
+                        im.valor_medido
+                    )
+                    FROM itens_medicao im
+                    WHERE im.item_obra_id = io.id
+                ),
+                0
+            ) AS valor_ja_medido
+
+        FROM itens_obra io
+
+        INNER JOIN itens i
+            ON i.id = io.item_id
+
+        WHERE io.obra_id = ?
+
+        ORDER BY i.codigo
+    """, (
+        obra_id,
+    ))
+
+    itens = cursor.fetchall()
+
+    if not itens:
+
+        st.warning(
+            "⚠️ Esta obra não possui itens cadastrados."
+        )
+        return
+
+    itens_selecionados = []
 
     # ==================================================
     # MOSTRAR ITENS
@@ -2124,7 +2075,7 @@ def incluir_medicao():
         percentual = 0.0
 
     # ==================================================
-    # RESUMO FINANCEIRO
+    # RESUMO
     # ==================================================
 
     st.markdown(
@@ -2180,8 +2131,6 @@ def incluir_medicao():
 
     with col2:
 
-        # SOMENTE EXCEL
-
         boletim = st.file_uploader(
             "📊 Boletim de Medição (Excel)",
             type=[
@@ -2222,6 +2171,22 @@ def incluir_medicao():
             )
             return
 
+        if empenho_id is None:
+
+            st.warning(
+                "⚠️ Selecione o empenho "
+                "vinculado à medição."
+            )
+            return
+
+        if liquidacao_id is None:
+
+            st.warning(
+                "⚠️ Selecione a Nota Fiscal "
+                "vinculada à liquidação."
+            )
+            return
+
         if not itens_selecionados:
 
             st.warning(
@@ -2243,6 +2208,87 @@ def incluir_medicao():
             st.warning(
                 "⚠️ A data final não pode ser "
                 "anterior à data inicial."
+            )
+            return
+
+        # ==================================================
+        # VALIDAR EMPENHO NOVAMENTE
+        # ==================================================
+
+        cursor.execute("""
+            SELECT
+                numero_empenho,
+                ano_empenho
+            FROM empenhos
+            WHERE id = ?
+              AND obra_id = ?
+              AND COALESCE(
+                    situacao,
+                    'Ativo'
+                  ) <> 'Anulado'
+        """, (
+            empenho_id,
+            obra_id
+        ))
+
+        empenho_banco = cursor.fetchone()
+
+        if not empenho_banco:
+
+            st.error(
+                "❌ O empenho selecionado não está "
+                "mais disponível para esta obra."
+            )
+            return
+
+        empenho = (
+            f"{empenho_banco[0]}/"
+            f"{empenho_banco[1]}"
+        )
+
+        # ==================================================
+        # VALIDAR LIQUIDAÇÃO / NOTA NOVAMENTE
+        # ==================================================
+
+        cursor.execute("""
+            SELECT
+                numero_nota_fiscal,
+                data_nota_fiscal
+            FROM liquidacoes
+            WHERE id = ?
+              AND empenho_id = ?
+              AND COALESCE(
+                    situacao,
+                    'Ativa'
+                  ) <> 'Cancelada'
+        """, (
+            liquidacao_id,
+            empenho_id
+        ))
+
+        liquidacao_banco = cursor.fetchone()
+
+        if not liquidacao_banco:
+
+            st.error(
+                "❌ A liquidação selecionada não está "
+                "mais disponível."
+            )
+            return
+
+        nota_fiscal = (
+            liquidacao_banco[0] or ""
+        )
+
+        data_nota_banco = (
+            liquidacao_banco[1]
+        )
+
+        if not nota_fiscal.strip():
+
+            st.error(
+                "❌ A liquidação selecionada não possui "
+                "Nota Fiscal."
             )
             return
 
@@ -2403,9 +2449,7 @@ def incluir_medicao():
 
                 nota_fiscal,
 
-                data_nota.strftime(
-                    "%Y-%m-%d"
-                ),
+                data_nota_banco,
 
                 empenho,
 
@@ -2457,6 +2501,19 @@ def incluir_medicao():
                     medicao_id,
                     fiscal["nome"]
                 ))
+
+            # ==================================================
+            # VINCULAR LIQUIDAÇÃO À MEDIÇÃO
+            # ==================================================
+
+            cursor.execute("""
+                UPDATE liquidacoes
+                SET medicao_id = ?
+                WHERE id = ?
+            """, (
+                medicao_id,
+                liquidacao_id
+            ))
 
             # ==================================================
             # COMMIT
