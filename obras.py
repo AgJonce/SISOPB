@@ -15266,7 +15266,2356 @@ def incluir_empenho():
                 st.error(
                     f"❌ Erro ao cadastrar empenho: {e}"
                 )
+def localizar_empenho():
 
+    st.title("🔎 Localizar Empenho")
+
+    st.caption(
+        "Localize um empenho cadastrado e dê dois cliques "
+        "sobre o registro para alterá-lo."
+    )
+
+    st.divider()
+
+    # ==================================================
+    # FILTROS
+    # ==================================================
+
+    st.subheader("🔍 Filtros")
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+
+        filtro_empenho = st.text_input(
+            "📄 Número do Empenho",
+            placeholder="Ex: 000123",
+            key="localizar_empenho_numero"
+        )
+
+    with col2:
+
+        filtro_exercicio = st.text_input(
+            "📅 Exercício",
+            placeholder="Ex: 2026",
+            key="localizar_empenho_exercicio"
+        )
+
+    with col3:
+
+        filtro_credor = st.text_input(
+            "🏢 Credor",
+            placeholder="Nome ou razão social",
+            key="localizar_empenho_credor"
+        )
+
+    # ==================================================
+    # OBRA
+    # ==================================================
+
+    cursor.execute("""
+        SELECT
+            id,
+            obra,
+            contrato
+        FROM obras
+        ORDER BY obra
+    """)
+
+    obras = cursor.fetchall()
+
+    opcoes_obras = {
+        "Todas as obras": None
+    }
+
+    for registro in obras:
+
+        descricao = registro[1]
+
+        if registro[2]:
+
+            descricao += (
+                f" | Contrato: {registro[2]}"
+            )
+
+        opcoes_obras[
+            descricao
+        ] = registro[0]
+
+    filtro_obra = st.selectbox(
+        "🏗️ Obra",
+        options=list(opcoes_obras.keys()),
+        key="localizar_empenho_obra"
+    )
+
+    obra_id_filtro = opcoes_obras[
+        filtro_obra
+    ]
+
+    # ==================================================
+    # CONSULTA
+    # ==================================================
+
+    consulta = """
+        SELECT
+            e.id,
+            e.numero_empenho,
+            e.ano_empenho,
+            e.data_empenho,
+            e.tipo_empenho,
+            o.obra,
+            o.contrato,
+            e.credor,
+            e.cpf_cnpj,
+            e.valor_empenhado,
+            e.valor_anulado,
+            e.valor_liquidado,
+            e.valor_pago,
+            e.situacao
+        FROM empenhos e
+
+        INNER JOIN obras o
+            ON o.id = e.obra_id
+
+        WHERE 1 = 1
+    """
+
+    parametros = []
+
+    if filtro_empenho.strip():
+
+        consulta += """
+            AND e.numero_empenho LIKE ?
+        """
+
+        parametros.append(
+            f"%{filtro_empenho.strip()}%"
+        )
+
+    if filtro_exercicio.strip():
+
+        consulta += """
+            AND CAST(e.ano_empenho AS TEXT) LIKE ?
+        """
+
+        parametros.append(
+            f"%{filtro_exercicio.strip()}%"
+        )
+
+    if filtro_credor.strip():
+
+        consulta += """
+            AND e.credor LIKE ?
+        """
+
+        parametros.append(
+            f"%{filtro_credor.strip()}%"
+        )
+
+    if obra_id_filtro is not None:
+
+        consulta += """
+            AND e.obra_id = ?
+        """
+
+        parametros.append(
+            obra_id_filtro
+        )
+
+    consulta += """
+        ORDER BY
+            e.ano_empenho DESC,
+            e.numero_empenho DESC
+    """
+
+    cursor.execute(
+        consulta,
+        parametros
+    )
+
+    registros = cursor.fetchall()
+
+    st.divider()
+
+    st.subheader("📋 Empenhos Encontrados")
+
+    # ==================================================
+    # TABELA
+    # ==================================================
+
+    if registros:
+
+        dados = []
+
+        for registro in registros:
+
+            empenhado = registro[9] or 0
+            anulado = registro[10] or 0
+            liquidado = registro[11] or 0
+            pago = registro[12] or 0
+
+            empenho_liquido = (
+                empenhado
+                - anulado
+            )
+
+            saldo_liquidar = (
+                empenho_liquido
+                - liquidado
+            )
+
+            a_pagar = (
+                liquidado
+                - pago
+            )
+
+            dados.append({
+                "ID": registro[0],
+                "Empenho": registro[1],
+                "Exercício": registro[2],
+                "Data": registro[3],
+                "Tipo": registro[4],
+                "Obra": registro[5],
+                "Contrato": (
+                    registro[6]
+                    or "Não informado"
+                ),
+                "Credor": registro[7],
+                "CPF/CNPJ": (
+                    registro[8]
+                    or ""
+                ),
+                "Empenhado": empenhado,
+                "Anulado": anulado,
+                "Líquido": empenho_liquido,
+                "Liquidado": liquidado,
+                "Pago": pago,
+                "Saldo": saldo_liquidar,
+                "A Pagar": a_pagar,
+                "Situação": (
+                    registro[13]
+                    or "Ativo"
+                )
+            })
+
+        df_empenhos = pd.DataFrame(
+            dados
+        )
+
+        # ==================================================
+        # AGRID
+        # ==================================================
+
+        gb = GridOptionsBuilder.from_dataframe(
+            df_empenhos
+        )
+
+        gb.configure_default_column(
+            sortable=True,
+            filter=True,
+            resizable=True
+        )
+
+        gb.configure_column(
+            "ID",
+            hide=True
+        )
+
+        gb.configure_selection(
+            selection_mode="single",
+            use_checkbox=False
+        )
+
+        grid_options = gb.build()
+
+        grid_options[
+            "suppressRowClickSelection"
+        ] = True
+
+        grid_options[
+            "onRowDoubleClicked"
+        ] = JsCode("""
+            function(event) {
+                event.api.deselectAll();
+                event.node.setSelected(true);
+            }
+        """)
+
+        resposta = AgGrid(
+            df_empenhos,
+            gridOptions=grid_options,
+            update_mode=(
+                GridUpdateMode.SELECTION_CHANGED
+            ),
+            allow_unsafe_jscode=True,
+            fit_columns_on_grid_load=True,
+            height=420,
+            theme="streamlit",
+            key="grid_localizar_empenho"
+        )
+
+        st.caption(
+            "👆 Dê dois cliques em um empenho "
+            "para alterá-lo."
+        )
+
+        # ==================================================
+        # SELEÇÃO
+        # ==================================================
+
+        selecionados = resposta.get(
+            "selected_rows"
+        )
+
+        empenho_id = None
+
+        if isinstance(
+            selecionados,
+            pd.DataFrame
+        ):
+
+            if not selecionados.empty:
+
+                empenho_id = int(
+                    selecionados.iloc[0]["ID"]
+                )
+
+        elif isinstance(
+            selecionados,
+            list
+        ):
+
+            if selecionados:
+
+                empenho_id = int(
+                    selecionados[0]["ID"]
+                )
+
+        if empenho_id is not None:
+
+            st.session_state[
+                "empenho_edicao_id"
+            ] = empenho_id
+
+            st.session_state[
+                "tela_contabilidade"
+            ] = "Alterar"
+
+            st.rerun()
+
+    else:
+
+        st.info(
+            "Nenhum empenho encontrado "
+            "com os filtros informados."
+        )
+
+    # ==================================================
+    # VOLTAR
+    # ==================================================
+
+    st.divider()
+
+    if st.button(
+        "⬅️ Voltar",
+        use_container_width=True,
+        key="voltar_localizar_empenho"
+    ):
+
+        st.session_state.pop(
+            "empenho_edicao_id",
+            None
+        )
+
+        st.session_state[
+            "tela_contabilidade"
+        ] = "Principal"
+
+        st.rerun()
+def alterar_empenho():
+
+    st.title("✏️ Alterar Empenho")
+
+    st.caption(
+        "Altere as informações do empenho selecionado."
+    )
+
+    st.divider()
+
+    # ==================================================
+    # ID
+    # ==================================================
+
+    empenho_id = st.session_state.get(
+        "empenho_edicao_id"
+    )
+
+    if empenho_id is None:
+
+        st.warning(
+            "⚠️ Nenhum empenho selecionado."
+        )
+
+        if st.button(
+            "⬅️ Voltar",
+            key="alterar_empenho_sem_id"
+        ):
+
+            st.session_state[
+                "tela_contabilidade"
+            ] = "Localizar"
+
+            st.rerun()
+
+        return
+
+    # ==================================================
+    # BUSCAR EMPENHO
+    # ==================================================
+
+    cursor.execute("""
+        SELECT
+            id,
+            obra_id,
+            numero_empenho,
+            ano_empenho,
+            data_empenho,
+            tipo_empenho,
+            numero_processo,
+            numero_licitacao,
+            credor,
+            cpf_cnpj,
+            banco,
+            agencia,
+            conta,
+            unidade_orcamentaria,
+            funcao,
+            subfuncao,
+            programa,
+            acao,
+            elemento_despesa,
+            fonte_recurso,
+            ficha_dotacao,
+            valor_empenhado,
+            valor_anulado,
+            valor_liquidado,
+            valor_pago,
+            historico,
+            observacao,
+            situacao
+        FROM empenhos
+        WHERE id = ?
+    """, (
+        empenho_id,
+    ))
+
+    registro = cursor.fetchone()
+
+    if not registro:
+
+        st.error(
+            "❌ Empenho não encontrado."
+        )
+
+        return
+
+    # ==================================================
+    # DADOS ATUAIS
+    # ==================================================
+
+    obra_id_atual = registro[1]
+
+    numero_atual = registro[2] or ""
+    ano_atual = registro[3] or datetime.now().year
+    data_atual = registro[4]
+    tipo_atual = registro[5] or "Ordinário"
+
+    processo_atual = registro[6] or ""
+    licitacao_atual = registro[7] or ""
+
+    credor_atual = registro[8] or ""
+    cpf_cnpj_atual = registro[9] or ""
+
+    banco_atual = registro[10] or ""
+    agencia_atual = registro[11] or ""
+    conta_atual = registro[12] or ""
+
+    unidade_atual = registro[13] or ""
+    funcao_atual = registro[14] or ""
+    subfuncao_atual = registro[15] or ""
+    programa_atual = registro[16] or ""
+    acao_atual = registro[17] or ""
+    elemento_atual = registro[18] or ""
+    fonte_atual = registro[19] or ""
+    ficha_atual = registro[20] or ""
+
+    valor_empenhado_atual = (
+        registro[21] or 0
+    )
+
+    valor_anulado_atual = (
+        registro[22] or 0
+    )
+
+    valor_liquidado_atual = (
+        registro[23] or 0
+    )
+
+    valor_pago_atual = (
+        registro[24] or 0
+    )
+
+    historico_atual = registro[25] or ""
+    observacao_atual = registro[26] or ""
+    situacao_atual = registro[27] or "Ativo"
+
+    # ==================================================
+    # DATA
+    # ==================================================
+
+    try:
+
+        data_empenho_atual = datetime.strptime(
+            data_atual,
+            "%Y-%m-%d"
+        ).date()
+
+    except Exception:
+
+        data_empenho_atual = (
+            datetime.now().date()
+        )
+
+    # ==================================================
+    # OBRAS
+    # ==================================================
+
+    cursor.execute("""
+        SELECT
+            id,
+            obra,
+            contrato,
+            valor_obra,
+            recurso,
+            situacao
+        FROM obras
+        ORDER BY obra
+    """)
+
+    obras = cursor.fetchall()
+
+    opcoes_obras = []
+    mapa_obras = {}
+
+    indice_obra = 0
+
+    for indice, obra_registro in enumerate(
+        obras
+    ):
+
+        descricao = obra_registro[1]
+
+        if obra_registro[2]:
+
+            descricao += (
+                f" | Contrato: "
+                f"{obra_registro[2]}"
+            )
+
+        opcoes_obras.append(
+            descricao
+        )
+
+        mapa_obras[
+            descricao
+        ] = obra_registro
+
+        if (
+            obra_registro[0]
+            == obra_id_atual
+        ):
+            indice_obra = indice
+
+    # ==================================================
+    # OBRA
+    # ==================================================
+
+    st.subheader("🏗️ Obra")
+
+    obra_selecionada = st.selectbox(
+        "🏗️ Obra",
+        options=opcoes_obras,
+        index=indice_obra,
+        key=f"alterar_obra_empenho_{empenho_id}"
+    )
+
+    dados_obra = mapa_obras[
+        obra_selecionada
+    ]
+
+    obra_id = dados_obra[0]
+    nome_obra = dados_obra[1]
+    contrato_obra = dados_obra[2]
+    valor_obra = dados_obra[3] or 0
+    recurso_obra = dados_obra[4]
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+
+        st.text_input(
+            "📜 Contrato",
+            value=(
+                contrato_obra
+                or "Não informado"
+            ),
+            disabled=True,
+            key=(
+                f"alterar_contrato_empenho_"
+                f"{empenho_id}_{obra_id}"
+            )
+        )
+
+    with col2:
+
+        st.text_input(
+            "💵 Valor da Obra",
+            value=(
+                f"R$ {valor_obra:,.2f}"
+            ),
+            disabled=True,
+            key=(
+                f"alterar_valor_obra_empenho_"
+                f"{empenho_id}_{obra_id}"
+            )
+        )
+
+    with col3:
+
+        st.text_input(
+            "💰 Recurso",
+            value=(
+                recurso_obra
+                or "Não informado"
+            ),
+            disabled=True,
+            key=(
+                f"alterar_recurso_empenho_"
+                f"{empenho_id}_{obra_id}"
+            )
+        )
+
+    # ==================================================
+    # CALCULAR OUTROS EMPENHOS DA OBRA
+    # ==================================================
+
+    cursor.execute("""
+        SELECT
+            COALESCE(SUM(valor_empenhado), 0),
+            COALESCE(SUM(valor_anulado), 0)
+        FROM empenhos
+        WHERE obra_id = ?
+        AND id <> ?
+    """, (
+        obra_id,
+        empenho_id
+    ))
+
+    totais = cursor.fetchone()
+
+    outros_empenhados = (
+        totais[0] or 0
+    )
+
+    outros_anulados = (
+        totais[1] or 0
+    )
+
+    outros_liquidos = (
+        outros_empenhados
+        - outros_anulados
+    )
+
+    saldo_disponivel = (
+        valor_obra
+        - outros_liquidos
+    )
+
+    st.markdown(
+        "#### 💰 Situação Orçamentária da Obra"
+    )
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+
+        st.metric(
+            "Valor da Obra",
+            f"R$ {valor_obra:,.2f}"
+        )
+
+    with col2:
+
+        st.metric(
+            "Outros Empenhos",
+            f"R$ {outros_liquidos:,.2f}"
+        )
+
+    with col3:
+
+        st.metric(
+            "Disponível para este Empenho",
+            f"R$ {saldo_disponivel:,.2f}"
+        )
+
+    # ==================================================
+    # DADOS DO EMPENHO
+    # ==================================================
+
+    st.divider()
+
+    st.subheader("📄 Dados do Empenho")
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+
+        numero_empenho = st.text_input(
+            "🔢 Número do Empenho *",
+            value=numero_atual,
+            key=f"alterar_numero_empenho_{empenho_id}"
+        )
+
+    with col2:
+
+        ano_empenho = st.number_input(
+            "📅 Exercício *",
+            min_value=2000,
+            max_value=2100,
+            value=int(ano_atual),
+            step=1,
+            key=f"alterar_ano_empenho_{empenho_id}"
+        )
+
+    with col3:
+
+        data_empenho = st.date_input(
+            "📆 Data do Empenho *",
+            value=data_empenho_atual,
+            key=f"alterar_data_empenho_{empenho_id}"
+        )
+
+    tipos_empenho = [
+        "Ordinário",
+        "Global",
+        "Estimativo"
+    ]
+
+    if tipo_atual in tipos_empenho:
+
+        indice_tipo = tipos_empenho.index(
+            tipo_atual
+        )
+
+    else:
+
+        indice_tipo = 0
+
+    col4, col5, col6 = st.columns(3)
+
+    with col4:
+
+        tipo_empenho = st.selectbox(
+            "📑 Tipo do Empenho *",
+            tipos_empenho,
+            index=indice_tipo,
+            key=f"alterar_tipo_empenho_{empenho_id}"
+        )
+
+    with col5:
+
+        numero_processo = st.text_input(
+            "📁 Número do Processo",
+            value=processo_atual,
+            key=f"alterar_processo_empenho_{empenho_id}"
+        )
+
+    with col6:
+
+        numero_licitacao = st.text_input(
+            "⚖️ Número da Licitação",
+            value=licitacao_atual,
+            key=f"alterar_licitacao_empenho_{empenho_id}"
+        )
+
+    # ==================================================
+    # CREDOR
+    # ==================================================
+
+    st.divider()
+
+    st.subheader("🏢 Credor")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+
+        credor = st.text_input(
+            "🏢 Nome / Razão Social *",
+            value=credor_atual,
+            key=f"alterar_credor_empenho_{empenho_id}"
+        )
+
+    with col2:
+
+        cpf_cnpj = st.text_input(
+            "🪪 CPF / CNPJ",
+            value=cpf_cnpj_atual,
+            key=f"alterar_cpf_cnpj_empenho_{empenho_id}"
+        )
+
+    st.markdown("#### 🏦 Dados Bancários")
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+
+        banco = st.text_input(
+            "🏦 Banco",
+            value=banco_atual,
+            key=f"alterar_banco_empenho_{empenho_id}"
+        )
+
+    with col2:
+
+        agencia = st.text_input(
+            "🏧 Agência",
+            value=agencia_atual,
+            key=f"alterar_agencia_empenho_{empenho_id}"
+        )
+
+    with col3:
+
+        conta = st.text_input(
+            "💳 Conta",
+            value=conta_atual,
+            key=f"alterar_conta_empenho_{empenho_id}"
+        )
+
+    # ==================================================
+    # CLASSIFICAÇÃO
+    # ==================================================
+
+    st.divider()
+
+    st.subheader(
+        "🧾 Classificação Orçamentária"
+    )
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+
+        unidade_orcamentaria = st.text_input(
+            "🏛️ Unidade Orçamentária",
+            value=unidade_atual,
+            key=f"alterar_unidade_empenho_{empenho_id}"
+        )
+
+    with col2:
+
+        ficha_dotacao = st.text_input(
+            "📋 Ficha / Dotação",
+            value=ficha_atual,
+            key=f"alterar_ficha_empenho_{empenho_id}"
+        )
+
+    col3, col4 = st.columns(2)
+
+    with col3:
+
+        funcao = st.text_input(
+            "📊 Função",
+            value=funcao_atual,
+            key=f"alterar_funcao_empenho_{empenho_id}"
+        )
+
+    with col4:
+
+        subfuncao = st.text_input(
+            "📊 Subfunção",
+            value=subfuncao_atual,
+            key=f"alterar_subfuncao_empenho_{empenho_id}"
+        )
+
+    col5, col6 = st.columns(2)
+
+    with col5:
+
+        programa = st.text_input(
+            "📘 Programa",
+            value=programa_atual,
+            key=f"alterar_programa_empenho_{empenho_id}"
+        )
+
+    with col6:
+
+        acao = st.text_input(
+            "🎯 Ação",
+            value=acao_atual,
+            key=f"alterar_acao_empenho_{empenho_id}"
+        )
+
+    col7, col8 = st.columns(2)
+
+    with col7:
+
+        elemento_despesa = st.text_input(
+            "💼 Elemento da Despesa",
+            value=elemento_atual,
+            key=f"alterar_elemento_empenho_{empenho_id}"
+        )
+
+    with col8:
+
+        fonte_recurso = st.text_input(
+            "💰 Fonte de Recurso",
+            value=fonte_atual,
+            key=f"alterar_fonte_empenho_{empenho_id}"
+        )
+
+    # ==================================================
+    # VALORES
+    # ==================================================
+
+    st.divider()
+
+    st.subheader("💰 Valores")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+
+        valor_empenhado = st.number_input(
+            "💵 Valor Empenhado *",
+            min_value=0.0,
+            value=float(
+                valor_empenhado_atual
+            ),
+            format="%.2f",
+            key=f"alterar_valor_empenho_{empenho_id}"
+        )
+
+    with col2:
+
+        valor_anulado = st.number_input(
+            "↩️ Valor Anulado",
+            min_value=0.0,
+            value=float(
+                valor_anulado_atual
+            ),
+            format="%.2f",
+            key=f"alterar_anulado_empenho_{empenho_id}"
+        )
+
+    valor_liquido = (
+        valor_empenhado
+        - valor_anulado
+    )
+
+    saldo_apos = (
+        saldo_disponivel
+        - valor_liquido
+    )
+
+    col3, col4 = st.columns(2)
+
+    with col3:
+
+        st.metric(
+            "💼 Empenho Líquido",
+            f"R$ {valor_liquido:,.2f}"
+        )
+
+    with col4:
+
+        st.metric(
+            "🏦 Saldo após alteração",
+            f"R$ {saldo_apos:,.2f}"
+        )
+
+    # ==================================================
+    # MOVIMENTAÇÃO
+    # ==================================================
+
+    st.markdown(
+        "#### 📊 Movimentação Atual"
+    )
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+
+        st.metric(
+            "📋 Liquidado",
+            f"R$ {valor_liquidado_atual:,.2f}"
+        )
+
+    with col2:
+
+        st.metric(
+            "💳 Pago",
+            f"R$ {valor_pago_atual:,.2f}"
+        )
+
+    with col3:
+
+        a_pagar = (
+            valor_liquidado_atual
+            - valor_pago_atual
+        )
+
+        st.metric(
+            "⏳ A Pagar",
+            f"R$ {a_pagar:,.2f}"
+        )
+
+    # ==================================================
+    # HISTÓRICO
+    # ==================================================
+
+    st.divider()
+
+    st.subheader("📝 Histórico e Observações")
+
+    historico = st.text_area(
+        "📜 Histórico do Empenho",
+        value=historico_atual,
+        height=130,
+        key=f"alterar_historico_empenho_{empenho_id}"
+    )
+
+    observacao = st.text_area(
+        "📝 Observações",
+        value=observacao_atual,
+        height=100,
+        key=f"alterar_observacao_empenho_{empenho_id}"
+    )
+
+    # ==================================================
+    # SITUAÇÃO
+    # ==================================================
+
+    situacoes = [
+        "Ativo",
+        "Anulado",
+        "Encerrado"
+    ]
+
+    if situacao_atual in situacoes:
+
+        indice_situacao = situacoes.index(
+            situacao_atual
+        )
+
+    else:
+
+        indice_situacao = 0
+
+    situacao = st.selectbox(
+        "📌 Situação do Empenho",
+        situacoes,
+        index=indice_situacao,
+        key=f"alterar_situacao_empenho_{empenho_id}"
+    )
+
+    # ==================================================
+    # BOTÕES
+    # ==================================================
+
+    st.divider()
+
+    col_cancelar, col_salvar = st.columns(2)
+
+    with col_cancelar:
+
+        if st.button(
+            "↩️ Cancelar",
+            use_container_width=True,
+            key=f"cancelar_alterar_empenho_{empenho_id}"
+        ):
+
+            st.session_state.pop(
+                "empenho_edicao_id",
+                None
+            )
+
+            st.session_state[
+                "tela_contabilidade"
+            ] = "Localizar"
+
+            st.rerun()
+
+    with col_salvar:
+
+        if st.button(
+            "💾 Salvar Alteração",
+            type="primary",
+            use_container_width=True,
+            key=f"salvar_alterar_empenho_{empenho_id}"
+        ):
+
+            # ==================================================
+            # VALIDAÇÕES
+            # ==================================================
+
+            if not numero_empenho.strip():
+
+                st.warning(
+                    "⚠️ Informe o número do empenho."
+                )
+
+                return
+
+            if not credor.strip():
+
+                st.warning(
+                    "⚠️ Informe o credor."
+                )
+
+                return
+
+            if valor_empenhado <= 0:
+
+                st.warning(
+                    "⚠️ Informe o valor empenhado."
+                )
+
+                return
+
+            if valor_anulado > valor_empenhado:
+
+                st.warning(
+                    "⚠️ O valor anulado não pode ser "
+                    "maior que o valor empenhado."
+                )
+
+                return
+
+            if valor_liquido > saldo_disponivel:
+
+                st.warning(
+                    "⚠️ O valor líquido do empenho "
+                    "ultrapassa o saldo disponível "
+                    "da obra."
+                )
+
+                return
+
+            if valor_liquido < valor_liquidado_atual:
+
+                st.warning(
+                    "⚠️ O valor líquido do empenho não "
+                    "pode ficar abaixo do valor já liquidado."
+                )
+
+                return
+
+            # ==================================================
+            # DUPLICIDADE
+            # ==================================================
+
+            cursor.execute("""
+                SELECT id
+                FROM empenhos
+                WHERE numero_empenho = ?
+                AND ano_empenho = ?
+                AND id <> ?
+            """, (
+                numero_empenho.strip(),
+                ano_empenho,
+                empenho_id
+            ))
+
+            duplicado = cursor.fetchone()
+
+            if duplicado:
+
+                st.warning(
+                    "⚠️ Já existe outro empenho com "
+                    "este número neste exercício."
+                )
+
+                return
+
+            # ==================================================
+            # UPDATE
+            # ==================================================
+
+            try:
+
+                cursor.execute("""
+                    UPDATE empenhos
+                    SET
+                        obra_id = ?,
+                        numero_empenho = ?,
+                        ano_empenho = ?,
+                        data_empenho = ?,
+                        tipo_empenho = ?,
+                        numero_processo = ?,
+                        numero_licitacao = ?,
+                        credor = ?,
+                        cpf_cnpj = ?,
+                        banco = ?,
+                        agencia = ?,
+                        conta = ?,
+                        unidade_orcamentaria = ?,
+                        funcao = ?,
+                        subfuncao = ?,
+                        programa = ?,
+                        acao = ?,
+                        elemento_despesa = ?,
+                        fonte_recurso = ?,
+                        ficha_dotacao = ?,
+                        valor_empenhado = ?,
+                        valor_anulado = ?,
+                        historico = ?,
+                        observacao = ?,
+                        situacao = ?
+                    WHERE id = ?
+                """, (
+                    obra_id,
+                    numero_empenho.strip(),
+                    ano_empenho,
+                    data_empenho.strftime(
+                        "%Y-%m-%d"
+                    ),
+                    tipo_empenho,
+                    numero_processo.strip(),
+                    numero_licitacao.strip(),
+                    credor.strip(),
+                    cpf_cnpj.strip(),
+                    banco.strip(),
+                    agencia.strip(),
+                    conta.strip(),
+                    unidade_orcamentaria.strip(),
+                    funcao.strip(),
+                    subfuncao.strip(),
+                    programa.strip(),
+                    acao.strip(),
+                    elemento_despesa.strip(),
+                    fonte_recurso.strip(),
+                    ficha_dotacao.strip(),
+                    valor_empenhado,
+                    valor_anulado,
+                    historico.strip(),
+                    observacao.strip(),
+                    situacao,
+                    empenho_id
+                ))
+
+                conn.commit()
+
+                st.session_state[
+                    "empenho_alterado_sucesso"
+                ] = True
+
+                st.session_state.pop(
+                    "empenho_edicao_id",
+                    None
+                )
+
+                st.session_state[
+                    "tela_contabilidade"
+                ] = "Principal"
+
+                st.rerun()
+
+            except Exception as e:
+
+                conn.rollback()
+
+                st.error(
+                    f"❌ Erro ao alterar empenho: {e}"
+                )
+def excluir_empenho():
+
+    st.title("🗑️ Excluir Empenho")
+
+    st.caption(
+        "Selecione o empenho que deseja excluir."
+    )
+
+    st.divider()
+
+    # ==================================================
+    # BUSCAR EMPENHOS
+    # ==================================================
+
+    cursor.execute("""
+        SELECT
+            e.id,
+            e.numero_empenho,
+            e.ano_empenho,
+            e.data_empenho,
+            e.tipo_empenho,
+            e.credor,
+            e.cpf_cnpj,
+            e.valor_empenhado,
+            e.valor_anulado,
+            e.valor_liquidado,
+            e.valor_pago,
+            e.situacao,
+            o.obra,
+            o.contrato
+        FROM empenhos e
+
+        INNER JOIN obras o
+            ON o.id = e.obra_id
+
+        ORDER BY
+            e.ano_empenho DESC,
+            e.numero_empenho DESC
+    """)
+
+    registros = cursor.fetchall()
+
+    # ==================================================
+    # SEM EMPENHOS
+    # ==================================================
+
+    if not registros:
+
+        st.info(
+            "Nenhum empenho cadastrado."
+        )
+
+        if st.button(
+            "⬅️ Voltar",
+            use_container_width=True,
+            key="voltar_excluir_empenho_sem_registro"
+        ):
+
+            st.session_state[
+                "tela_contabilidade"
+            ] = "Principal"
+
+            st.rerun()
+
+        return
+
+    # ==================================================
+    # OPÇÕES
+    # ==================================================
+
+    opcoes = {
+        "Selecione um empenho": None
+    }
+
+    dados = {}
+
+    for registro in registros:
+
+        empenho_id = registro[0]
+
+        descricao = (
+            f"{registro[1]}/{registro[2]}"
+            f" | {registro[12]}"
+            f" | {registro[5]}"
+        )
+
+        opcoes[descricao] = empenho_id
+
+        dados[empenho_id] = registro
+
+    selecionado = st.selectbox(
+        "📄 Empenho",
+        options=list(opcoes.keys()),
+        key="excluir_empenho_selecao"
+    )
+
+    empenho_id = opcoes[
+        selecionado
+    ]
+
+    # ==================================================
+    # MOSTRAR DADOS
+    # ==================================================
+
+    if empenho_id is not None:
+
+        registro = dados[
+            empenho_id
+        ]
+
+        numero = registro[1]
+        exercicio = registro[2]
+        data_empenho = registro[3]
+        tipo = registro[4]
+
+        credor = registro[5]
+        cpf_cnpj = registro[6]
+
+        valor_empenhado = (
+            registro[7] or 0
+        )
+
+        valor_anulado = (
+            registro[8] or 0
+        )
+
+        valor_liquidado = (
+            registro[9] or 0
+        )
+
+        valor_pago = (
+            registro[10] or 0
+        )
+
+        situacao = (
+            registro[11]
+            or "Ativo"
+        )
+
+        obra = registro[12]
+
+        contrato = (
+            registro[13]
+            or "Não informado"
+        )
+
+        valor_liquido = (
+            valor_empenhado
+            - valor_anulado
+        )
+
+        saldo_liquidar = (
+            valor_liquido
+            - valor_liquidado
+        )
+
+        a_pagar = (
+            valor_liquidado
+            - valor_pago
+        )
+
+        st.divider()
+
+        st.subheader(
+            "📋 Dados do Empenho"
+        )
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+
+            st.write(
+                f"**📄 Empenho:** "
+                f"{numero}/{exercicio}"
+            )
+
+            st.write(
+                f"**📆 Data:** "
+                f"{data_empenho}"
+            )
+
+            st.write(
+                f"**📑 Tipo:** "
+                f"{tipo}"
+            )
+
+            st.write(
+                f"**📌 Situação:** "
+                f"{situacao}"
+            )
+
+        with col2:
+
+            st.write(
+                f"**🏗️ Obra:** "
+                f"{obra}"
+            )
+
+            st.write(
+                f"**📜 Contrato:** "
+                f"{contrato}"
+            )
+
+            st.write(
+                f"**🏢 Credor:** "
+                f"{credor}"
+            )
+
+            st.write(
+                f"**🪪 CPF/CNPJ:** "
+                f"{cpf_cnpj or 'Não informado'}"
+            )
+
+        # ==================================================
+        # FINANCEIRO
+        # ==================================================
+
+        st.markdown(
+            "#### 💰 Situação Financeira"
+        )
+
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+
+            st.metric(
+                "Empenhado",
+                f"R$ {valor_empenhado:,.2f}"
+            )
+
+        with col2:
+
+            st.metric(
+                "Anulado",
+                f"R$ {valor_anulado:,.2f}"
+            )
+
+        with col3:
+
+            st.metric(
+                "Empenho Líquido",
+                f"R$ {valor_liquido:,.2f}"
+            )
+
+        col4, col5, col6 = st.columns(3)
+
+        with col4:
+
+            st.metric(
+                "Liquidado",
+                f"R$ {valor_liquidado:,.2f}"
+            )
+
+        with col5:
+
+            st.metric(
+                "Pago",
+                f"R$ {valor_pago:,.2f}"
+            )
+
+        with col6:
+
+            st.metric(
+                "A Pagar",
+                f"R$ {a_pagar:,.2f}"
+            )
+
+        # ==================================================
+        # PROTEÇÃO
+        # ==================================================
+
+        possui_movimentacao = (
+            valor_liquidado > 0
+            or valor_pago > 0
+        )
+
+        if possui_movimentacao:
+
+            st.error(
+                "🚫 Este empenho possui liquidação "
+                "ou pagamento registrado."
+            )
+
+            st.warning(
+                "Por segurança, ele não pode ser "
+                "excluído diretamente."
+            )
+
+        else:
+
+            st.warning(
+                "⚠️ Atenção: esta operação excluirá "
+                "permanentemente o empenho."
+            )
+
+            confirmar = st.checkbox(
+                (
+                    "Confirmo que desejo excluir "
+                    f"o empenho {numero}/{exercicio}."
+                ),
+                key=(
+                    f"confirmar_exclusao_empenho_"
+                    f"{empenho_id}"
+                )
+            )
+
+            if st.button(
+                "🗑️ Confirmar Exclusão",
+                type="primary",
+                use_container_width=True,
+                disabled=not confirmar,
+                key=(
+                    f"confirmar_excluir_empenho_"
+                    f"{empenho_id}"
+                )
+            ):
+
+                # ==========================================
+                # REVALIDAR ANTES DE EXCLUIR
+                # ==========================================
+
+                cursor.execute("""
+                    SELECT
+                        valor_liquidado,
+                        valor_pago
+                    FROM empenhos
+                    WHERE id = ?
+                """, (
+                    empenho_id,
+                ))
+
+                verificacao = cursor.fetchone()
+
+                if not verificacao:
+
+                    st.error(
+                        "❌ Empenho não encontrado."
+                    )
+
+                    return
+
+                liquidado_atual = (
+                    verificacao[0] or 0
+                )
+
+                pago_atual = (
+                    verificacao[1] or 0
+                )
+
+                if (
+                    liquidado_atual > 0
+                    or pago_atual > 0
+                ):
+
+                    st.error(
+                        "🚫 O empenho possui movimentação "
+                        "financeira e não pode ser excluído."
+                    )
+
+                    return
+
+                # ==========================================
+                # EXCLUIR
+                # ==========================================
+
+                try:
+
+                    cursor.execute("""
+                        DELETE FROM empenhos
+                        WHERE id = ?
+                    """, (
+                        empenho_id,
+                    ))
+
+                    conn.commit()
+
+                    st.session_state[
+                        "empenho_excluido_sucesso"
+                    ] = True
+
+                    st.session_state[
+                        "tela_contabilidade"
+                    ] = "Principal"
+
+                    st.rerun()
+
+                except Exception as e:
+
+                    conn.rollback()
+
+                    st.error(
+                        f"❌ Erro ao excluir empenho: {e}"
+                    )
+
+    # ==================================================
+    # VOLTAR
+    # ==================================================
+
+    st.divider()
+
+    if st.button(
+        "⬅️ Voltar",
+        use_container_width=True,
+        key="voltar_excluir_empenho"
+    ):
+
+        st.session_state[
+            "tela_contabilidade"
+        ] = "Principal"
+
+        st.rerun()
+def gerar_pdf_empenho(id_empenho):
+
+    # ==================================================
+    # BUSCAR EMPENHO
+    # ==================================================
+
+    cursor.execute("""
+        SELECT
+            e.numero_empenho,
+            e.ano_empenho,
+            e.data_empenho,
+            e.tipo_empenho,
+
+            e.numero_processo,
+            e.numero_licitacao,
+
+            e.credor,
+            e.cpf_cnpj,
+            e.banco,
+            e.agencia,
+            e.conta,
+
+            e.unidade_orcamentaria,
+            e.funcao,
+            e.subfuncao,
+            e.programa,
+            e.acao,
+            e.elemento_despesa,
+            e.fonte_recurso,
+            e.ficha_dotacao,
+
+            e.valor_empenhado,
+            e.valor_anulado,
+            e.valor_liquidado,
+            e.valor_pago,
+
+            e.historico,
+            e.observacao,
+            e.situacao,
+
+            o.obra,
+            o.contrato,
+            o.valor_obra,
+            o.recurso
+
+        FROM empenhos e
+
+        INNER JOIN obras o
+            ON o.id = e.obra_id
+
+        WHERE e.id = ?
+    """, (
+        id_empenho,
+    ))
+
+    registro = cursor.fetchone()
+
+    if not registro:
+
+        return None
+
+    # ==================================================
+    # VARIÁVEIS
+    # ==================================================
+
+    numero = registro[0] or ""
+    exercicio = registro[1] or ""
+    data_empenho = registro[2] or ""
+    tipo = registro[3] or ""
+
+    processo = registro[4] or "Não informado"
+    licitacao = registro[5] or "Não informado"
+
+    credor = registro[6] or ""
+    cpf_cnpj = registro[7] or "Não informado"
+
+    banco = registro[8] or "Não informado"
+    agencia = registro[9] or "Não informado"
+    conta = registro[10] or "Não informado"
+
+    unidade = registro[11] or "Não informado"
+    funcao = registro[12] or "Não informado"
+    subfuncao = registro[13] or "Não informado"
+    programa = registro[14] or "Não informado"
+    acao = registro[15] or "Não informado"
+
+    elemento = registro[16] or "Não informado"
+    fonte = registro[17] or "Não informado"
+    ficha = registro[18] or "Não informado"
+
+    empenhado = registro[19] or 0
+    anulado = registro[20] or 0
+    liquidado = registro[21] or 0
+    pago = registro[22] or 0
+
+    historico = registro[23] or "Não informado"
+    observacao = registro[24] or "Não informado"
+    situacao = registro[25] or "Ativo"
+
+    obra = registro[26] or ""
+    contrato = registro[27] or "Não informado"
+    valor_obra = registro[28] or 0
+    recurso_obra = registro[29] or "Não informado"
+
+    empenho_liquido = (
+        empenhado
+        - anulado
+    )
+
+    saldo_liquidar = (
+        empenho_liquido
+        - liquidado
+    )
+
+    a_pagar = (
+        liquidado
+        - pago
+    )
+
+    # ==================================================
+    # BUFFER
+    # ==================================================
+
+    buffer = BytesIO()
+
+    documento = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        rightMargin=1.5 * cm,
+        leftMargin=1.5 * cm,
+        topMargin=1.5 * cm,
+        bottomMargin=1.5 * cm
+    )
+
+    elementos = []
+
+    # ==================================================
+    # ESTILOS
+    # ==================================================
+
+    estilos = getSampleStyleSheet()
+
+    titulo = ParagraphStyle(
+        "TituloEmpenho",
+        parent=estilos["Title"],
+        fontSize=16,
+        leading=20,
+        alignment=1,
+        spaceAfter=8
+    )
+
+    subtitulo = ParagraphStyle(
+        "SubtituloEmpenho",
+        parent=estilos["Heading2"],
+        fontSize=11,
+        leading=14,
+        spaceBefore=8,
+        spaceAfter=6
+    )
+
+    normal = ParagraphStyle(
+        "NormalEmpenho",
+        parent=estilos["Normal"],
+        fontSize=9,
+        leading=12
+    )
+
+    # ==================================================
+    # CABEÇALHO
+    # ==================================================
+
+    elementos.append(
+        Paragraph(
+            "SISOPB",
+            titulo
+        )
+    )
+
+    elementos.append(
+        Paragraph(
+            "FICHA DO EMPENHO",
+            titulo
+        )
+    )
+
+    elementos.append(
+        Paragraph(
+            (
+                f"Empenho nº "
+                f"{numero}/{exercicio}"
+            ),
+            normal
+        )
+    )
+
+    elementos.append(
+        Spacer(
+            1,
+            0.4 * cm
+        )
+    )
+
+    # ==================================================
+    # FUNÇÃO AUXILIAR
+    # ==================================================
+
+    def texto(valor):
+
+        return Paragraph(
+            str(
+                valor
+                if valor not in (
+                    None,
+                    ""
+                )
+                else "Não informado"
+            ),
+            normal
+        )
+
+    # ==================================================
+    # IDENTIFICAÇÃO
+    # ==================================================
+
+    elementos.append(
+        Paragraph(
+            "IDENTIFICAÇÃO DO EMPENHO",
+            subtitulo
+        )
+    )
+
+    dados_identificacao = [
+        [
+            texto("Número"),
+            texto(f"{numero}/{exercicio}"),
+            texto("Data"),
+            texto(data_empenho)
+        ],
+        [
+            texto("Tipo"),
+            texto(tipo),
+            texto("Situação"),
+            texto(situacao)
+        ],
+        [
+            texto("Processo"),
+            texto(processo),
+            texto("Licitação"),
+            texto(licitacao)
+        ]
+    ]
+
+    tabela = Table(
+        dados_identificacao,
+        colWidths=[
+            3 * cm,
+            6 * cm,
+            3 * cm,
+            6 * cm
+        ]
+    )
+
+    tabela.setStyle(
+        TableStyle([
+            (
+                "GRID",
+                (0, 0),
+                (-1, -1),
+                0.5,
+                colors.grey
+            ),
+            (
+                "BACKGROUND",
+                (0, 0),
+                (0, -1),
+                colors.lightgrey
+            ),
+            (
+                "BACKGROUND",
+                (2, 0),
+                (2, -1),
+                colors.lightgrey
+            ),
+            (
+                "VALIGN",
+                (0, 0),
+                (-1, -1),
+                "TOP"
+            ),
+            (
+                "LEFTPADDING",
+                (0, 0),
+                (-1, -1),
+                5
+            ),
+            (
+                "RIGHTPADDING",
+                (0, 0),
+                (-1, -1),
+                5
+            )
+        ])
+    )
+
+    elementos.append(tabela)
+
+    # ==================================================
+    # OBRA
+    # ==================================================
+
+    elementos.append(
+        Paragraph(
+            "OBRA",
+            subtitulo
+        )
+    )
+
+    dados_obra = [
+        [
+            texto("Obra"),
+            texto(obra)
+        ],
+        [
+            texto("Contrato"),
+            texto(contrato)
+        ],
+        [
+            texto("Valor da Obra"),
+            texto(
+                f"R$ {valor_obra:,.2f}"
+            )
+        ],
+        [
+            texto("Recurso"),
+            texto(recurso_obra)
+        ]
+    ]
+
+    tabela_obra = Table(
+        dados_obra,
+        colWidths=[
+            4 * cm,
+            14 * cm
+        ]
+    )
+
+    tabela_obra.setStyle(
+        TableStyle([
+            (
+                "GRID",
+                (0, 0),
+                (-1, -1),
+                0.5,
+                colors.grey
+            ),
+            (
+                "BACKGROUND",
+                (0, 0),
+                (0, -1),
+                colors.lightgrey
+            ),
+            (
+                "VALIGN",
+                (0, 0),
+                (-1, -1),
+                "TOP"
+            )
+        ])
+    )
+
+    elementos.append(tabela_obra)
+
+    # ==================================================
+    # CREDOR
+    # ==================================================
+
+    elementos.append(
+        Paragraph(
+            "CREDOR",
+            subtitulo
+        )
+    )
+
+    dados_credor = [
+        [
+            texto("Nome / Razão Social"),
+            texto(credor)
+        ],
+        [
+            texto("CPF / CNPJ"),
+            texto(cpf_cnpj)
+        ],
+        [
+            texto("Banco"),
+            texto(banco)
+        ],
+        [
+            texto("Agência"),
+            texto(agencia)
+        ],
+        [
+            texto("Conta"),
+            texto(conta)
+        ]
+    ]
+
+    tabela_credor = Table(
+        dados_credor,
+        colWidths=[
+            4 * cm,
+            14 * cm
+        ]
+    )
+
+    tabela_credor.setStyle(
+        TableStyle([
+            (
+                "GRID",
+                (0, 0),
+                (-1, -1),
+                0.5,
+                colors.grey
+            ),
+            (
+                "BACKGROUND",
+                (0, 0),
+                (0, -1),
+                colors.lightgrey
+            ),
+            (
+                "VALIGN",
+                (0, 0),
+                (-1, -1),
+                "TOP"
+            )
+        ])
+    )
+
+    elementos.append(tabela_credor)
+
+    # ==================================================
+    # CLASSIFICAÇÃO
+    # ==================================================
+
+    elementos.append(
+        Paragraph(
+            "CLASSIFICAÇÃO ORÇAMENTÁRIA",
+            subtitulo
+        )
+    )
+
+    classificacao = [
+        ["Unidade Orçamentária", unidade],
+        ["Função", funcao],
+        ["Subfunção", subfuncao],
+        ["Programa", programa],
+        ["Ação", acao],
+        ["Elemento da Despesa", elemento],
+        ["Fonte de Recurso", fonte],
+        ["Ficha / Dotação", ficha]
+    ]
+
+    dados_classificacao = []
+
+    for campo, valor in classificacao:
+
+        dados_classificacao.append([
+            texto(campo),
+            texto(valor)
+        ])
+
+    tabela_classificacao = Table(
+        dados_classificacao,
+        colWidths=[
+            5 * cm,
+            13 * cm
+        ]
+    )
+
+    tabela_classificacao.setStyle(
+        TableStyle([
+            (
+                "GRID",
+                (0, 0),
+                (-1, -1),
+                0.5,
+                colors.grey
+            ),
+            (
+                "BACKGROUND",
+                (0, 0),
+                (0, -1),
+                colors.lightgrey
+            ),
+            (
+                "VALIGN",
+                (0, 0),
+                (-1, -1),
+                "TOP"
+            )
+        ])
+    )
+
+    elementos.append(
+        tabela_classificacao
+    )
+
+    # ==================================================
+    # EXECUÇÃO FINANCEIRA
+    # ==================================================
+
+    elementos.append(
+        Paragraph(
+            "EXECUÇÃO FINANCEIRA",
+            subtitulo
+        )
+    )
+
+    financeiro = [
+        [
+            texto("Valor Empenhado"),
+            texto(
+                f"R$ {empenhado:,.2f}"
+            )
+        ],
+        [
+            texto("Valor Anulado"),
+            texto(
+                f"R$ {anulado:,.2f}"
+            )
+        ],
+        [
+            texto("Empenho Líquido"),
+            texto(
+                f"R$ {empenho_liquido:,.2f}"
+            )
+        ],
+        [
+            texto("Valor Liquidado"),
+            texto(
+                f"R$ {liquidado:,.2f}"
+            )
+        ],
+        [
+            texto("Saldo a Liquidar"),
+            texto(
+                f"R$ {saldo_liquidar:,.2f}"
+            )
+        ],
+        [
+            texto("Valor Pago"),
+            texto(
+                f"R$ {pago:,.2f}"
+            )
+        ],
+        [
+            texto("Liquidado a Pagar"),
+            texto(
+                f"R$ {a_pagar:,.2f}"
+            )
+        ]
+    ]
+
+    tabela_financeiro = Table(
+        financeiro,
+        colWidths=[
+            6 * cm,
+            12 * cm
+        ]
+    )
+
+    tabela_financeiro.setStyle(
+        TableStyle([
+            (
+                "GRID",
+                (0, 0),
+                (-1, -1),
+                0.5,
+                colors.grey
+            ),
+            (
+                "BACKGROUND",
+                (0, 0),
+                (0, -1),
+                colors.lightgrey
+            ),
+            (
+                "VALIGN",
+                (0, 0),
+                (-1, -1),
+                "TOP"
+            )
+        ])
+    )
+
+    elementos.append(
+        tabela_financeiro
+    )
+
+    # ==================================================
+    # HISTÓRICO
+    # ==================================================
+
+    elementos.append(
+        Paragraph(
+            "HISTÓRICO",
+            subtitulo
+        )
+    )
+
+    elementos.append(
+        Paragraph(
+            historico,
+            normal
+        )
+    )
+
+    # ==================================================
+    # OBSERVAÇÃO
+    # ==================================================
+
+    elementos.append(
+        Paragraph(
+            "OBSERVAÇÕES",
+            subtitulo
+        )
+    )
+
+    elementos.append(
+        Paragraph(
+            observacao,
+            normal
+        )
+    )
+
+    # ==================================================
+    # RODAPÉ
+    # ==================================================
+
+    elementos.append(
+        Spacer(
+            1,
+            0.8 * cm
+        )
+    )
+
+    elementos.append(
+        Paragraph(
+            (
+                "Documento gerado pelo SISOPB em "
+                f"{datetime.now().strftime('%d/%m/%Y %H:%M')}"
+            ),
+            normal
+        )
+    )
+
+    # ==================================================
+    # GERAR
+    # ==================================================
+
+    documento.build(
+        elementos
+    )
+
+    buffer.seek(0)
+
+    return buffer
 def main():
 
     st.set_page_config(
