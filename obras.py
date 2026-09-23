@@ -18197,6 +18197,773 @@ def gestao_empenhos():
         ] = "Principal"
 
         st.rerun()
+def gerar_pdf_empenho(id_empenho):
+    # =========================================================
+    # BUSCAR DADOS DO EMPENHO
+    # =========================================================
+
+    cursor.execute("""
+        SELECT
+            e.numero_empenho,
+            e.ano_empenho,
+            e.data_empenho,
+            e.tipo_empenho,
+            e.numero_processo,
+            e.numero_licitacao,
+
+            e.credor,
+            e.cpf_cnpj,
+            e.banco,
+            e.agencia,
+            e.conta,
+
+            e.unidade_orcamentaria,
+            e.funcao,
+            e.subfuncao,
+            e.programa,
+            e.acao,
+            e.elemento_despesa,
+            e.fonte_recurso,
+            e.ficha_dotacao,
+
+            e.valor_empenhado,
+            e.valor_anulado,
+            e.valor_liquidado,
+            e.valor_pago,
+
+            e.historico,
+            e.observacao,
+            e.situacao,
+
+            o.obra,
+            o.contrato,
+            o.valor_obra,
+            o.recurso
+
+        FROM empenhos e
+
+        INNER JOIN obras o
+            ON o.id = e.obra_id
+
+        WHERE e.id = ?
+    """, (
+        id_empenho,
+    ))
+
+    registro = cursor.fetchone()
+
+    if not registro:
+        return None
+
+    # =========================================================
+    # DADOS
+    # =========================================================
+
+    numero_empenho = registro[0] or ""
+    ano_empenho = registro[1] or ""
+    data_empenho = registro[2] or ""
+    tipo_empenho = registro[3] or ""
+
+    numero_processo = registro[4] or "Não informado"
+    numero_licitacao = registro[5] or "Não informado"
+
+    credor = registro[6] or "Não informado"
+    cpf_cnpj = registro[7] or "Não informado"
+
+    banco = registro[8] or "Não informado"
+    agencia = registro[9] or "Não informado"
+    conta = registro[10] or "Não informado"
+
+    unidade_orcamentaria = registro[11] or "Não informado"
+    funcao = registro[12] or "Não informado"
+    subfuncao = registro[13] or "Não informado"
+    programa = registro[14] or "Não informado"
+    acao = registro[15] or "Não informado"
+    elemento_despesa = registro[16] or "Não informado"
+    fonte_recurso = registro[17] or "Não informado"
+    ficha_dotacao = registro[18] or "Não informado"
+
+    valor_empenhado = registro[19] or 0
+    valor_anulado = registro[20] or 0
+    valor_liquidado = registro[21] or 0
+    valor_pago = registro[22] or 0
+
+    historico = registro[23] or "Não informado"
+    observacao = registro[24] or "Não informado"
+    situacao = registro[25] or "Ativo"
+
+    obra = registro[26] or "Não informado"
+    contrato = registro[27] or "Não informado"
+    valor_obra = registro[28] or 0
+    recurso_obra = registro[29] or "Não informado"
+
+    # =========================================================
+    # CÁLCULOS
+    # =========================================================
+
+    empenho_liquido = (
+        valor_empenhado
+        - valor_anulado
+    )
+
+    saldo_a_liquidar = (
+        empenho_liquido
+        - valor_liquidado
+    )
+
+    valor_a_pagar = (
+        valor_liquidado
+        - valor_pago
+    )
+
+    # =========================================================
+    # FORMATAR DATA
+    # =========================================================
+
+    try:
+        data_formatada = datetime.strptime(
+            data_empenho,
+            "%Y-%m-%d"
+        ).strftime("%d/%m/%Y")
+
+    except Exception:
+        data_formatada = data_empenho
+
+    # =========================================================
+    # BUFFER
+    # =========================================================
+
+    buffer = BytesIO()
+
+    # =========================================================
+    # DOCUMENTO
+    # =========================================================
+
+    documento = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        rightMargin=1.5 * cm,
+        leftMargin=1.5 * cm,
+        topMargin=1.5 * cm,
+        bottomMargin=1.5 * cm
+    )
+
+    elementos = []
+
+    # =========================================================
+    # ESTILOS
+    # =========================================================
+
+    estilos = getSampleStyleSheet()
+
+    estilo_titulo = ParagraphStyle(
+        "TituloEmpenho",
+        parent=estilos["Title"],
+        fontSize=16,
+        leading=20,
+        alignment=1,
+        spaceAfter=6
+    )
+
+    estilo_subtitulo = ParagraphStyle(
+        "SubtituloEmpenho",
+        parent=estilos["Heading2"],
+        fontSize=11,
+        leading=14,
+        spaceBefore=10,
+        spaceAfter=6
+    )
+
+    estilo_normal = ParagraphStyle(
+        "NormalEmpenho",
+        parent=estilos["Normal"],
+        fontSize=9,
+        leading=12
+    )
+
+    estilo_centro = ParagraphStyle(
+        "CentroEmpenho",
+        parent=estilo_normal,
+        alignment=1
+    )
+
+    # =========================================================
+    # FUNÇÕES AUXILIARES
+    # =========================================================
+
+    def texto(valor):
+        if valor is None or valor == "":
+            valor = "Não informado"
+
+        return Paragraph(
+            str(valor),
+            estilo_normal
+        )
+
+    def moeda(valor):
+        try:
+            valor = float(valor or 0)
+
+            return (
+                f"R$ "
+                f"{valor:,.2f}"
+            )
+
+        except Exception:
+            return "R$ 0,00"
+
+    def estilo_tabela():
+        return TableStyle([
+            (
+                "GRID",
+                (0, 0),
+                (-1, -1),
+                0.5,
+                colors.grey
+            ),
+            (
+                "BACKGROUND",
+                (0, 0),
+                (0, -1),
+                colors.lightgrey
+            ),
+            (
+                "VALIGN",
+                (0, 0),
+                (-1, -1),
+                "TOP"
+            ),
+            (
+                "LEFTPADDING",
+                (0, 0),
+                (-1, -1),
+                5
+            ),
+            (
+                "RIGHTPADDING",
+                (0, 0),
+                (-1, -1),
+                5
+            ),
+            (
+                "TOPPADDING",
+                (0, 0),
+                (-1, -1),
+                5
+            ),
+            (
+                "BOTTOMPADDING",
+                (0, 0),
+                (-1, -1),
+                5
+            )
+        ])
+
+    # =========================================================
+    # CABEÇALHO
+    # =========================================================
+
+    elementos.append(
+        Paragraph(
+            "SISOPB",
+            estilo_titulo
+        )
+    )
+
+    elementos.append(
+        Paragraph(
+            "SISTEMA DE OBRAS PÚBLICAS",
+            estilo_centro
+        )
+    )
+
+    elementos.append(
+        Spacer(
+            1,
+            0.3 * cm
+        )
+    )
+
+    elementos.append(
+        Paragraph(
+            "FICHA DO EMPENHO",
+            estilo_titulo
+        )
+    )
+
+    elementos.append(
+        Paragraph(
+            (
+                f"Empenho nº "
+                f"{numero_empenho}/{ano_empenho}"
+            ),
+            estilo_centro
+        )
+    )
+
+    elementos.append(
+        Spacer(
+            1,
+            0.4 * cm
+        )
+    )
+
+    # =========================================================
+    # IDENTIFICAÇÃO DO EMPENHO
+    # =========================================================
+
+    elementos.append(
+        Paragraph(
+            "IDENTIFICAÇÃO DO EMPENHO",
+            estilo_subtitulo
+        )
+    )
+
+    dados_identificacao = [
+        [
+            texto("Número"),
+            texto(
+                f"{numero_empenho}/{ano_empenho}"
+            )
+        ],
+        [
+            texto("Data do Empenho"),
+            texto(data_formatada)
+        ],
+        [
+            texto("Tipo"),
+            texto(tipo_empenho)
+        ],
+        [
+            texto("Situação"),
+            texto(situacao)
+        ],
+        [
+            texto("Processo"),
+            texto(numero_processo)
+        ],
+        [
+            texto("Licitação"),
+            texto(numero_licitacao)
+        ]
+    ]
+
+    tabela_identificacao = Table(
+        dados_identificacao,
+        colWidths=[
+            5 * cm,
+            13 * cm
+        ]
+    )
+
+    tabela_identificacao.setStyle(
+        estilo_tabela()
+    )
+
+    elementos.append(
+        tabela_identificacao
+    )
+
+    # =========================================================
+    # OBRA
+    # =========================================================
+
+    elementos.append(
+        Paragraph(
+            "OBRA",
+            estilo_subtitulo
+        )
+    )
+
+    dados_obra = [
+        [
+            texto("Obra"),
+            texto(obra)
+        ],
+        [
+            texto("Contrato"),
+            texto(contrato)
+        ],
+        [
+            texto("Valor da Obra"),
+            texto(
+                moeda(valor_obra)
+            )
+        ],
+        [
+            texto("Recurso"),
+            texto(recurso_obra)
+        ]
+    ]
+
+    tabela_obra = Table(
+        dados_obra,
+        colWidths=[
+            5 * cm,
+            13 * cm
+        ]
+    )
+
+    tabela_obra.setStyle(
+        estilo_tabela()
+    )
+
+    elementos.append(
+        tabela_obra
+    )
+
+    # =========================================================
+    # CREDOR
+    # =========================================================
+
+    elementos.append(
+        Paragraph(
+            "CREDOR",
+            estilo_subtitulo
+        )
+    )
+
+    dados_credor = [
+        [
+            texto("Nome / Razão Social"),
+            texto(credor)
+        ],
+        [
+            texto("CPF / CNPJ"),
+            texto(cpf_cnpj)
+        ],
+        [
+            texto("Banco"),
+            texto(banco)
+        ],
+        [
+            texto("Agência"),
+            texto(agencia)
+        ],
+        [
+            texto("Conta"),
+            texto(conta)
+        ]
+    ]
+
+    tabela_credor = Table(
+        dados_credor,
+        colWidths=[
+            5 * cm,
+            13 * cm
+        ]
+    )
+
+    tabela_credor.setStyle(
+        estilo_tabela()
+    )
+
+    elementos.append(
+        tabela_credor
+    )
+
+    # =========================================================
+    # CLASSIFICAÇÃO ORÇAMENTÁRIA
+    # =========================================================
+
+    elementos.append(
+        Paragraph(
+            "CLASSIFICAÇÃO ORÇAMENTÁRIA",
+            estilo_subtitulo
+        )
+    )
+
+    dados_classificacao = [
+        [
+            texto("Unidade Orçamentária"),
+            texto(unidade_orcamentaria)
+        ],
+        [
+            texto("Função"),
+            texto(funcao)
+        ],
+        [
+            texto("Subfunção"),
+            texto(subfuncao)
+        ],
+        [
+            texto("Programa"),
+            texto(programa)
+        ],
+        [
+            texto("Ação"),
+            texto(acao)
+        ],
+        [
+            texto("Elemento da Despesa"),
+            texto(elemento_despesa)
+        ],
+        [
+            texto("Fonte de Recurso"),
+            texto(fonte_recurso)
+        ],
+        [
+            texto("Ficha / Dotação"),
+            texto(ficha_dotacao)
+        ]
+    ]
+
+    tabela_classificacao = Table(
+        dados_classificacao,
+        colWidths=[
+            5 * cm,
+            13 * cm
+        ]
+    )
+
+    tabela_classificacao.setStyle(
+        estilo_tabela()
+    )
+
+    elementos.append(
+        tabela_classificacao
+    )
+
+    # =========================================================
+    # EXECUÇÃO FINANCEIRA
+    # =========================================================
+
+    elementos.append(
+        Paragraph(
+            "EXECUÇÃO ORÇAMENTÁRIA / FINANCEIRA",
+            estilo_subtitulo
+        )
+    )
+
+    dados_financeiros = [
+        [
+            texto("Valor Empenhado"),
+            texto(
+                moeda(valor_empenhado)
+            )
+        ],
+        [
+            texto("Valor Anulado"),
+            texto(
+                moeda(valor_anulado)
+            )
+        ],
+        [
+            texto("Empenho Líquido"),
+            texto(
+                moeda(empenho_liquido)
+            )
+        ],
+        [
+            texto("Valor Liquidado"),
+            texto(
+                moeda(valor_liquidado)
+            )
+        ],
+        [
+            texto("Saldo a Liquidar"),
+            texto(
+                moeda(saldo_a_liquidar)
+            )
+        ],
+        [
+            texto("Valor Pago"),
+            texto(
+                moeda(valor_pago)
+            )
+        ],
+        [
+            texto("Liquidado a Pagar"),
+            texto(
+                moeda(valor_a_pagar)
+            )
+        ]
+    ]
+
+    tabela_financeira = Table(
+        dados_financeiros,
+        colWidths=[
+            7 * cm,
+            11 * cm
+        ]
+    )
+
+    tabela_financeira.setStyle(
+        estilo_tabela()
+    )
+
+    elementos.append(
+        tabela_financeira
+    )
+
+    # =========================================================
+    # HISTÓRICO
+    # =========================================================
+
+    elementos.append(
+        Paragraph(
+            "HISTÓRICO DO EMPENHO",
+            estilo_subtitulo
+        )
+    )
+
+    tabela_historico = Table(
+        [
+            [
+                texto(historico)
+            ]
+        ],
+        colWidths=[
+            18 * cm
+        ]
+    )
+
+    tabela_historico.setStyle(
+        TableStyle([
+            (
+                "BOX",
+                (0, 0),
+                (-1, -1),
+                0.5,
+                colors.grey
+            ),
+            (
+                "VALIGN",
+                (0, 0),
+                (-1, -1),
+                "TOP"
+            ),
+            (
+                "LEFTPADDING",
+                (0, 0),
+                (-1, -1),
+                6
+            ),
+            (
+                "RIGHTPADDING",
+                (0, 0),
+                (-1, -1),
+                6
+            ),
+            (
+                "TOPPADDING",
+                (0, 0),
+                (-1, -1),
+                6
+            ),
+            (
+                "BOTTOMPADDING",
+                (0, 0),
+                (-1, -1),
+                6
+            )
+        ])
+    )
+
+    elementos.append(
+        tabela_historico
+    )
+
+    # =========================================================
+    # OBSERVAÇÕES
+    # =========================================================
+
+    elementos.append(
+        Paragraph(
+            "OBSERVAÇÕES",
+            estilo_subtitulo
+        )
+    )
+
+    tabela_observacao = Table(
+        [
+            [
+                texto(observacao)
+            ]
+        ],
+        colWidths=[
+            18 * cm
+        ]
+    )
+
+    tabela_observacao.setStyle(
+        TableStyle([
+            (
+                "BOX",
+                (0, 0),
+                (-1, -1),
+                0.5,
+                colors.grey
+            ),
+            (
+                "VALIGN",
+                (0, 0),
+                (-1, -1),
+                "TOP"
+            ),
+            (
+                "LEFTPADDING",
+                (0, 0),
+                (-1, -1),
+                6
+            ),
+            (
+                "RIGHTPADDING",
+                (0, 0),
+                (-1, -1),
+                6
+            ),
+            (
+                "TOPPADDING",
+                (0, 0),
+                (-1, -1),
+                6
+            ),
+            (
+                "BOTTOMPADDING",
+                (0, 0),
+                (-1, -1),
+                6
+            )
+        ])
+    )
+
+    elementos.append(
+        tabela_observacao
+    )
+
+    # =========================================================
+    # RODAPÉ
+    # =========================================================
+
+    elementos.append(
+        Spacer(
+            1,
+            0.7 * cm
+        )
+    )
+
+    elementos.append(
+        Paragraph(
+            (
+                "Documento gerado pelo SISOPB em "
+                f"{datetime.now().strftime('%d/%m/%Y às %H:%M')}"
+            ),
+            estilo_centro
+        )
+    )
+
+    # =========================================================
+    # GERAR PDF
+    # =========================================================
+
+    documento.build(
+        elementos
+    )
+
+    buffer.seek(0)
+
+    return buffer
 def main():
 
     st.set_page_config(
