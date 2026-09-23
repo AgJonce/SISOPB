@@ -23613,7 +23613,7 @@ def main():
 
     elif escolha == "Financeiro 💰":
 
-        modulo_financeiro()
+        financeiro()
 
     elif escolha == "Contabilidade":
 
