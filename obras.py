@@ -14317,37 +14317,26 @@ def contabilidade():
 
         incluir_empenho()
 
-    # ==================================================
-    # LOCALIZAR
-    # ==================================================
-
     elif tela == "Localizar":
 
         localizar_empenho()
-
-    # ==================================================
-    # ALTERAR
-    # ==================================================
 
     elif tela == "Alterar":
 
         alterar_empenho()
 
-    # ==================================================
-    # GESTÃO
-    # ==================================================
-
     elif tela == "Gestao":
 
         gestao_empenhos()
 
-    # ==================================================
-    # RELATÓRIOS
-    # ==================================================
+    elif tela == "Excluir":
 
-    elif tela == "Relatorios":
+        excluir_empenho()    
+	
+	elif tela == "Imprimir":
 
-        relatorios_contabilidade()
+        imprimir_empenho()
+
 def incluir_empenho():
 
     st.title("➕ Cadastrar Empenho")
