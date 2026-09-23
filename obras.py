@@ -1514,6 +1514,10 @@ def incluir_medicao():
 
     col1, col2 = st.columns(2)
 
+    # ==================================================
+    # COLUNA 1
+    # ==================================================
+
     with col1:
 
         tipo_medicao = st.selectbox(
@@ -1536,6 +1540,10 @@ def incluir_medicao():
             key=f"inicio_medicao_{obra_id}"
         )
 
+    # ==================================================
+    # COLUNA 2
+    # ==================================================
+
     with col2:
 
         data_final = st.date_input(
@@ -1543,76 +1551,431 @@ def incluir_medicao():
             key=f"final_medicao_{obra_id}"
         )
 
-        nota_fiscal = st.text_input(
-            "🧾 Nota Fiscal",
-            placeholder="Número da nota fiscal",
-            key=f"nota_medicao_{obra_id}"
-        )
-
-        data_nota = st.date_input(
-            "📅 Data da Nota Fiscal",
-            key=f"data_nota_medicao_{obra_id}"
-        )
-
-        empenho = st.text_input(
-            "💰 Empenho",
-            placeholder="Número do empenho",
-            key=f"empenho_medicao_{obra_id}"
-        )
-
     # ==================================================
-    # ITENS DA OBRA
+    # EMPENHOS VINCULADOS À OBRA
     # ==================================================
-
-    st.divider()
 
     st.markdown(
-        "### 🧱 Itens da Medição"
+        "#### 💰 Empenho e Nota Fiscal"
     )
 
     cursor.execute("""
         SELECT
-            io.id,
-            i.codigo,
-            i.descricao,
-            i.unidade,
-            io.quantidade,
-            io.valor_unitario,
-            io.valor_total,
-
-            COALESCE(
-                (
-                    SELECT SUM(
-                        im.valor_medido
-                    )
-                    FROM itens_medicao im
-                    WHERE im.item_obra_id = io.id
-                ),
-                0
-            ) AS valor_ja_medido
-
-        FROM itens_obra io
-
-        INNER JOIN itens i
-            ON i.id = io.item_id
-
-        WHERE io.obra_id = ?
-
-        ORDER BY i.codigo
+            id,
+            numero_empenho,
+            ano_empenho,
+            credor,
+            valor_empenhado,
+            valor_anulado,
+            situacao
+        FROM empenhos
+        WHERE obra_id = ?
+          AND COALESCE(situacao, 'Ativo') <> 'Anulado'
+        ORDER BY
+            ano_empenho DESC,
+            numero_empenho
     """, (
         obra_id,
     ))
 
-    itens = cursor.fetchall()
+    empenhos_obra = cursor.fetchall()
 
-    if not itens:
+    opcoes_empenhos = {
+        "Selecione o empenho": None
+    }
 
-        st.warning(
-            "⚠️ Esta obra não possui itens cadastrados."
+    dados_empenhos = {}
+
+    for registro_empenho in empenhos_obra:
+
+        empenho_id_registro = (
+            registro_empenho[0]
         )
-        return
 
-    itens_selecionados = []
+        numero_empenho_registro = (
+            registro_empenho[1]
+            or ""
+        )
+
+        ano_empenho_registro = (
+            registro_empenho[2]
+            or ""
+        )
+
+        credor_empenho = (
+            registro_empenho[3]
+            or "Credor não informado"
+        )
+
+        valor_empenhado_registro = float(
+            registro_empenho[4]
+            or 0
+        )
+
+        valor_anulado_registro = float(
+            registro_empenho[5]
+            or 0
+        )
+
+        valor_liquido_empenho = (
+            valor_empenhado_registro
+            - valor_anulado_registro
+        )
+
+        descricao_empenho = (
+            f"{numero_empenho_registro}/"
+            f"{ano_empenho_registro}"
+            f" | {credor_empenho}"
+            f" | R$ {valor_liquido_empenho:,.2f}"
+        )
+
+        opcoes_empenhos[
+            descricao_empenho
+        ] = empenho_id_registro
+
+        dados_empenhos[
+            empenho_id_registro
+        ] = {
+            "numero": (
+                numero_empenho_registro
+            ),
+            "ano": (
+                ano_empenho_registro
+            ),
+            "credor": (
+                credor_empenho
+            ),
+            "valor_liquido": (
+                valor_liquido_empenho
+            )
+        }
+
+    # ==================================================
+    # SELECIONAR EMPENHO
+    # ==================================================
+
+    empenho_selecionado = st.selectbox(
+        "💰 Empenho",
+        options=list(
+            opcoes_empenhos.keys()
+        ),
+        key=f"empenho_medicao_{obra_id}"
+    )
+
+    empenho_id = opcoes_empenhos[
+        empenho_selecionado
+    ]
+
+    # Valores padrão para o salvamento.
+    empenho = ""
+    liquidacao_id = None
+    nota_fiscal = ""
+    data_nota = None
+
+    # ==================================================
+    # SE EMPENHO FOI SELECIONADO
+    # ==================================================
+
+    if empenho_id is not None:
+
+        dados_empenho = dados_empenhos[
+            empenho_id
+        ]
+
+        # Mantém compatibilidade com sua coluna atual
+        # medicoes.empenho.
+        empenho = (
+            f"{dados_empenho['numero']}/"
+            f"{dados_empenho['ano']}"
+        )
+
+        # ==================================================
+        # MOSTRAR DADOS DO EMPENHO
+        # ==================================================
+
+        col_emp1, col_emp2, col_emp3 = (
+            st.columns(3)
+        )
+
+        with col_emp1:
+
+            st.metric(
+                "📄 Empenho",
+                empenho
+            )
+
+        with col_emp2:
+
+            st.metric(
+                "💰 Valor Líquido",
+                (
+                    f"R$ "
+                    f"{dados_empenho['valor_liquido']:,.2f}"
+                )
+            )
+
+        with col_emp3:
+
+            st.text_input(
+                "🏢 Credor",
+                value=(
+                    dados_empenho[
+                        "credor"
+                    ]
+                ),
+                disabled=True,
+                key=(
+                    f"credor_empenho_medicao_"
+                    f"{obra_id}_"
+                    f"{empenho_id}"
+                )
+            )
+
+        # ==================================================
+        # BUSCAR NOTAS FISCAIS DAS LIQUIDAÇÕES
+        # ==================================================
+
+        cursor.execute("""
+            SELECT
+                id,
+                numero_liquidacao,
+                numero_nota_fiscal,
+                data_nota_fiscal,
+                valor_liquidado,
+                data_liquidacao
+            FROM liquidacoes
+            WHERE empenho_id = ?
+              AND COALESCE(
+                    situacao,
+                    'Ativa'
+                  ) <> 'Cancelada'
+              AND numero_nota_fiscal IS NOT NULL
+              AND TRIM(
+                    numero_nota_fiscal
+                  ) <> ''
+            ORDER BY
+                data_liquidacao DESC,
+                id DESC
+        """, (
+            empenho_id,
+        ))
+
+        notas_fiscais = cursor.fetchall()
+
+        # ==================================================
+        # OPÇÕES DAS NOTAS
+        # ==================================================
+
+        opcoes_notas = {
+            "Selecione a Nota Fiscal": None
+        }
+
+        dados_notas = {}
+
+        for registro_nota in notas_fiscais:
+
+            id_liquidacao = (
+                registro_nota[0]
+            )
+
+            numero_liquidacao = (
+                registro_nota[1]
+                or ""
+            )
+
+            numero_nf = (
+                registro_nota[2]
+                or ""
+            )
+
+            data_nf = (
+                registro_nota[3]
+                or ""
+            )
+
+            valor_liquidado_nf = float(
+                registro_nota[4]
+                or 0
+            )
+
+            descricao_nota = (
+                f"NF {numero_nf}"
+                f" | Liquidação "
+                f"{numero_liquidacao}"
+                f" | R$ "
+                f"{valor_liquidado_nf:,.2f}"
+            )
+
+            opcoes_notas[
+                descricao_nota
+            ] = id_liquidacao
+
+            dados_notas[
+                id_liquidacao
+            ] = {
+                "numero_liquidacao": (
+                    numero_liquidacao
+                ),
+                "numero_nota": (
+                    numero_nf
+                ),
+                "data_nota": (
+                    data_nf
+                ),
+                "valor_liquidado": (
+                    valor_liquidado_nf
+                )
+            }
+
+        # ==================================================
+        # SE EXISTEM NOTAS
+        # ==================================================
+
+        if notas_fiscais:
+
+            nota_selecionada = st.selectbox(
+                "🧾 Nota Fiscal",
+                options=list(
+                    opcoes_notas.keys()
+                ),
+                key=(
+                    f"nota_medicao_"
+                    f"{obra_id}_"
+                    f"{empenho_id}"
+                )
+            )
+
+            liquidacao_id = opcoes_notas[
+                nota_selecionada
+            ]
+
+            # ==================================================
+            # NOTA SELECIONADA
+            # ==================================================
+
+            if liquidacao_id is not None:
+
+                dados_nota = dados_notas[
+                    liquidacao_id
+                ]
+
+                nota_fiscal = (
+                    dados_nota[
+                        "numero_nota"
+                    ]
+                )
+
+                # ==================================================
+                # CONVERTER DATA
+                # ==================================================
+
+                data_nota_texto = (
+                    dados_nota[
+                        "data_nota"
+                    ]
+                )
+
+                if data_nota_texto:
+
+                    try:
+
+                        data_nota = (
+                            datetime.strptime(
+                                data_nota_texto,
+                                "%Y-%m-%d"
+                            ).date()
+                        )
+
+                    except Exception:
+
+                        data_nota = None
+
+                # ==================================================
+                # MOSTRAR DADOS DA NOTA
+                # ==================================================
+
+                col_nf1, col_nf2, col_nf3 = (
+                    st.columns(3)
+                )
+
+                with col_nf1:
+
+                    st.text_input(
+                        "🧾 Número da Nota Fiscal",
+                        value=nota_fiscal,
+                        disabled=True,
+                        key=(
+                            f"numero_nf_medicao_"
+                            f"{obra_id}_"
+                            f"{liquidacao_id}"
+                        )
+                    )
+
+                with col_nf2:
+
+                    st.text_input(
+                        "📅 Data da Nota Fiscal",
+                        value=(
+                            data_nota.strftime(
+                                "%d/%m/%Y"
+                            )
+                            if data_nota
+                            else "Não informada"
+                        ),
+                        disabled=True,
+                        key=(
+                            f"data_nf_medicao_"
+                            f"{obra_id}_"
+                            f"{liquidacao_id}"
+                        )
+                    )
+
+                with col_nf3:
+
+                    st.metric(
+                        "💵 Valor Liquidado",
+                        (
+                            f"R$ "
+                            f"{dados_nota['valor_liquidado']:,.2f}"
+                        )
+                    )
+
+                st.caption(
+                    "Liquidação vinculada: "
+                    f"{dados_nota['numero_liquidacao']}"
+                )
+
+            else:
+
+                st.info(
+                    "Selecione uma Nota Fiscal "
+                    "para vinculá-la à medição."
+                )
+
+        else:
+
+            st.warning(
+                "⚠️ Este empenho não possui "
+                "Nota Fiscal vinculada a uma "
+                "liquidação ativa."
+            )
+
+    else:
+
+        if empenhos_obra:
+
+            st.info(
+                "Selecione um empenho para "
+                "visualizar as Notas Fiscais "
+                "das liquidações."
+            )
+
+        else:
+
+            st.warning(
+                "⚠️ Esta obra não possui "
+                "empenhos cadastrados."
+            )
 
     # ==================================================
     # MOSTRAR ITENS
