@@ -14314,28 +14314,22 @@ def contabilidade():
     # ==================================================
 
     elif tela == "Incluir":
-
         incluir_empenho()
 
     elif tela == "Localizar":
-
         localizar_empenho()
 
     elif tela == "Alterar":
-
         alterar_empenho()
 
-    elif tela == "Gestao":
-
-        gestao_empenhos()
+    elif tela == "Imprimir":
+        imprimir_empenho()
 
     elif tela == "Excluir":
+        excluir_empenho()
 
-        excluir_empenho()    
-	
-	elif tela == "Imprimir":
-
-        imprimir_empenho()
+    elif tela == "Gestao":
+        gestao_empenhos()
 
 def incluir_empenho():
 
