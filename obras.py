@@ -573,6 +573,86 @@ cursor.execute("""
 """)
 
 conn.commit()
+# =========================================================
+# LIQUIDAÇÕES
+# =========================================================
+
+cursor.execute("""
+    CREATE TABLE IF NOT EXISTS liquidacoes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+        empenho_id INTEGER NOT NULL,
+        obra_id INTEGER NOT NULL,
+
+        numero_liquidacao TEXT NOT NULL,
+        data_liquidacao TEXT NOT NULL,
+
+        valor_liquidado REAL NOT NULL DEFAULT 0,
+
+        medicao_id INTEGER,
+
+        numero_nota_fiscal TEXT,
+        data_nota_fiscal TEXT,
+
+        documento TEXT,
+        historico TEXT,
+        observacao TEXT,
+
+        situacao TEXT DEFAULT 'Ativa',
+
+        data_cadastro TEXT NOT NULL,
+
+        FOREIGN KEY (empenho_id)
+            REFERENCES empenhos(id),
+
+        FOREIGN KEY (obra_id)
+            REFERENCES obras(id)
+    )
+""")
+
+# =========================================================
+# PAGAMENTOS
+# =========================================================
+
+cursor.execute("""
+    CREATE TABLE IF NOT EXISTS pagamentos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+        liquidacao_id INTEGER NOT NULL,
+        empenho_id INTEGER NOT NULL,
+        obra_id INTEGER NOT NULL,
+
+        numero_pagamento TEXT NOT NULL,
+        data_pagamento TEXT NOT NULL,
+
+        valor_pago REAL NOT NULL DEFAULT 0,
+
+        documento_pagamento TEXT,
+
+        banco TEXT,
+        agencia TEXT,
+        conta TEXT,
+
+        historico TEXT,
+        observacao TEXT,
+
+        situacao TEXT DEFAULT 'Ativo',
+
+        data_cadastro TEXT NOT NULL,
+
+        FOREIGN KEY (liquidacao_id)
+            REFERENCES liquidacoes(id),
+
+        FOREIGN KEY (empenho_id)
+            REFERENCES empenhos(id),
+
+        FOREIGN KEY (obra_id)
+            REFERENCES obras(id)
+    )
+""")
+
+conn.commit()
+
 def main ():
     st.set_page_config(page_title="Sistemas de Obras Públicas ", page_icon="🏗️", layout="wide")
     st.title("🏗️SISOPB")
@@ -19296,6 +19376,3721 @@ def imprimir_empenho():
         ] = "Principal"
 
         st.rerun()
+def financeiro():
+    st.title("💰 Financeiro")
+
+    st.caption(
+        "Gestão das liquidações e pagamentos "
+        "vinculados às obras e aos empenhos."
+    )
+
+    st.divider()
+
+    # =========================================================
+    # CONTROLE DE TELA
+    # =========================================================
+
+    if "tela_financeiro" not in st.session_state:
+        st.session_state["tela_financeiro"] = "Principal"
+
+    tela = st.session_state["tela_financeiro"]
+
+    # =========================================================
+    # TELA PRINCIPAL
+    # =========================================================
+
+    if tela == "Principal":
+
+        # =====================================================
+        # MENSAGENS DE SUCESSO
+        # =====================================================
+
+        if st.session_state.pop(
+            "liquidacao_cadastrada_sucesso",
+            False
+        ):
+            st.success(
+                "✅ Liquidação registrada com sucesso!"
+            )
+
+        if st.session_state.pop(
+            "pagamento_cadastrado_sucesso",
+            False
+        ):
+            st.success(
+                "✅ Pagamento registrado com sucesso!"
+            )
+
+        if st.session_state.pop(
+            "liquidacao_alterada_sucesso",
+            False
+        ):
+            st.success(
+                "✅ Liquidação alterada com sucesso!"
+            )
+
+        if st.session_state.pop(
+            "pagamento_alterado_sucesso",
+            False
+        ):
+            st.success(
+                "✅ Pagamento alterado com sucesso!"
+            )
+
+        if st.session_state.pop(
+            "movimento_financeiro_excluido_sucesso",
+            False
+        ):
+            st.success(
+                "✅ Registro financeiro excluído com sucesso!"
+            )
+
+        # =====================================================
+        # RESUMO DOS EMPENHOS
+        # =====================================================
+
+        cursor.execute("""
+            SELECT
+                COUNT(*),
+                COALESCE(SUM(valor_empenhado), 0),
+                COALESCE(SUM(valor_anulado), 0)
+            FROM empenhos
+        """)
+
+        resumo_empenhos = cursor.fetchone()
+
+        quantidade_empenhos = (
+            resumo_empenhos[0] or 0
+        )
+
+        total_empenhado = (
+            resumo_empenhos[1] or 0
+        )
+
+        total_anulado = (
+            resumo_empenhos[2] or 0
+        )
+
+        empenho_liquido = (
+            total_empenhado
+            - total_anulado
+        )
+
+        # =====================================================
+        # TOTAL LIQUIDADO
+        # =====================================================
+
+        cursor.execute("""
+            SELECT
+                COUNT(*),
+                COALESCE(SUM(valor_liquidado), 0)
+            FROM liquidacoes
+            WHERE COALESCE(situacao, 'Ativa') <> 'Cancelada'
+        """)
+
+        resumo_liquidacoes = cursor.fetchone()
+
+        quantidade_liquidacoes = (
+            resumo_liquidacoes[0] or 0
+        )
+
+        total_liquidado = (
+            resumo_liquidacoes[1] or 0
+        )
+
+        # =====================================================
+        # TOTAL PAGO
+        # =====================================================
+
+        cursor.execute("""
+            SELECT
+                COUNT(*),
+                COALESCE(SUM(valor_pago), 0)
+            FROM pagamentos
+            WHERE COALESCE(situacao, 'Ativo') <> 'Cancelado'
+        """)
+
+        resumo_pagamentos = cursor.fetchone()
+
+        quantidade_pagamentos = (
+            resumo_pagamentos[0] or 0
+        )
+
+        total_pago = (
+            resumo_pagamentos[1] or 0
+        )
+
+        # =====================================================
+        # CÁLCULOS
+        # =====================================================
+
+        saldo_a_liquidar = (
+            empenho_liquido
+            - total_liquidado
+        )
+
+        liquidado_a_pagar = (
+            total_liquidado
+            - total_pago
+        )
+
+        # =====================================================
+        # PAINEL PRINCIPAL
+        # =====================================================
+
+        st.subheader(
+            "📊 Resumo Financeiro"
+        )
+
+        col1, col2, col3, col4 = st.columns(4)
+
+        with col1:
+            st.metric(
+                "📄 Empenhos",
+                quantidade_empenhos
+            )
+
+        with col2:
+            st.metric(
+                "💼 Empenho Líquido",
+                f"R$ {empenho_liquido:,.2f}"
+            )
+
+        with col3:
+            st.metric(
+                "📋 Liquidações",
+                quantidade_liquidacoes
+            )
+
+        with col4:
+            st.metric(
+                "💳 Pagamentos",
+                quantidade_pagamentos
+            )
+
+        col5, col6, col7, col8 = st.columns(4)
+
+        with col5:
+            st.metric(
+                "📋 Liquidado",
+                f"R$ {total_liquidado:,.2f}"
+            )
+
+        with col6:
+            st.metric(
+                "💳 Pago",
+                f"R$ {total_pago:,.2f}"
+            )
+
+        with col7:
+            st.metric(
+                "⏳ Saldo a Liquidar",
+                f"R$ {saldo_a_liquidar:,.2f}"
+            )
+
+        with col8:
+            st.metric(
+                "🏦 Liquidado a Pagar",
+                f"R$ {liquidado_a_pagar:,.2f}"
+            )
+
+        # =====================================================
+        # EXECUÇÃO FINANCEIRA
+        # =====================================================
+
+        st.markdown(
+            "#### 📈 Execução Financeira"
+        )
+
+        if empenho_liquido > 0:
+            percentual_liquidado = (
+                total_liquidado
+                / empenho_liquido
+            ) * 100
+
+            percentual_pago = (
+                total_pago
+                / empenho_liquido
+            ) * 100
+
+        else:
+            percentual_liquidado = 0
+            percentual_pago = 0
+
+        progresso_liquidado = (
+            percentual_liquidado / 100
+        )
+
+        progresso_liquidado = max(
+            0,
+            min(
+                progresso_liquidado,
+                1
+            )
+        )
+
+        st.progress(
+            progresso_liquidado,
+            text=(
+                f"{percentual_liquidado:.2f}% "
+                "do empenho líquido liquidado"
+            )
+        )
+
+        progresso_pago = (
+            percentual_pago / 100
+        )
+
+        progresso_pago = max(
+            0,
+            min(
+                progresso_pago,
+                1
+            )
+        )
+
+        st.progress(
+            progresso_pago,
+            text=(
+                f"{percentual_pago:.2f}% "
+                "do empenho líquido pago"
+            )
+        )
+
+        # =====================================================
+        # ALERTAS
+        # =====================================================
+
+        if total_liquidado > empenho_liquido:
+            st.error(
+                "🚨 O total liquidado ultrapassa "
+                "o total empenhado líquido."
+            )
+
+        if total_pago > total_liquidado:
+            st.error(
+                "🚨 O total pago ultrapassa "
+                "o total liquidado."
+            )
+
+        # =====================================================
+        # BOTÕES PRINCIPAIS
+        # =====================================================
+
+        st.divider()
+
+        st.subheader(
+            "🛠️ Gestão Financeira"
+        )
+
+        col1, col2, col3, col4 = st.columns(4)
+
+        # =====================================================
+        # INCLUIR
+        # =====================================================
+
+        with col1:
+            if st.button(
+                "➕ Incluir",
+                use_container_width=True,
+                key="btn_financeiro_incluir"
+            ):
+                st.session_state[
+                    "tela_financeiro"
+                ] = "Incluir"
+
+                st.rerun()
+
+        # =====================================================
+        # LOCALIZAR
+        # =====================================================
+
+        with col2:
+            if st.button(
+                "🔎 Localizar",
+                use_container_width=True,
+                key="btn_financeiro_localizar"
+            ):
+                st.session_state[
+                    "tela_financeiro"
+                ] = "Localizar"
+
+                st.rerun()
+
+        # =====================================================
+        # EXCLUIR
+        # =====================================================
+
+        with col3:
+            if st.button(
+                "🗑️ Excluir",
+                use_container_width=True,
+                key="btn_financeiro_excluir"
+            ):
+                st.session_state[
+                    "tela_financeiro"
+                ] = "Excluir"
+
+                st.rerun()
+
+        # =====================================================
+        # GESTÃO
+        # =====================================================
+
+        with col4:
+            if st.button(
+                "📊 Gestão",
+                use_container_width=True,
+                key="btn_financeiro_gestao"
+            ):
+                st.session_state[
+                    "tela_financeiro"
+                ] = "Gestao"
+
+                st.rerun()
+
+        # =====================================================
+        # MOVIMENTAÇÕES RECENTES
+        # =====================================================
+
+        st.divider()
+
+        st.subheader(
+            "🧾 Movimentações Recentes"
+        )
+
+        movimentos = []
+
+        # =====================================================
+        # LIQUIDAÇÕES RECENTES
+        # =====================================================
+
+        cursor.execute("""
+            SELECT
+                l.id,
+                l.numero_liquidacao,
+                l.data_liquidacao,
+                l.valor_liquidado,
+                l.situacao,
+                o.obra,
+                e.numero_empenho,
+                e.ano_empenho
+            FROM liquidacoes l
+
+            INNER JOIN obras o
+                ON o.id = l.obra_id
+
+            INNER JOIN empenhos e
+                ON e.id = l.empenho_id
+
+            ORDER BY
+                l.data_liquidacao DESC,
+                l.id DESC
+
+            LIMIT 10
+        """)
+
+        liquidacoes_recentes = cursor.fetchall()
+
+        for registro in liquidacoes_recentes:
+            movimentos.append({
+                "Data": registro[2],
+                "Tipo": "Liquidação",
+                "Número": registro[1],
+                "Obra": registro[5],
+                "Empenho": (
+                    f"{registro[6]}/"
+                    f"{registro[7]}"
+                ),
+                "Valor": registro[3] or 0,
+                "Situação": (
+                    registro[4]
+                    or "Ativa"
+                )
+            })
+
+        # =====================================================
+        # PAGAMENTOS RECENTES
+        # =====================================================
+
+        cursor.execute("""
+            SELECT
+                p.id,
+                p.numero_pagamento,
+                p.data_pagamento,
+                p.valor_pago,
+                p.situacao,
+                o.obra,
+                e.numero_empenho,
+                e.ano_empenho
+            FROM pagamentos p
+
+            INNER JOIN obras o
+                ON o.id = p.obra_id
+
+            INNER JOIN empenhos e
+                ON e.id = p.empenho_id
+
+            ORDER BY
+                p.data_pagamento DESC,
+                p.id DESC
+
+            LIMIT 10
+        """)
+
+        pagamentos_recentes = cursor.fetchall()
+
+        for registro in pagamentos_recentes:
+            movimentos.append({
+                "Data": registro[2],
+                "Tipo": "Pagamento",
+                "Número": registro[1],
+                "Obra": registro[5],
+                "Empenho": (
+                    f"{registro[6]}/"
+                    f"{registro[7]}"
+                ),
+                "Valor": registro[3] or 0,
+                "Situação": (
+                    registro[4]
+                    or "Ativo"
+                )
+            })
+
+        # =====================================================
+        # EXIBIR MOVIMENTAÇÕES
+        # =====================================================
+
+        if movimentos:
+
+            df_movimentos = pd.DataFrame(
+                movimentos
+            )
+
+            df_movimentos[
+                "_data_ordenacao"
+            ] = pd.to_datetime(
+                df_movimentos["Data"],
+                errors="coerce"
+            )
+
+            df_movimentos = (
+                df_movimentos
+                .sort_values(
+                    "_data_ordenacao",
+                    ascending=False
+                )
+                .drop(
+                    columns=[
+                        "_data_ordenacao"
+                    ]
+                )
+                .head(10)
+            )
+
+            st.dataframe(
+                df_movimentos,
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "Valor": st.column_config.NumberColumn(
+                        "Valor",
+                        format="R$ %.2f"
+                    )
+                }
+            )
+
+        else:
+            st.info(
+                "Nenhuma movimentação financeira "
+                "registrada."
+            )
+
+    # =========================================================
+    # INCLUIR
+    # =========================================================
+
+    elif tela == "Incluir":
+        incluir_financeiro()
+
+    elif tela == "Localizar":
+        localizar_financeiro()
+
+    elif tela == "AlterarLiquidacao":
+        alterar_liquidacao()
+
+    elif tela == "AlterarPagamento":
+        alterar_pagamento()
+
+    elif tela == "Imprimir":
+        imprimir_financeiro()
+
+    elif tela == "Excluir":
+        excluir_financeiro()
+
+    elif tela == "Gestao":
+        gestao_financeiro()
+    else:
+        st.session_state[
+            "tela_financeiro"
+        ] = "Principal"
+
+        st.rerun()
+def atualizar_totais_empenho(empenho_id):
+    """
+    Recalcula os totais liquidado e pago do empenho
+    com base nas movimentações do Financeiro.
+    """
+
+    # =========================================================
+    # TOTAL LIQUIDADO
+    # =========================================================
+
+    cursor.execute("""
+        SELECT
+            COALESCE(SUM(valor_liquidado), 0)
+        FROM liquidacoes
+        WHERE empenho_id = ?
+          AND COALESCE(situacao, 'Ativa') <> 'Cancelada'
+    """, (
+        empenho_id,
+    ))
+
+    resultado_liquidado = cursor.fetchone()
+
+    total_liquidado = (
+        resultado_liquidado[0]
+        if resultado_liquidado
+        else 0
+    )
+
+    # =========================================================
+    # TOTAL PAGO
+    # =========================================================
+
+    cursor.execute("""
+        SELECT
+            COALESCE(SUM(valor_pago), 0)
+        FROM pagamentos
+        WHERE empenho_id = ?
+          AND COALESCE(situacao, 'Ativo') <> 'Cancelado'
+    """, (
+        empenho_id,
+    ))
+
+    resultado_pago = cursor.fetchone()
+
+    total_pago = (
+        resultado_pago[0]
+        if resultado_pago
+        else 0
+    )
+
+    # =========================================================
+    # ATUALIZAR EMPENHO
+    # =========================================================
+
+    cursor.execute("""
+        UPDATE empenhos
+        SET
+            valor_liquidado = ?,
+            valor_pago = ?
+        WHERE id = ?
+    """, (
+        total_liquidado,
+        total_pago,
+        empenho_id
+    ))
+
+
+def incluir_financeiro():
+    st.title("➕ Incluir Movimento Financeiro")
+
+    st.caption(
+        "Registre liquidações e pagamentos "
+        "vinculados aos empenhos das obras."
+    )
+
+    st.divider()
+
+    # =========================================================
+    # TIPO DE MOVIMENTO
+    # =========================================================
+
+    tipo_movimento = st.radio(
+        "💰 Tipo de Movimento",
+        [
+            "📋 Liquidação",
+            "💳 Pagamento"
+        ],
+        horizontal=True,
+        key="financeiro_tipo_movimento"
+    )
+
+    st.divider()
+
+    # =========================================================
+    # LIQUIDAÇÃO
+    # =========================================================
+
+    if tipo_movimento == "📋 Liquidação":
+        incluir_liquidacao()
+
+    # =========================================================
+    # PAGAMENTO
+    # =========================================================
+
+    elif tipo_movimento == "💳 Pagamento":
+        incluir_pagamento()
+
+    # =========================================================
+    # VOLTAR
+    # =========================================================
+
+    st.divider()
+
+    if st.button(
+        "⬅️ Voltar",
+        use_container_width=True,
+        key="voltar_incluir_financeiro"
+    ):
+        st.session_state[
+            "tela_financeiro"
+        ] = "Principal"
+
+        st.rerun()
+
+
+def incluir_liquidacao():
+    st.subheader("📋 Registrar Liquidação")
+
+    # =========================================================
+    # BUSCAR EMPENHOS
+    # =========================================================
+
+    cursor.execute("""
+        SELECT
+            e.id,
+            e.numero_empenho,
+            e.ano_empenho,
+            e.data_empenho,
+            e.valor_empenhado,
+            e.valor_anulado,
+            e.valor_liquidado,
+            e.credor,
+            e.situacao,
+            o.id,
+            o.obra,
+            o.contrato
+        FROM empenhos e
+
+        INNER JOIN obras o
+            ON o.id = e.obra_id
+
+        WHERE COALESCE(e.situacao, 'Ativo') <> 'Anulado'
+
+        ORDER BY
+            e.ano_empenho DESC,
+            e.numero_empenho DESC
+    """)
+
+    empenhos = cursor.fetchall()
+
+    if not empenhos:
+        st.warning(
+            "⚠️ Nenhum empenho disponível para liquidação."
+        )
+        return
+
+    # =========================================================
+    # MONTAR OPÇÕES
+    # =========================================================
+
+    opcoes_empenhos = {
+        "Selecione um empenho": None
+    }
+
+    dados_empenhos = {}
+
+    for registro in empenhos:
+        empenho_id = registro[0]
+
+        descricao = (
+            f"{registro[1]}/{registro[2]}"
+            f" | {registro[10]}"
+            f" | {registro[7]}"
+        )
+
+        opcoes_empenhos[
+            descricao
+        ] = empenho_id
+
+        dados_empenhos[
+            empenho_id
+        ] = registro
+
+    empenho_selecionado = st.selectbox(
+        "📄 Empenho",
+        options=list(
+            opcoes_empenhos.keys()
+        ),
+        key="liquidacao_empenho"
+    )
+
+    empenho_id = opcoes_empenhos[
+        empenho_selecionado
+    ]
+
+    if empenho_id is None:
+        st.info(
+            "Selecione um empenho para registrar a liquidação."
+        )
+        return
+
+    registro = dados_empenhos[
+        empenho_id
+    ]
+
+    numero_empenho = registro[1]
+    ano_empenho = registro[2]
+
+    valor_empenhado = (
+        registro[4] or 0
+    )
+
+    valor_anulado = (
+        registro[5] or 0
+    )
+
+    credor = (
+        registro[7]
+        or "Não informado"
+    )
+
+    obra_id = registro[9]
+    obra = registro[10]
+
+    contrato = (
+        registro[11]
+        or "Não informado"
+    )
+
+    # =========================================================
+    # RECALCULAR LIQUIDADO DIRETAMENTE DAS MOVIMENTAÇÕES
+    # =========================================================
+
+    cursor.execute("""
+        SELECT
+            COALESCE(SUM(valor_liquidado), 0)
+        FROM liquidacoes
+        WHERE empenho_id = ?
+          AND COALESCE(situacao, 'Ativa') <> 'Cancelada'
+    """, (
+        empenho_id,
+    ))
+
+    resultado = cursor.fetchone()
+
+    total_liquidado = (
+        resultado[0]
+        if resultado
+        else 0
+    )
+
+    empenho_liquido = (
+        valor_empenhado
+        - valor_anulado
+    )
+
+    saldo_a_liquidar = (
+        empenho_liquido
+        - total_liquidado
+    )
+
+    # =========================================================
+    # DADOS DO EMPENHO
+    # =========================================================
+
+    st.markdown("#### 📄 Dados do Empenho")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.write(
+            f"**Empenho:** "
+            f"{numero_empenho}/{ano_empenho}"
+        )
+
+        st.write(
+            f"**Obra:** {obra}"
+        )
+
+        st.write(
+            f"**Contrato:** {contrato}"
+        )
+
+    with col2:
+        st.write(
+            f"**Credor:** {credor}"
+        )
+
+        st.write(
+            f"**Empenho Líquido:** "
+            f"R$ {empenho_liquido:,.2f}"
+        )
+
+        st.write(
+            f"**Já Liquidado:** "
+            f"R$ {total_liquidado:,.2f}"
+        )
+
+    # =========================================================
+    # INDICADORES
+    # =========================================================
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.metric(
+            "💼 Empenho Líquido",
+            f"R$ {empenho_liquido:,.2f}"
+        )
+
+    with col2:
+        st.metric(
+            "📋 Liquidado",
+            f"R$ {total_liquidado:,.2f}"
+        )
+
+    with col3:
+        st.metric(
+            "⏳ Saldo a Liquidar",
+            f"R$ {saldo_a_liquidar:,.2f}"
+        )
+
+    if saldo_a_liquidar <= 0:
+        st.success(
+            "✅ Este empenho já está totalmente liquidado."
+        )
+        return
+
+    # =========================================================
+    # MEDIÇÃO
+    # =========================================================
+
+    cursor.execute("""
+        SELECT
+            id,
+            tipo_medicao,
+            data_medicao,
+            valor
+        FROM medicoes
+        WHERE obra_id = ?
+        ORDER BY
+            data_medicao DESC,
+            id DESC
+    """, (
+        obra_id,
+    ))
+
+    medicoes = cursor.fetchall()
+
+    opcoes_medicoes = {
+        "Sem medição vinculada": None
+    }
+
+    for medicao in medicoes:
+        descricao_medicao = (
+            f"Medição #{medicao[0]}"
+            f" | {medicao[1] or 'Não informado'}"
+            f" | {medicao[2] or 'Sem data'}"
+            f" | R$ {(medicao[3] or 0):,.2f}"
+        )
+
+        opcoes_medicoes[
+            descricao_medicao
+        ] = medicao[0]
+
+    # =========================================================
+    # FORMULÁRIO
+    # =========================================================
+
+    st.divider()
+
+    st.markdown(
+        "#### 📝 Dados da Liquidação"
+    )
+
+    with st.form(
+        "form_incluir_liquidacao",
+        clear_on_submit=True
+    ):
+        col1, col2 = st.columns(2)
+
+        with col1:
+            numero_liquidacao = st.text_input(
+                "🔢 Número da Liquidação *"
+            )
+
+        with col2:
+            data_liquidacao = st.date_input(
+                "📅 Data da Liquidação *",
+                value=datetime.now().date()
+            )
+
+        valor_liquidado = st.number_input(
+            "💰 Valor da Liquidação *",
+            min_value=0.0,
+            step=0.01,
+            format="%.2f"
+        )
+
+        medicao_selecionada = st.selectbox(
+            "📐 Medição Relacionada",
+            options=list(
+                opcoes_medicoes.keys()
+            )
+        )
+
+        medicao_id = opcoes_medicoes[
+            medicao_selecionada
+        ]
+
+        st.markdown(
+            "##### 🧾 Documento Fiscal"
+        )
+
+        col3, col4 = st.columns(2)
+
+        with col3:
+            numero_nota_fiscal = st.text_input(
+                "🧾 Número da Nota Fiscal"
+            )
+
+        with col4:
+            possui_data_nota = st.checkbox(
+                "Informar data da nota fiscal"
+            )
+
+        data_nota_fiscal = None
+
+        if possui_data_nota:
+            data_nota_fiscal = st.date_input(
+                "📅 Data da Nota Fiscal",
+                value=datetime.now().date()
+            )
+
+        documento = st.text_input(
+            "📄 Documento / Processo"
+        )
+
+        historico = st.text_area(
+            "📝 Histórico",
+            placeholder=(
+                "Ex: Liquidação referente à "
+                "1ª medição da obra..."
+            )
+        )
+
+        observacao = st.text_area(
+            "📌 Observação"
+        )
+
+        salvar = st.form_submit_button(
+            "💾 Salvar Liquidação",
+            use_container_width=True
+        )
+
+    # =========================================================
+    # SALVAR
+    # =========================================================
+
+    if salvar:
+        erros = []
+
+        if not numero_liquidacao.strip():
+            erros.append(
+                "Informe o número da liquidação."
+            )
+
+        if valor_liquidado <= 0:
+            erros.append(
+                "O valor da liquidação deve ser maior que zero."
+            )
+
+        # =====================================================
+        # RECALCULAR ANTES DE SALVAR
+        # =====================================================
+
+        cursor.execute("""
+            SELECT
+                valor_empenhado,
+                valor_anulado,
+                situacao
+            FROM empenhos
+            WHERE id = ?
+        """, (
+            empenho_id,
+        ))
+
+        empenho_atual = cursor.fetchone()
+
+        if not empenho_atual:
+            erros.append(
+                "O empenho selecionado não existe mais."
+            )
+
+        else:
+            valor_empenhado_atual = (
+                empenho_atual[0] or 0
+            )
+
+            valor_anulado_atual = (
+                empenho_atual[1] or 0
+            )
+
+            situacao_empenho = (
+                empenho_atual[2]
+                or "Ativo"
+            )
+
+            if situacao_empenho == "Anulado":
+                erros.append(
+                    "O empenho está anulado."
+                )
+
+            empenho_liquido_atual = (
+                valor_empenhado_atual
+                - valor_anulado_atual
+            )
+
+            cursor.execute("""
+                SELECT
+                    COALESCE(SUM(valor_liquidado), 0)
+                FROM liquidacoes
+                WHERE empenho_id = ?
+                  AND COALESCE(situacao, 'Ativa') <> 'Cancelada'
+            """, (
+                empenho_id,
+            ))
+
+            total_liquidado_atual = (
+                cursor.fetchone()[0]
+                or 0
+            )
+
+            saldo_atual = (
+                empenho_liquido_atual
+                - total_liquidado_atual
+            )
+
+            if valor_liquidado > (
+                saldo_atual + 0.0001
+            ):
+                erros.append(
+                    "O valor da liquidação ultrapassa "
+                    f"o saldo disponível de "
+                    f"R$ {saldo_atual:,.2f}."
+                )
+
+        # =====================================================
+        # DUPLICIDADE
+        # =====================================================
+
+        cursor.execute("""
+            SELECT id
+            FROM liquidacoes
+            WHERE empenho_id = ?
+              AND numero_liquidacao = ?
+        """, (
+            empenho_id,
+            numero_liquidacao.strip()
+        ))
+
+        if cursor.fetchone():
+            erros.append(
+                "Já existe uma liquidação com este "
+                "número para o empenho selecionado."
+            )
+
+        # =====================================================
+        # MOSTRAR ERROS
+        # =====================================================
+
+        if erros:
+            for erro in erros:
+                st.error(
+                    f"❌ {erro}"
+                )
+
+            return
+
+        # =====================================================
+        # INSERT
+        # =====================================================
+
+        try:
+            cursor.execute("""
+                INSERT INTO liquidacoes (
+                    empenho_id,
+                    obra_id,
+                    numero_liquidacao,
+                    data_liquidacao,
+                    valor_liquidado,
+                    medicao_id,
+                    numero_nota_fiscal,
+                    data_nota_fiscal,
+                    documento,
+                    historico,
+                    observacao,
+                    situacao,
+                    data_cadastro
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                empenho_id,
+                obra_id,
+                numero_liquidacao.strip(),
+                data_liquidacao.strftime(
+                    "%Y-%m-%d"
+                ),
+                valor_liquidado,
+                medicao_id,
+                (
+                    numero_nota_fiscal.strip()
+                    if numero_nota_fiscal
+                    else None
+                ),
+                (
+                    data_nota_fiscal.strftime(
+                        "%Y-%m-%d"
+                    )
+                    if data_nota_fiscal
+                    else None
+                ),
+                (
+                    documento.strip()
+                    if documento
+                    else None
+                ),
+                (
+                    historico.strip()
+                    if historico
+                    else None
+                ),
+                (
+                    observacao.strip()
+                    if observacao
+                    else None
+                ),
+                "Ativa",
+                datetime.now().strftime(
+                    "%Y-%m-%d %H:%M:%S"
+                )
+            ))
+
+            # =================================================
+            # SINCRONIZAR EMPENHO
+            # =================================================
+
+            atualizar_totais_empenho(
+                empenho_id
+            )
+
+            conn.commit()
+
+            st.session_state[
+                "liquidacao_cadastrada_sucesso"
+            ] = True
+
+            st.session_state[
+                "tela_financeiro"
+            ] = "Principal"
+
+            st.rerun()
+
+        except Exception as erro:
+            conn.rollback()
+
+            st.error(
+                "❌ Erro ao registrar a liquidação."
+            )
+
+            st.exception(
+                erro
+            )
+
+
+def incluir_pagamento():
+    st.subheader("💳 Registrar Pagamento")
+
+    # =========================================================
+    # BUSCAR LIQUIDAÇÕES
+    # =========================================================
+
+    cursor.execute("""
+        SELECT
+            l.id,
+            l.numero_liquidacao,
+            l.data_liquidacao,
+            l.valor_liquidado,
+            l.empenho_id,
+            l.obra_id,
+
+            e.numero_empenho,
+            e.ano_empenho,
+            e.credor,
+
+            o.obra,
+            o.contrato
+
+        FROM liquidacoes l
+
+        INNER JOIN empenhos e
+            ON e.id = l.empenho_id
+
+        INNER JOIN obras o
+            ON o.id = l.obra_id
+
+        WHERE COALESCE(l.situacao, 'Ativa') <> 'Cancelada'
+
+        ORDER BY
+            l.data_liquidacao DESC,
+            l.id DESC
+    """)
+
+    liquidacoes = cursor.fetchall()
+
+    if not liquidacoes:
+        st.warning(
+            "⚠️ Nenhuma liquidação disponível para pagamento."
+        )
+        return
+
+    # =========================================================
+    # DESCOBRIR SALDO DE CADA LIQUIDAÇÃO
+    # =========================================================
+
+    opcoes_liquidacoes = {
+        "Selecione uma liquidação": None
+    }
+
+    dados_liquidacoes = {}
+
+    for registro in liquidacoes:
+        liquidacao_id = registro[0]
+
+        valor_liquidacao = (
+            registro[3] or 0
+        )
+
+        cursor.execute("""
+            SELECT
+                COALESCE(SUM(valor_pago), 0)
+            FROM pagamentos
+            WHERE liquidacao_id = ?
+              AND COALESCE(situacao, 'Ativo') <> 'Cancelado'
+        """, (
+            liquidacao_id,
+        ))
+
+        resultado_pago = cursor.fetchone()
+
+        total_pago_liquidacao = (
+            resultado_pago[0]
+            if resultado_pago
+            else 0
+        )
+
+        saldo_liquidacao = (
+            valor_liquidacao
+            - total_pago_liquidacao
+        )
+
+        # Só apresenta liquidações com saldo.
+        if saldo_liquidacao > 0.0001:
+            descricao = (
+                f"Liquidação {registro[1]}"
+                f" | Empenho {registro[6]}/{registro[7]}"
+                f" | {registro[9]}"
+                f" | Saldo R$ {saldo_liquidacao:,.2f}"
+            )
+
+            opcoes_liquidacoes[
+                descricao
+            ] = liquidacao_id
+
+            dados_liquidacoes[
+                liquidacao_id
+            ] = {
+                "registro": registro,
+                "total_pago": total_pago_liquidacao,
+                "saldo": saldo_liquidacao
+            }
+
+    if len(opcoes_liquidacoes) == 1:
+        st.success(
+            "✅ Todas as liquidações cadastradas "
+            "já estão totalmente pagas."
+        )
+        return
+
+    # =========================================================
+    # SELECIONAR LIQUIDAÇÃO
+    # =========================================================
+
+    liquidacao_selecionada = st.selectbox(
+        "📋 Liquidação",
+        options=list(
+            opcoes_liquidacoes.keys()
+        ),
+        key="pagamento_liquidacao"
+    )
+
+    liquidacao_id = opcoes_liquidacoes[
+        liquidacao_selecionada
+    ]
+
+    if liquidacao_id is None:
+        st.info(
+            "Selecione uma liquidação para registrar o pagamento."
+        )
+        return
+
+    dados = dados_liquidacoes[
+        liquidacao_id
+    ]
+
+    registro = dados[
+        "registro"
+    ]
+
+    total_pago_liquidacao = dados[
+        "total_pago"
+    ]
+
+    saldo_liquidacao = dados[
+        "saldo"
+    ]
+
+    numero_liquidacao = registro[1]
+    data_liquidacao = registro[2]
+
+    valor_liquidacao = (
+        registro[3] or 0
+    )
+
+    empenho_id = registro[4]
+    obra_id = registro[5]
+
+    numero_empenho = registro[6]
+    ano_empenho = registro[7]
+
+    credor = (
+        registro[8]
+        or "Não informado"
+    )
+
+    obra = registro[9]
+
+    contrato = (
+        registro[10]
+        or "Não informado"
+    )
+
+    # =========================================================
+    # DADOS
+    # =========================================================
+
+    st.markdown(
+        "#### 📋 Dados da Liquidação"
+    )
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.write(
+            f"**Liquidação:** "
+            f"{numero_liquidacao}"
+        )
+
+        st.write(
+            f"**Data:** "
+            f"{data_liquidacao}"
+        )
+
+        st.write(
+            f"**Empenho:** "
+            f"{numero_empenho}/{ano_empenho}"
+        )
+
+    with col2:
+        st.write(
+            f"**Obra:** {obra}"
+        )
+
+        st.write(
+            f"**Contrato:** {contrato}"
+        )
+
+        st.write(
+            f"**Credor:** {credor}"
+        )
+
+    # =========================================================
+    # INDICADORES
+    # =========================================================
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.metric(
+            "📋 Valor Liquidado",
+            f"R$ {valor_liquidacao:,.2f}"
+        )
+
+    with col2:
+        st.metric(
+            "💳 Já Pago",
+            f"R$ {total_pago_liquidacao:,.2f}"
+        )
+
+    with col3:
+        st.metric(
+            "🏦 Saldo a Pagar",
+            f"R$ {saldo_liquidacao:,.2f}"
+        )
+
+    # =========================================================
+    # FORMULÁRIO
+    # =========================================================
+
+    st.divider()
+
+    st.markdown(
+        "#### 💳 Dados do Pagamento"
+    )
+
+    with st.form(
+        "form_incluir_pagamento",
+        clear_on_submit=True
+    ):
+        col1, col2 = st.columns(2)
+
+        with col1:
+            numero_pagamento = st.text_input(
+                "🔢 Número do Pagamento *"
+            )
+
+        with col2:
+            data_pagamento = st.date_input(
+                "📅 Data do Pagamento *",
+                value=datetime.now().date()
+            )
+
+        valor_pago = st.number_input(
+            "💰 Valor do Pagamento *",
+            min_value=0.0,
+            step=0.01,
+            format="%.2f"
+        )
+
+        documento_pagamento = st.text_input(
+            "📄 Documento / Ordem Bancária"
+        )
+
+        st.markdown(
+            "##### 🏦 Dados Bancários"
+        )
+
+        col3, col4, col5 = st.columns(3)
+
+        with col3:
+            banco = st.text_input(
+                "🏦 Banco"
+            )
+
+        with col4:
+            agencia = st.text_input(
+                "🏢 Agência"
+            )
+
+        with col5:
+            conta = st.text_input(
+                "💳 Conta"
+            )
+
+        historico = st.text_area(
+            "📝 Histórico",
+            placeholder=(
+                "Ex: Pagamento referente à "
+                "liquidação selecionada..."
+            )
+        )
+
+        observacao = st.text_area(
+            "📌 Observação"
+        )
+
+        salvar = st.form_submit_button(
+            "💾 Salvar Pagamento",
+            use_container_width=True
+        )
+
+    # =========================================================
+    # SALVAR PAGAMENTO
+    # =========================================================
+
+    if salvar:
+        erros = []
+
+        if not numero_pagamento.strip():
+            erros.append(
+                "Informe o número do pagamento."
+            )
+
+        if valor_pago <= 0:
+            erros.append(
+                "O valor do pagamento deve ser maior que zero."
+            )
+
+        # =====================================================
+        # RECALCULAR SALDO ANTES DO INSERT
+        # =====================================================
+
+        cursor.execute("""
+            SELECT
+                valor_liquidado,
+                empenho_id,
+                obra_id,
+                situacao
+            FROM liquidacoes
+            WHERE id = ?
+        """, (
+            liquidacao_id,
+        ))
+
+        liquidacao_atual = cursor.fetchone()
+
+        if not liquidacao_atual:
+            erros.append(
+                "A liquidação selecionada não existe mais."
+            )
+
+        else:
+            valor_liquidado_atual = (
+                liquidacao_atual[0] or 0
+            )
+
+            empenho_id_atual = (
+                liquidacao_atual[1]
+            )
+
+            obra_id_atual = (
+                liquidacao_atual[2]
+            )
+
+            situacao_liquidacao = (
+                liquidacao_atual[3]
+                or "Ativa"
+            )
+
+            if situacao_liquidacao == "Cancelada":
+                erros.append(
+                    "A liquidação está cancelada."
+                )
+
+            cursor.execute("""
+                SELECT
+                    COALESCE(SUM(valor_pago), 0)
+                FROM pagamentos
+                WHERE liquidacao_id = ?
+                  AND COALESCE(situacao, 'Ativo') <> 'Cancelado'
+            """, (
+                liquidacao_id,
+            ))
+
+            total_pago_atual = (
+                cursor.fetchone()[0]
+                or 0
+            )
+
+            saldo_atual = (
+                valor_liquidado_atual
+                - total_pago_atual
+            )
+
+            if valor_pago > (
+                saldo_atual + 0.0001
+            ):
+                erros.append(
+                    "O pagamento ultrapassa "
+                    f"o saldo disponível de "
+                    f"R$ {saldo_atual:,.2f}."
+                )
+
+        # =====================================================
+        # DUPLICIDADE
+        # =====================================================
+
+        cursor.execute("""
+            SELECT id
+            FROM pagamentos
+            WHERE empenho_id = ?
+              AND numero_pagamento = ?
+        """, (
+            empenho_id,
+            numero_pagamento.strip()
+        ))
+
+        if cursor.fetchone():
+            erros.append(
+                "Já existe um pagamento com este "
+                "número para o empenho selecionado."
+            )
+
+        # =====================================================
+        # MOSTRAR ERROS
+        # =====================================================
+
+        if erros:
+            for erro in erros:
+                st.error(
+                    f"❌ {erro}"
+                )
+
+            return
+
+        # =====================================================
+        # INSERT
+        # =====================================================
+
+        try:
+            cursor.execute("""
+                INSERT INTO pagamentos (
+                    liquidacao_id,
+                    empenho_id,
+                    obra_id,
+                    numero_pagamento,
+                    data_pagamento,
+                    valor_pago,
+                    documento_pagamento,
+                    banco,
+                    agencia,
+                    conta,
+                    historico,
+                    observacao,
+                    situacao,
+                    data_cadastro
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                liquidacao_id,
+                empenho_id_atual,
+                obra_id_atual,
+                numero_pagamento.strip(),
+                data_pagamento.strftime(
+                    "%Y-%m-%d"
+                ),
+                valor_pago,
+                (
+                    documento_pagamento.strip()
+                    if documento_pagamento
+                    else None
+                ),
+                (
+                    banco.strip()
+                    if banco
+                    else None
+                ),
+                (
+                    agencia.strip()
+                    if agencia
+                    else None
+                ),
+                (
+                    conta.strip()
+                    if conta
+                    else None
+                ),
+                (
+                    historico.strip()
+                    if historico
+                    else None
+                ),
+                (
+                    observacao.strip()
+                    if observacao
+                    else None
+                ),
+                "Ativo",
+                datetime.now().strftime(
+                    "%Y-%m-%d %H:%M:%S"
+                )
+            ))
+
+            # =================================================
+            # SINCRONIZAR EMPENHO
+            # =================================================
+
+            atualizar_totais_empenho(
+                empenho_id_atual
+            )
+
+            conn.commit()
+
+            st.session_state[
+                "pagamento_cadastrado_sucesso"
+            ] = True
+
+            st.session_state[
+                "tela_financeiro"
+            ] = "Principal"
+
+            st.rerun()
+
+        except Exception as erro:
+            conn.rollback()
+
+            st.error(
+                "❌ Erro ao registrar o pagamento."
+            )
+
+            st.exception(
+                erro
+            )
+def localizar_financeiro():
+    st.title("🔎 Localizar Movimento Financeiro")
+
+    st.caption(
+        "Consulte liquidações e pagamentos. "
+        "Dê dois cliques em um registro para alterá-lo."
+    )
+
+    st.divider()
+
+    # =========================================================
+    # FILTROS
+    # =========================================================
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        tipo_filtro = st.selectbox(
+            "💰 Tipo",
+            [
+                "Todos",
+                "Liquidação",
+                "Pagamento"
+            ],
+            key="localizar_financeiro_tipo"
+        )
+
+    with col2:
+        numero_filtro = st.text_input(
+            "🔢 Número",
+            key="localizar_financeiro_numero"
+        )
+
+    with col3:
+        credor_filtro = st.text_input(
+            "🏢 Credor",
+            key="localizar_financeiro_credor"
+        )
+
+    # =========================================================
+    # OBRAS
+    # =========================================================
+
+    cursor.execute("""
+        SELECT
+            id,
+            obra,
+            contrato
+        FROM obras
+        ORDER BY obra
+    """)
+
+    obras = cursor.fetchall()
+
+    opcoes_obras = {
+        "Todas as obras": None
+    }
+
+    for obra in obras:
+        descricao = obra[1]
+
+        if obra[2]:
+            descricao += (
+                f" | Contrato: {obra[2]}"
+            )
+
+        opcoes_obras[
+            descricao
+        ] = obra[0]
+
+    obra_selecionada = st.selectbox(
+        "🏗️ Obra",
+        options=list(
+            opcoes_obras.keys()
+        ),
+        key="localizar_financeiro_obra"
+    )
+
+    obra_id = opcoes_obras[
+        obra_selecionada
+    ]
+
+    # =========================================================
+    # MONTAR RESULTADOS
+    # =========================================================
+
+    registros = []
+
+    # =========================================================
+    # LIQUIDAÇÕES
+    # =========================================================
+
+    if tipo_filtro in [
+        "Todos",
+        "Liquidação"
+    ]:
+
+        consulta = """
+            SELECT
+                l.id,
+                l.numero_liquidacao,
+                l.data_liquidacao,
+                l.valor_liquidado,
+                l.situacao,
+
+                e.numero_empenho,
+                e.ano_empenho,
+                e.credor,
+
+                o.obra,
+                o.contrato
+
+            FROM liquidacoes l
+
+            INNER JOIN empenhos e
+                ON e.id = l.empenho_id
+
+            INNER JOIN obras o
+                ON o.id = l.obra_id
+
+            WHERE 1 = 1
+        """
+
+        parametros = []
+
+        if numero_filtro.strip():
+            consulta += """
+                AND l.numero_liquidacao LIKE ?
+            """
+
+            parametros.append(
+                f"%{numero_filtro.strip()}%"
+            )
+
+        if credor_filtro.strip():
+            consulta += """
+                AND e.credor LIKE ?
+            """
+
+            parametros.append(
+                f"%{credor_filtro.strip()}%"
+            )
+
+        if obra_id is not None:
+            consulta += """
+                AND l.obra_id = ?
+            """
+
+            parametros.append(
+                obra_id
+            )
+
+        consulta += """
+            ORDER BY
+                l.data_liquidacao DESC,
+                l.id DESC
+        """
+
+        cursor.execute(
+            consulta,
+            parametros
+        )
+
+        liquidacoes = cursor.fetchall()
+
+        for registro in liquidacoes:
+            registros.append({
+                "ID": registro[0],
+                "Tipo": "Liquidação",
+                "Número": registro[1],
+                "Data": registro[2],
+                "Obra": registro[8],
+                "Contrato": (
+                    registro[9]
+                    or "Não informado"
+                ),
+                "Empenho": (
+                    f"{registro[5]}/"
+                    f"{registro[6]}"
+                ),
+                "Credor": registro[7],
+                "Valor": registro[3] or 0,
+                "Situação": (
+                    registro[4]
+                    or "Ativa"
+                )
+            })
+
+    # =========================================================
+    # PAGAMENTOS
+    # =========================================================
+
+    if tipo_filtro in [
+        "Todos",
+        "Pagamento"
+    ]:
+
+        consulta = """
+            SELECT
+                p.id,
+                p.numero_pagamento,
+                p.data_pagamento,
+                p.valor_pago,
+                p.situacao,
+
+                e.numero_empenho,
+                e.ano_empenho,
+                e.credor,
+
+                o.obra,
+                o.contrato
+
+            FROM pagamentos p
+
+            INNER JOIN empenhos e
+                ON e.id = p.empenho_id
+
+            INNER JOIN obras o
+                ON o.id = p.obra_id
+
+            WHERE 1 = 1
+        """
+
+        parametros = []
+
+        if numero_filtro.strip():
+            consulta += """
+                AND p.numero_pagamento LIKE ?
+            """
+
+            parametros.append(
+                f"%{numero_filtro.strip()}%"
+            )
+
+        if credor_filtro.strip():
+            consulta += """
+                AND e.credor LIKE ?
+            """
+
+            parametros.append(
+                f"%{credor_filtro.strip()}%"
+            )
+
+        if obra_id is not None:
+            consulta += """
+                AND p.obra_id = ?
+            """
+
+            parametros.append(
+                obra_id
+            )
+
+        consulta += """
+            ORDER BY
+                p.data_pagamento DESC,
+                p.id DESC
+        """
+
+        cursor.execute(
+            consulta,
+            parametros
+        )
+
+        pagamentos = cursor.fetchall()
+
+        for registro in pagamentos:
+            registros.append({
+                "ID": registro[0],
+                "Tipo": "Pagamento",
+                "Número": registro[1],
+                "Data": registro[2],
+                "Obra": registro[8],
+                "Contrato": (
+                    registro[9]
+                    or "Não informado"
+                ),
+                "Empenho": (
+                    f"{registro[5]}/"
+                    f"{registro[6]}"
+                ),
+                "Credor": registro[7],
+                "Valor": registro[3] or 0,
+                "Situação": (
+                    registro[4]
+                    or "Ativo"
+                )
+            })
+
+    # =========================================================
+    # TABELA
+    # =========================================================
+
+    if registros:
+        df = pd.DataFrame(
+            registros
+        )
+
+        df["_data"] = pd.to_datetime(
+            df["Data"],
+            errors="coerce"
+        )
+
+        df = (
+            df
+            .sort_values(
+                "_data",
+                ascending=False
+            )
+            .drop(
+                columns=["_data"]
+            )
+        )
+
+        gb = GridOptionsBuilder.from_dataframe(
+            df
+        )
+
+        gb.configure_selection(
+            selection_mode="single",
+            use_checkbox=False
+        )
+
+        gb.configure_column(
+            "ID",
+            hide=True
+        )
+
+        gb.configure_column(
+            "Valor",
+            type=[
+                "numericColumn"
+            ],
+            valueFormatter=(
+                "'R$ ' + "
+                "Number(value).toLocaleString("
+                "'pt-BR', "
+                "{minimumFractionDigits: 2, "
+                "maximumFractionDigits: 2})"
+            )
+        )
+
+        grid_options = (
+            gb.build()
+        )
+
+        grid_options[
+            "suppressRowClickSelection"
+        ] = True
+
+        grid_options[
+            "onRowDoubleClicked"
+        ] = JsCode("""
+            function(event) {
+                event.api.deselectAll();
+                event.node.setSelected(true);
+            }
+        """)
+
+        resposta = AgGrid(
+            df,
+            gridOptions=grid_options,
+            update_mode=(
+                GridUpdateMode.SELECTION_CHANGED
+            ),
+            allow_unsafe_jscode=True,
+            fit_columns_on_grid_load=True,
+            height=420,
+            key="grid_localizar_financeiro"
+        )
+
+        selecionados = resposta[
+            "selected_rows"
+        ]
+
+        if isinstance(
+            selecionados,
+            pd.DataFrame
+        ):
+            selecionados = (
+                selecionados.to_dict(
+                    "records"
+                )
+            )
+
+        if selecionados:
+            selecionado = (
+                selecionados[0]
+            )
+
+            movimento_id = int(
+                selecionado["ID"]
+            )
+
+            tipo = selecionado[
+                "Tipo"
+            ]
+
+            if tipo == "Liquidação":
+                st.session_state[
+                    "liquidacao_edicao_id"
+                ] = movimento_id
+
+                st.session_state[
+                    "tela_financeiro"
+                ] = "AlterarLiquidacao"
+
+            else:
+                st.session_state[
+                    "pagamento_edicao_id"
+                ] = movimento_id
+
+                st.session_state[
+                    "tela_financeiro"
+                ] = "AlterarPagamento"
+
+            st.rerun()
+
+    else:
+        st.info(
+            "Nenhum movimento financeiro encontrado."
+        )
+
+    st.divider()
+
+    if st.button(
+        "⬅️ Voltar",
+        use_container_width=True,
+        key="voltar_localizar_financeiro"
+    ):
+        st.session_state[
+            "tela_financeiro"
+        ] = "Principal"
+
+        st.rerun()
+def alterar_liquidacao():
+    st.title("✏️ Alterar Liquidação")
+
+    liquidacao_id = st.session_state.get(
+        "liquidacao_edicao_id"
+    )
+
+    if not liquidacao_id:
+        st.error(
+            "❌ Nenhuma liquidação selecionada."
+        )
+
+        if st.button(
+            "⬅️ Voltar",
+            key="voltar_alterar_liquidacao_sem_id"
+        ):
+            st.session_state[
+                "tela_financeiro"
+            ] = "Localizar"
+
+            st.rerun()
+
+        return
+
+    # =========================================================
+    # BUSCAR LIQUIDAÇÃO
+    # =========================================================
+
+    cursor.execute("""
+        SELECT
+            l.id,
+            l.empenho_id,
+            l.obra_id,
+            l.numero_liquidacao,
+            l.data_liquidacao,
+            l.valor_liquidado,
+            l.medicao_id,
+            l.numero_nota_fiscal,
+            l.data_nota_fiscal,
+            l.documento,
+            l.historico,
+            l.observacao,
+            l.situacao,
+
+            e.numero_empenho,
+            e.ano_empenho,
+            e.credor,
+            e.valor_empenhado,
+            e.valor_anulado,
+
+            o.obra,
+            o.contrato
+
+        FROM liquidacoes l
+
+        INNER JOIN empenhos e
+            ON e.id = l.empenho_id
+
+        INNER JOIN obras o
+            ON o.id = l.obra_id
+
+        WHERE l.id = ?
+    """, (
+        liquidacao_id,
+    ))
+
+    registro = cursor.fetchone()
+
+    if not registro:
+        st.error(
+            "❌ Liquidação não encontrada."
+        )
+        return
+
+    empenho_id = registro[1]
+    obra_id = registro[2]
+
+    valor_empenhado = (
+        registro[16] or 0
+    )
+
+    valor_anulado = (
+        registro[17] or 0
+    )
+
+    empenho_liquido = (
+        valor_empenhado
+        - valor_anulado
+    )
+
+    # =========================================================
+    # OUTRAS LIQUIDAÇÕES
+    # =========================================================
+
+    cursor.execute("""
+        SELECT
+            COALESCE(SUM(valor_liquidado), 0)
+        FROM liquidacoes
+        WHERE empenho_id = ?
+          AND id <> ?
+          AND COALESCE(situacao, 'Ativa') <> 'Cancelada'
+    """, (
+        empenho_id,
+        liquidacao_id
+    ))
+
+    outras_liquidacoes = (
+        cursor.fetchone()[0]
+        or 0
+    )
+
+    saldo_maximo = (
+        empenho_liquido
+        - outras_liquidacoes
+    )
+
+    # =========================================================
+    # PAGAMENTOS DA LIQUIDAÇÃO
+    # =========================================================
+
+    cursor.execute("""
+        SELECT
+            COALESCE(SUM(valor_pago), 0)
+        FROM pagamentos
+        WHERE liquidacao_id = ?
+          AND COALESCE(situacao, 'Ativo') <> 'Cancelado'
+    """, (
+        liquidacao_id,
+    ))
+
+    total_pago = (
+        cursor.fetchone()[0]
+        or 0
+    )
+
+    # =========================================================
+    # DADOS
+    # =========================================================
+
+    st.write(
+        f"**🏗️ Obra:** {registro[18]}"
+    )
+
+    st.write(
+        f"**📜 Contrato:** "
+        f"{registro[19] or 'Não informado'}"
+    )
+
+    st.write(
+        f"**📄 Empenho:** "
+        f"{registro[13]}/{registro[14]}"
+    )
+
+    st.write(
+        f"**🏢 Credor:** "
+        f"{registro[15]}"
+    )
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.metric(
+            "Empenho Líquido",
+            f"R$ {empenho_liquido:,.2f}"
+        )
+
+    with col2:
+        st.metric(
+            "Máximo para esta Liquidação",
+            f"R$ {saldo_maximo:,.2f}"
+        )
+
+    with col3:
+        st.metric(
+            "Já Pago",
+            f"R$ {total_pago:,.2f}"
+        )
+
+    # =========================================================
+    # DATAS
+    # =========================================================
+
+    try:
+        data_atual = datetime.strptime(
+            registro[4],
+            "%Y-%m-%d"
+        ).date()
+    except Exception:
+        data_atual = datetime.now().date()
+
+    data_nota_atual = None
+
+    if registro[8]:
+        try:
+            data_nota_atual = datetime.strptime(
+                registro[8],
+                "%Y-%m-%d"
+            ).date()
+        except Exception:
+            data_nota_atual = None
+
+    # =========================================================
+    # MEDIÇÕES
+    # =========================================================
+
+    cursor.execute("""
+        SELECT
+            id,
+            tipo_medicao,
+            data_medicao,
+            valor
+        FROM medicoes
+        WHERE obra_id = ?
+        ORDER BY
+            data_medicao DESC,
+            id DESC
+    """, (
+        obra_id,
+    ))
+
+    medicoes = cursor.fetchall()
+
+    opcoes_medicoes = {
+        "Sem medição vinculada": None
+    }
+
+    indice_medicao = 0
+
+    contador = 1
+
+    for medicao in medicoes:
+        descricao = (
+            f"Medição #{medicao[0]}"
+            f" | {medicao[1] or 'Não informado'}"
+            f" | {medicao[2] or 'Sem data'}"
+            f" | R$ {(medicao[3] or 0):,.2f}"
+        )
+
+        opcoes_medicoes[
+            descricao
+        ] = medicao[0]
+
+        if medicao[0] == registro[6]:
+            indice_medicao = contador
+
+        contador += 1
+
+    # =========================================================
+    # FORMULÁRIO
+    # =========================================================
+
+    with st.form(
+        "form_alterar_liquidacao"
+    ):
+        col1, col2 = st.columns(2)
+
+        with col1:
+            numero = st.text_input(
+                "🔢 Número da Liquidação *",
+                value=registro[3] or ""
+            )
+
+        with col2:
+            data = st.date_input(
+                "📅 Data da Liquidação *",
+                value=data_atual
+            )
+
+        valor = st.number_input(
+            "💰 Valor da Liquidação *",
+            min_value=0.0,
+            value=float(
+                registro[5] or 0
+            ),
+            step=0.01,
+            format="%.2f"
+        )
+
+        medicao = st.selectbox(
+            "📐 Medição Relacionada",
+            options=list(
+                opcoes_medicoes.keys()
+            ),
+            index=indice_medicao
+        )
+
+        medicao_id = opcoes_medicoes[
+            medicao
+        ]
+
+        numero_nf = st.text_input(
+            "🧾 Número da Nota Fiscal",
+            value=registro[7] or ""
+        )
+
+        informar_data_nf = st.checkbox(
+            "Informar data da Nota Fiscal",
+            value=(
+                data_nota_atual
+                is not None
+            )
+        )
+
+        nova_data_nf = None
+
+        if informar_data_nf:
+            nova_data_nf = st.date_input(
+                "📅 Data da Nota Fiscal",
+                value=(
+                    data_nota_atual
+                    or datetime.now().date()
+                )
+            )
+
+        documento = st.text_input(
+            "📄 Documento / Processo",
+            value=registro[9] or ""
+        )
+
+        historico = st.text_area(
+            "📝 Histórico",
+            value=registro[10] or ""
+        )
+
+        observacao = st.text_area(
+            "📌 Observação",
+            value=registro[11] or ""
+        )
+
+        situacoes = [
+            "Ativa",
+            "Cancelada"
+        ]
+
+        situacao_atual = (
+            registro[12]
+            or "Ativa"
+        )
+
+        if situacao_atual not in situacoes:
+            situacao_atual = "Ativa"
+
+        situacao = st.selectbox(
+            "📌 Situação",
+            situacoes,
+            index=situacoes.index(
+                situacao_atual
+            )
+        )
+
+        salvar = st.form_submit_button(
+            "💾 Salvar Alteração",
+            use_container_width=True
+        )
+
+    # =========================================================
+    # SALVAR
+    # =========================================================
+
+    if salvar:
+        erros = []
+
+        if not numero.strip():
+            erros.append(
+                "Informe o número da liquidação."
+            )
+
+        if valor <= 0:
+            erros.append(
+                "O valor deve ser maior que zero."
+            )
+
+        if situacao == "Ativa":
+
+            if valor > (
+                saldo_maximo + 0.0001
+            ):
+                erros.append(
+                    "A liquidação ultrapassa "
+                    f"o saldo disponível de "
+                    f"R$ {saldo_maximo:,.2f}."
+                )
+
+            if valor < (
+                total_pago - 0.0001
+            ):
+                erros.append(
+                    "A liquidação não pode ficar "
+                    "menor que o valor já pago."
+                )
+
+        if (
+            situacao == "Cancelada"
+            and total_pago > 0
+        ):
+            erros.append(
+                "Não é possível cancelar uma "
+                "liquidação que possui pagamentos."
+            )
+
+        cursor.execute("""
+            SELECT id
+            FROM liquidacoes
+            WHERE empenho_id = ?
+              AND numero_liquidacao = ?
+              AND id <> ?
+        """, (
+            empenho_id,
+            numero.strip(),
+            liquidacao_id
+        ))
+
+        if cursor.fetchone():
+            erros.append(
+                "Já existe outra liquidação "
+                "com este número neste empenho."
+            )
+
+        if erros:
+            for erro in erros:
+                st.error(
+                    f"❌ {erro}"
+                )
+
+            return
+
+        try:
+            cursor.execute("""
+                UPDATE liquidacoes
+                SET
+                    numero_liquidacao = ?,
+                    data_liquidacao = ?,
+                    valor_liquidado = ?,
+                    medicao_id = ?,
+                    numero_nota_fiscal = ?,
+                    data_nota_fiscal = ?,
+                    documento = ?,
+                    historico = ?,
+                    observacao = ?,
+                    situacao = ?
+                WHERE id = ?
+            """, (
+                numero.strip(),
+                data.strftime("%Y-%m-%d"),
+                valor,
+                medicao_id,
+                numero_nf.strip() or None,
+                (
+                    nova_data_nf.strftime(
+                        "%Y-%m-%d"
+                    )
+                    if nova_data_nf
+                    else None
+                ),
+                documento.strip() or None,
+                historico.strip() or None,
+                observacao.strip() or None,
+                situacao,
+                liquidacao_id
+            ))
+
+            atualizar_totais_empenho(
+                empenho_id
+            )
+
+            conn.commit()
+
+            st.session_state[
+                "liquidacao_alterada_sucesso"
+            ] = True
+
+            st.session_state.pop(
+                "liquidacao_edicao_id",
+                None
+            )
+
+            st.session_state[
+                "tela_financeiro"
+            ] = "Principal"
+
+            st.rerun()
+
+        except Exception as erro:
+            conn.rollback()
+
+            st.error(
+                "❌ Erro ao alterar a liquidação."
+            )
+
+            st.exception(
+                erro
+            )
+
+    if st.button(
+        "⬅️ Voltar",
+        key="voltar_alterar_liquidacao"
+    ):
+        st.session_state[
+            "tela_financeiro"
+        ] = "Localizar"
+
+        st.rerun()
+
+def alterar_pagamento():
+    st.title("✏️ Alterar Pagamento")
+
+    pagamento_id = st.session_state.get(
+        "pagamento_edicao_id"
+    )
+
+    if not pagamento_id:
+        st.error(
+            "❌ Nenhum pagamento selecionado."
+        )
+        return
+
+    # =========================================================
+    # BUSCAR PAGAMENTO
+    # =========================================================
+
+    cursor.execute("""
+        SELECT
+            p.id,
+            p.liquidacao_id,
+            p.empenho_id,
+            p.obra_id,
+            p.numero_pagamento,
+            p.data_pagamento,
+            p.valor_pago,
+            p.documento_pagamento,
+            p.banco,
+            p.agencia,
+            p.conta,
+            p.historico,
+            p.observacao,
+            p.situacao,
+
+            l.numero_liquidacao,
+            l.valor_liquidado,
+
+            e.numero_empenho,
+            e.ano_empenho,
+            e.credor,
+
+            o.obra,
+            o.contrato
+
+        FROM pagamentos p
+
+        INNER JOIN liquidacoes l
+            ON l.id = p.liquidacao_id
+
+        INNER JOIN empenhos e
+            ON e.id = p.empenho_id
+
+        INNER JOIN obras o
+            ON o.id = p.obra_id
+
+        WHERE p.id = ?
+    """, (
+        pagamento_id,
+    ))
+
+    registro = cursor.fetchone()
+
+    if not registro:
+        st.error(
+            "❌ Pagamento não encontrado."
+        )
+        return
+
+    liquidacao_id = registro[1]
+    empenho_id = registro[2]
+
+    valor_liquidacao = (
+        registro[15] or 0
+    )
+
+    # =========================================================
+    # OUTROS PAGAMENTOS
+    # =========================================================
+
+    cursor.execute("""
+        SELECT
+            COALESCE(SUM(valor_pago), 0)
+        FROM pagamentos
+        WHERE liquidacao_id = ?
+          AND id <> ?
+          AND COALESCE(situacao, 'Ativo') <> 'Cancelado'
+    """, (
+        liquidacao_id,
+        pagamento_id
+    ))
+
+    outros_pagamentos = (
+        cursor.fetchone()[0]
+        or 0
+    )
+
+    saldo_maximo = (
+        valor_liquidacao
+        - outros_pagamentos
+    )
+
+    # =========================================================
+    # RESUMO
+    # =========================================================
+
+    st.write(
+        f"**🏗️ Obra:** {registro[19]}"
+    )
+
+    st.write(
+        f"**📜 Contrato:** "
+        f"{registro[20] or 'Não informado'}"
+    )
+
+    st.write(
+        f"**📄 Empenho:** "
+        f"{registro[16]}/{registro[17]}"
+    )
+
+    st.write(
+        f"**📋 Liquidação:** "
+        f"{registro[14]}"
+    )
+
+    st.write(
+        f"**🏢 Credor:** "
+        f"{registro[18]}"
+    )
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.metric(
+            "Valor Liquidado",
+            f"R$ {valor_liquidacao:,.2f}"
+        )
+
+    with col2:
+        st.metric(
+            "Outros Pagamentos",
+            f"R$ {outros_pagamentos:,.2f}"
+        )
+
+    with col3:
+        st.metric(
+            "Máximo para este Pagamento",
+            f"R$ {saldo_maximo:,.2f}"
+        )
+
+    try:
+        data_atual = datetime.strptime(
+            registro[5],
+            "%Y-%m-%d"
+        ).date()
+    except Exception:
+        data_atual = datetime.now().date()
+
+    # =========================================================
+    # FORMULÁRIO
+    # =========================================================
+
+    with st.form(
+        "form_alterar_pagamento"
+    ):
+        col1, col2 = st.columns(2)
+
+        with col1:
+            numero = st.text_input(
+                "🔢 Número do Pagamento *",
+                value=registro[4] or ""
+            )
+
+        with col2:
+            data = st.date_input(
+                "📅 Data do Pagamento *",
+                value=data_atual
+            )
+
+        valor = st.number_input(
+            "💰 Valor do Pagamento *",
+            min_value=0.0,
+            value=float(
+                registro[6] or 0
+            ),
+            step=0.01,
+            format="%.2f"
+        )
+
+        documento = st.text_input(
+            "📄 Documento / Ordem Bancária",
+            value=registro[7] or ""
+        )
+
+        col3, col4, col5 = st.columns(3)
+
+        with col3:
+            banco = st.text_input(
+                "🏦 Banco",
+                value=registro[8] or ""
+            )
+
+        with col4:
+            agencia = st.text_input(
+                "🏢 Agência",
+                value=registro[9] or ""
+            )
+
+        with col5:
+            conta = st.text_input(
+                "💳 Conta",
+                value=registro[10] or ""
+            )
+
+        historico = st.text_area(
+            "📝 Histórico",
+            value=registro[11] or ""
+        )
+
+        observacao = st.text_area(
+            "📌 Observação",
+            value=registro[12] or ""
+        )
+
+        situacoes = [
+            "Ativo",
+            "Cancelado"
+        ]
+
+        situacao_atual = (
+            registro[13]
+            or "Ativo"
+        )
+
+        if situacao_atual not in situacoes:
+            situacao_atual = "Ativo"
+
+        situacao = st.selectbox(
+            "📌 Situação",
+            situacoes,
+            index=situacoes.index(
+                situacao_atual
+            )
+        )
+
+        salvar = st.form_submit_button(
+            "💾 Salvar Alteração",
+            use_container_width=True
+        )
+
+    if salvar:
+        erros = []
+
+        if not numero.strip():
+            erros.append(
+                "Informe o número do pagamento."
+            )
+
+        if valor <= 0:
+            erros.append(
+                "O valor deve ser maior que zero."
+            )
+
+        if (
+            situacao == "Ativo"
+            and valor > (
+                saldo_maximo + 0.0001
+            )
+        ):
+            erros.append(
+                "O pagamento ultrapassa "
+                f"o saldo disponível de "
+                f"R$ {saldo_maximo:,.2f}."
+            )
+
+        cursor.execute("""
+            SELECT id
+            FROM pagamentos
+            WHERE empenho_id = ?
+              AND numero_pagamento = ?
+              AND id <> ?
+        """, (
+            empenho_id,
+            numero.strip(),
+            pagamento_id
+        ))
+
+        if cursor.fetchone():
+            erros.append(
+                "Já existe outro pagamento "
+                "com este número neste empenho."
+            )
+
+        if erros:
+            for erro in erros:
+                st.error(
+                    f"❌ {erro}"
+                )
+
+            return
+
+        try:
+            cursor.execute("""
+                UPDATE pagamentos
+                SET
+                    numero_pagamento = ?,
+                    data_pagamento = ?,
+                    valor_pago = ?,
+                    documento_pagamento = ?,
+                    banco = ?,
+                    agencia = ?,
+                    conta = ?,
+                    historico = ?,
+                    observacao = ?,
+                    situacao = ?
+                WHERE id = ?
+            """, (
+                numero.strip(),
+                data.strftime("%Y-%m-%d"),
+                valor,
+                documento.strip() or None,
+                banco.strip() or None,
+                agencia.strip() or None,
+                conta.strip() or None,
+                historico.strip() or None,
+                observacao.strip() or None,
+                situacao,
+                pagamento_id
+            ))
+
+            atualizar_totais_empenho(
+                empenho_id
+            )
+
+            conn.commit()
+
+            st.session_state[
+                "pagamento_alterado_sucesso"
+            ] = True
+
+            st.session_state.pop(
+                "pagamento_edicao_id",
+                None
+            )
+
+            st.session_state[
+                "tela_financeiro"
+            ] = "Principal"
+
+            st.rerun()
+
+        except Exception as erro:
+            conn.rollback()
+
+            st.error(
+                "❌ Erro ao alterar o pagamento."
+            )
+
+            st.exception(
+                erro
+            )
+
+    if st.button(
+        "⬅️ Voltar",
+        key="voltar_alterar_pagamento"
+    ):
+        st.session_state[
+            "tela_financeiro"
+        ] = "Localizar"
+
+        st.rerun()
+
+def gerar_pdf_financeiro(
+    tipo_movimento,
+    movimento_id
+):
+    buffer = BytesIO()
+
+    documento = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        rightMargin=1.5 * cm,
+        leftMargin=1.5 * cm,
+        topMargin=1.5 * cm,
+        bottomMargin=1.5 * cm
+    )
+
+    estilos = getSampleStyleSheet()
+
+    titulo = ParagraphStyle(
+        "TituloFinanceiro",
+        parent=estilos["Title"],
+        fontSize=16,
+        alignment=1,
+        spaceAfter=10
+    )
+
+    subtitulo = ParagraphStyle(
+        "SubtituloFinanceiro",
+        parent=estilos["Heading2"],
+        fontSize=11,
+        spaceBefore=10,
+        spaceAfter=6
+    )
+
+    normal = ParagraphStyle(
+        "NormalFinanceiro",
+        parent=estilos["Normal"],
+        fontSize=9,
+        leading=12
+    )
+
+    elementos = []
+
+    def p(valor):
+        return Paragraph(
+            str(
+                valor
+                if valor not in [
+                    None,
+                    ""
+                ]
+                else "Não informado"
+            ),
+            normal
+        )
+
+    def moeda(valor):
+        return (
+            f"R$ {float(valor or 0):,.2f}"
+        )
+
+    estilo = TableStyle([
+        (
+            "GRID",
+            (0, 0),
+            (-1, -1),
+            0.5,
+            colors.grey
+        ),
+        (
+            "BACKGROUND",
+            (0, 0),
+            (0, -1),
+            colors.lightgrey
+        ),
+        (
+            "VALIGN",
+            (0, 0),
+            (-1, -1),
+            "TOP"
+        ),
+        (
+            "LEFTPADDING",
+            (0, 0),
+            (-1, -1),
+            5
+        ),
+        (
+            "RIGHTPADDING",
+            (0, 0),
+            (-1, -1),
+            5
+        ),
+        (
+            "TOPPADDING",
+            (0, 0),
+            (-1, -1),
+            5
+        ),
+        (
+            "BOTTOMPADDING",
+            (0, 0),
+            (-1, -1),
+            5
+        )
+    ])
+
+    # =========================================================
+    # LIQUIDAÇÃO
+    # =========================================================
+
+    if tipo_movimento == "Liquidação":
+        cursor.execute("""
+            SELECT
+                l.numero_liquidacao,
+                l.data_liquidacao,
+                l.valor_liquidado,
+                l.numero_nota_fiscal,
+                l.data_nota_fiscal,
+                l.documento,
+                l.historico,
+                l.observacao,
+                l.situacao,
+
+                e.numero_empenho,
+                e.ano_empenho,
+                e.credor,
+
+                o.obra,
+                o.contrato
+
+            FROM liquidacoes l
+
+            INNER JOIN empenhos e
+                ON e.id = l.empenho_id
+
+            INNER JOIN obras o
+                ON o.id = l.obra_id
+
+            WHERE l.id = ?
+        """, (
+            movimento_id,
+        ))
+
+        registro = cursor.fetchone()
+
+        if not registro:
+            return None
+
+        elementos.append(
+            Paragraph(
+                "SISOPB",
+                titulo
+            )
+        )
+
+        elementos.append(
+            Paragraph(
+                "FICHA DE LIQUIDAÇÃO",
+                titulo
+            )
+        )
+
+        dados = [
+            [
+                p("Número"),
+                p(registro[0])
+            ],
+            [
+                p("Data"),
+                p(registro[1])
+            ],
+            [
+                p("Obra"),
+                p(registro[12])
+            ],
+            [
+                p("Contrato"),
+                p(registro[13])
+            ],
+            [
+                p("Empenho"),
+                p(
+                    f"{registro[9]}/"
+                    f"{registro[10]}"
+                )
+            ],
+            [
+                p("Credor"),
+                p(registro[11])
+            ],
+            [
+                p("Valor Liquidado"),
+                p(
+                    moeda(
+                        registro[2]
+                    )
+                )
+            ],
+            [
+                p("Nota Fiscal"),
+                p(registro[3])
+            ],
+            [
+                p("Data da Nota Fiscal"),
+                p(registro[4])
+            ],
+            [
+                p("Documento"),
+                p(registro[5])
+            ],
+            [
+                p("Situação"),
+                p(registro[8])
+            ]
+        ]
+
+        tabela = Table(
+            dados,
+            colWidths=[
+                5 * cm,
+                13 * cm
+            ]
+        )
+
+        tabela.setStyle(
+            estilo
+        )
+
+        elementos.append(
+            tabela
+        )
+
+        elementos.append(
+            Paragraph(
+                "HISTÓRICO",
+                subtitulo
+            )
+        )
+
+        elementos.append(
+            p(registro[6])
+        )
+
+        elementos.append(
+            Paragraph(
+                "OBSERVAÇÕES",
+                subtitulo
+            )
+        )
+
+        elementos.append(
+            p(registro[7])
+        )
+
+    # =========================================================
+    # PAGAMENTO
+    # =========================================================
+
+    elif tipo_movimento == "Pagamento":
+        cursor.execute("""
+            SELECT
+                p.numero_pagamento,
+                p.data_pagamento,
+                p.valor_pago,
+                p.documento_pagamento,
+                p.banco,
+                p.agencia,
+                p.conta,
+                p.historico,
+                p.observacao,
+                p.situacao,
+
+                l.numero_liquidacao,
+
+                e.numero_empenho,
+                e.ano_empenho,
+                e.credor,
+
+                o.obra,
+                o.contrato
+
+            FROM pagamentos p
+
+            INNER JOIN liquidacoes l
+                ON l.id = p.liquidacao_id
+
+            INNER JOIN empenhos e
+                ON e.id = p.empenho_id
+
+            INNER JOIN obras o
+                ON o.id = p.obra_id
+
+            WHERE p.id = ?
+        """, (
+            movimento_id,
+        ))
+
+        registro = cursor.fetchone()
+
+        if not registro:
+            return None
+
+        elementos.append(
+            Paragraph(
+                "SISOPB",
+                titulo
+            )
+        )
+
+        elementos.append(
+            Paragraph(
+                "FICHA DE PAGAMENTO",
+                titulo
+            )
+        )
+
+        dados = [
+            [
+                p("Número"),
+                p(registro[0])
+            ],
+            [
+                p("Data"),
+                p(registro[1])
+            ],
+            [
+                p("Obra"),
+                p(registro[14])
+            ],
+            [
+                p("Contrato"),
+                p(registro[15])
+            ],
+            [
+                p("Empenho"),
+                p(
+                    f"{registro[11]}/"
+                    f"{registro[12]}"
+                )
+            ],
+            [
+                p("Liquidação"),
+                p(registro[10])
+            ],
+            [
+                p("Credor"),
+                p(registro[13])
+            ],
+            [
+                p("Valor Pago"),
+                p(
+                    moeda(
+                        registro[2]
+                    )
+                )
+            ],
+            [
+                p("Documento / Ordem Bancária"),
+                p(registro[3])
+            ],
+            [
+                p("Banco"),
+                p(registro[4])
+            ],
+            [
+                p("Agência"),
+                p(registro[5])
+            ],
+            [
+                p("Conta"),
+                p(registro[6])
+            ],
+            [
+                p("Situação"),
+                p(registro[9])
+            ]
+        ]
+
+        tabela = Table(
+            dados,
+            colWidths=[
+                5 * cm,
+                13 * cm
+            ]
+        )
+
+        tabela.setStyle(
+            estilo
+        )
+
+        elementos.append(
+            tabela
+        )
+
+        elementos.append(
+            Paragraph(
+                "HISTÓRICO",
+                subtitulo
+            )
+        )
+
+        elementos.append(
+            p(registro[7])
+        )
+
+        elementos.append(
+            Paragraph(
+                "OBSERVAÇÕES",
+                subtitulo
+            )
+        )
+
+        elementos.append(
+            p(registro[8])
+        )
+
+    else:
+        return None
+
+    elementos.append(
+        Spacer(
+            1,
+            0.8 * cm
+        )
+    )
+
+    elementos.append(
+        Paragraph(
+            (
+                "Documento gerado pelo SISOPB em "
+                f"{datetime.now().strftime('%d/%m/%Y às %H:%M')}"
+            ),
+            normal
+        )
+    )
+
+    documento.build(
+        elementos
+    )
+
+    buffer.seek(0)
+
+    return buffer
+
+def imprimir_financeiro():
+    st.title("🖨️ Imprimir Movimento Financeiro")
+
+    st.caption(
+        "Gere a ficha de uma liquidação ou pagamento."
+    )
+
+    st.divider()
+
+    tipo = st.radio(
+        "💰 Tipo",
+        [
+            "Liquidação",
+            "Pagamento"
+        ],
+        horizontal=True,
+        key="imprimir_financeiro_tipo"
+    )
+
+    opcoes = {
+        "Selecione um registro": None
+    }
+
+    # =========================================================
+    # LIQUIDAÇÕES
+    # =========================================================
+
+    if tipo == "Liquidação":
+        cursor.execute("""
+            SELECT
+                l.id,
+                l.numero_liquidacao,
+                l.data_liquidacao,
+                l.valor_liquidado,
+                o.obra,
+                e.numero_empenho,
+                e.ano_empenho
+            FROM liquidacoes l
+
+            INNER JOIN obras o
+                ON o.id = l.obra_id
+
+            INNER JOIN empenhos e
+                ON e.id = l.empenho_id
+
+            ORDER BY
+                l.data_liquidacao DESC,
+                l.id DESC
+        """)
+
+        registros = cursor.fetchall()
+
+        for registro in registros:
+            descricao = (
+                f"Liquidação {registro[1]}"
+                f" | {registro[4]}"
+                f" | Empenho "
+                f"{registro[5]}/{registro[6]}"
+                f" | R$ {(registro[3] or 0):,.2f}"
+            )
+
+            opcoes[
+                descricao
+            ] = registro[0]
+
+    # =========================================================
+    # PAGAMENTOS
+    # =========================================================
+
+    else:
+        cursor.execute("""
+            SELECT
+                p.id,
+                p.numero_pagamento,
+                p.data_pagamento,
+                p.valor_pago,
+                o.obra,
+                e.numero_empenho,
+                e.ano_empenho
+            FROM pagamentos p
+
+            INNER JOIN obras o
+                ON o.id = p.obra_id
+
+            INNER JOIN empenhos e
+                ON e.id = p.empenho_id
+
+            ORDER BY
+                p.data_pagamento DESC,
+                p.id DESC
+        """)
+
+        registros = cursor.fetchall()
+
+        for registro in registros:
+            descricao = (
+                f"Pagamento {registro[1]}"
+                f" | {registro[4]}"
+                f" | Empenho "
+                f"{registro[5]}/{registro[6]}"
+                f" | R$ {(registro[3] or 0):,.2f}"
+            )
+
+            opcoes[
+                descricao
+            ] = registro[0]
+
+    selecionado = st.selectbox(
+        "📄 Registro",
+        options=list(
+            opcoes.keys()
+        ),
+        key="imprimir_financeiro_registro"
+    )
+
+    movimento_id = opcoes[
+        selecionado
+    ]
+
+    if movimento_id is not None:
+        try:
+            pdf = gerar_pdf_financeiro(
+                tipo,
+                movimento_id
+            )
+
+            if pdf:
+                nome_tipo = (
+                    "liquidacao"
+                    if tipo == "Liquidação"
+                    else "pagamento"
+                )
+
+                st.success(
+                    "✅ Documento pronto para impressão."
+                )
+
+                st.download_button(
+                    "📥 Baixar PDF",
+                    data=pdf.getvalue(),
+                    file_name=(
+                        f"{nome_tipo}_"
+                        f"{movimento_id}.pdf"
+                    ),
+                    mime="application/pdf",
+                    use_container_width=True,
+                    key=(
+                        f"download_financeiro_"
+                        f"{tipo}_"
+                        f"{movimento_id}"
+                    )
+                )
+
+        except Exception as erro:
+            st.error(
+                "❌ Erro ao gerar o documento."
+            )
+
+            st.exception(
+                erro
+            )
+
+    else:
+        st.info(
+            "Selecione um registro para gerar o PDF."
+        )
+
+    st.divider()
+
+    if st.button(
+        "⬅️ Voltar",
+        use_container_width=True,
+        key="voltar_imprimir_financeiro"
+    ):
+        st.session_state[
+            "tela_financeiro"
+        ] = "Principal"
+
+        st.rerun()
+
 def main():
 
     st.set_page_config(
