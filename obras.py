@@ -26921,6 +26921,7 @@ def main():
             "👨‍🔧 Cadastro de Responsável",
             "💰 Financeiro",
             "📏 Medições",
+			"🤖 Assistente SISOPB",
             "📚 Contabilidade"
         ]
 
