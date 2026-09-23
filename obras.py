@@ -8928,6 +8928,10 @@ def incluir_obra():
         st.session_state[
             "responsaveis_confirmados_obra"
         ] = False
+        st.session_state.pop(
+            "responsavel_temp_edicao_indice",
+            None
+        )
 
     if "responsaveis_temp_obra" not in st.session_state:
         st.session_state["responsaveis_temp_obra"] = []
@@ -8958,10 +8962,6 @@ def incluir_obra():
     st.subheader("📋 Informações da Obra")
 
     col1, col2 = st.columns(2)
-
-    # ==================================================
-    # COLUNA 1
-    # ==================================================
 
     with col1:
 
@@ -9006,10 +9006,6 @@ def incluir_obra():
             placeholder="Ex: Centro",
             key=f"bairro_{cadastro_id}"
         )
-
-    # ==================================================
-    # COLUNA 2
-    # ==================================================
 
     with col2:
 
@@ -9059,6 +9055,10 @@ def incluir_obra():
         False
     )
 
+    indice_edicao = st.session_state.get(
+        "responsavel_temp_edicao_indice"
+    )
+
     # ==================================================
     # BUSCAR RESPONSÁVEIS
     # ==================================================
@@ -9102,11 +9102,303 @@ def incluir_obra():
         }
 
     # ==================================================
-    # CADASTRAR RESPONSÁVEL
-    # SÓ APARECE ENQUANTO NÃO FOI CONFIRMADO
+    # MODO DE EDIÇÃO DO RESPONSÁVEL
     # ==================================================
 
-    if not responsaveis_confirmados:
+    if (
+        responsaveis_confirmados
+        and indice_edicao is not None
+    ):
+
+        responsaveis_temp = st.session_state[
+            "responsaveis_temp_obra"
+        ]
+
+        if (
+            indice_edicao < 0
+            or indice_edicao >= len(responsaveis_temp)
+        ):
+            st.session_state.pop(
+                "responsavel_temp_edicao_indice",
+                None
+            )
+            st.rerun()
+
+        item_edicao = responsaveis_temp[
+            indice_edicao
+        ]
+
+        st.markdown(
+            "### ✏️ Alterar Responsável da Obra"
+        )
+
+        st.info(
+            "Altere os dados da ART deste responsável."
+        )
+
+        # ==================================================
+        # DADOS BLOQUEADOS
+        # ==================================================
+
+        st.text_input(
+            "👤 Responsável",
+            value=item_edicao["nome"],
+            disabled=True,
+            key=(
+                f"editar_nome_responsavel_"
+                f"{cadastro_id}_"
+                f"{indice_edicao}"
+            )
+        )
+
+        col_ed1, col_ed2 = st.columns(2)
+
+        with col_ed1:
+
+            st.text_input(
+                "👷 Tipo de Responsabilidade",
+                value=item_edicao[
+                    "tipo_responsabilidade"
+                ],
+                disabled=True,
+                key=(
+                    f"editar_responsabilidade_"
+                    f"{cadastro_id}_"
+                    f"{indice_edicao}"
+                )
+            )
+
+        with col_ed2:
+
+            st.text_input(
+                "🔗 Tipo de Vínculo",
+                value=item_edicao[
+                    "tipo_vinculo"
+                ],
+                disabled=True,
+                key=(
+                    f"editar_vinculo_"
+                    f"{cadastro_id}_"
+                    f"{indice_edicao}"
+                )
+            )
+
+        # ==================================================
+        # ART EDITÁVEL
+        # ==================================================
+
+        col_art_ed1, col_art_ed2 = st.columns(2)
+
+        with col_art_ed1:
+
+            numero_art_edicao = st.text_input(
+                "📜 Número da ART",
+                value=item_edicao["numero_art"],
+                key=(
+                    f"editar_numero_art_"
+                    f"{cadastro_id}_"
+                    f"{indice_edicao}"
+                )
+            )
+
+        with col_art_ed2:
+
+            tipos_art = [
+                "Fiscalização",
+                "Execução",
+                "Projeto"
+            ]
+
+            tipo_art_atual = item_edicao[
+                "tipo_art"
+            ]
+
+            if tipo_art_atual in tipos_art:
+                indice_tipo_art = tipos_art.index(
+                    tipo_art_atual
+                )
+            else:
+                indice_tipo_art = 0
+
+            tipo_art_edicao = st.selectbox(
+                "🏗️ Tipo da ART",
+                tipos_art,
+                index=indice_tipo_art,
+                key=(
+                    f"editar_tipo_art_"
+                    f"{cadastro_id}_"
+                    f"{indice_edicao}"
+                )
+            )
+
+        # ==================================================
+        # DATAS
+        # ==================================================
+
+        try:
+            data_inicio_art_atual = (
+                datetime.strptime(
+                    item_edicao[
+                        "data_inicio_art"
+                    ],
+                    "%Y-%m-%d"
+                ).date()
+            )
+        except Exception:
+            data_inicio_art_atual = (
+                datetime.now().date()
+            )
+
+        try:
+            data_final_art_atual = (
+                datetime.strptime(
+                    item_edicao[
+                        "data_final_art"
+                    ],
+                    "%Y-%m-%d"
+                ).date()
+            )
+        except Exception:
+            data_final_art_atual = (
+                datetime.now().date()
+            )
+
+        col_data_ed1, col_data_ed2 = (
+            st.columns(2)
+        )
+
+        with col_data_ed1:
+
+            data_inicio_art_edicao = (
+                st.date_input(
+                    "📅 Data Inicial da ART",
+                    value=data_inicio_art_atual,
+                    key=(
+                        f"editar_inicio_art_"
+                        f"{cadastro_id}_"
+                        f"{indice_edicao}"
+                    )
+                )
+            )
+
+        with col_data_ed2:
+
+            data_final_art_edicao = (
+                st.date_input(
+                    "📅 Data Final da ART",
+                    value=data_final_art_atual,
+                    key=(
+                        f"editar_final_art_"
+                        f"{cadastro_id}_"
+                        f"{indice_edicao}"
+                    )
+                )
+            )
+
+        # ==================================================
+        # BOTÕES
+        # ==================================================
+
+        col_cancelar, col_salvar_edicao = (
+            st.columns(2)
+        )
+
+        with col_cancelar:
+
+            if st.button(
+                "↩️ Cancelar",
+                use_container_width=True,
+                key=(
+                    f"cancelar_edicao_responsavel_"
+                    f"{cadastro_id}"
+                )
+            ):
+
+                st.session_state.pop(
+                    "responsavel_temp_edicao_indice",
+                    None
+                )
+
+                st.rerun()
+
+        with col_salvar_edicao:
+
+            if st.button(
+                "💾 Salvar Alteração",
+                type="primary",
+                use_container_width=True,
+                key=(
+                    f"salvar_edicao_responsavel_"
+                    f"{cadastro_id}"
+                )
+            ):
+
+                if not numero_art_edicao.strip():
+
+                    st.warning(
+                        "⚠️ Informe o número da ART."
+                    )
+
+                elif (
+                    data_final_art_edicao
+                    < data_inicio_art_edicao
+                ):
+
+                    st.warning(
+                        "⚠️ A data final da ART não pode "
+                        "ser anterior à data inicial."
+                    )
+
+                else:
+
+                    st.session_state[
+                        "responsaveis_temp_obra"
+                    ][indice_edicao][
+                        "numero_art"
+                    ] = numero_art_edicao.strip()
+
+                    st.session_state[
+                        "responsaveis_temp_obra"
+                    ][indice_edicao][
+                        "tipo_art"
+                    ] = tipo_art_edicao
+
+                    st.session_state[
+                        "responsaveis_temp_obra"
+                    ][indice_edicao][
+                        "data_inicio_art"
+                    ] = (
+                        data_inicio_art_edicao.strftime(
+                            "%Y-%m-%d"
+                        )
+                    )
+
+                    st.session_state[
+                        "responsaveis_temp_obra"
+                    ][indice_edicao][
+                        "data_final_art"
+                    ] = (
+                        data_final_art_edicao.strftime(
+                            "%Y-%m-%d"
+                        )
+                    )
+
+                    st.session_state.pop(
+                        "responsavel_temp_edicao_indice",
+                        None
+                    )
+
+                    st.session_state[
+                        "responsavel_temp_alterado_sucesso"
+                    ] = True
+
+                    st.rerun()
+
+    # ==================================================
+    # CADASTRO DE RESPONSÁVEL
+    # ==================================================
+
+    elif not responsaveis_confirmados:
 
         st.caption(
             "Selecione um responsável, informe os dados "
@@ -9136,10 +9428,6 @@ def incluir_obra():
         responsavel_id_selecionado = (
             dados_responsavel["id"]
         )
-
-        # ==================================================
-        # RESPONSÁVEL SELECIONADO
-        # ==================================================
 
         if responsavel_id_selecionado is not None:
 
@@ -9337,18 +9625,30 @@ def incluir_obra():
                         st.rerun()
 
     # ==================================================
-    # LISTA DOS RESPONSÁVEIS
+    # LISTA DE RESPONSÁVEIS
     # ==================================================
 
     responsaveis_temp = st.session_state[
         "responsaveis_temp_obra"
     ]
 
-    if responsaveis_temp:
+    # Não mostra tabela enquanto está editando
+    if (
+        responsaveis_temp
+        and indice_edicao is None
+    ):
 
         # ==================================================
-        # APÓS SALVAR, MOSTRA SOMENTE A LISTA
+        # MENSAGEM DE ALTERAÇÃO
         # ==================================================
+
+        if st.session_state.pop(
+            "responsavel_temp_alterado_sucesso",
+            False
+        ):
+            st.success(
+                "✅ Responsável alterado com sucesso."
+            )
 
         if responsaveis_confirmados:
 
@@ -9367,14 +9667,17 @@ def incluir_obra():
             )
 
         # ==================================================
-        # TABELA
+        # DATAFRAME
         # ==================================================
 
         dados_tabela = []
 
-        for item in responsaveis_temp:
+        for indice, item in enumerate(
+            responsaveis_temp
+        ):
 
             dados_tabela.append({
+                "Índice": indice,
                 "Responsável": (
                     item["nome"]
                 ),
@@ -9402,19 +9705,117 @@ def incluir_obra():
             dados_tabela
         )
 
-        st.dataframe(
-            df_responsaveis,
-            use_container_width=True,
-            hide_index=True
-        )
-
         # ==================================================
-        # BOTÕES SOMENTE ANTES DE SALVAR RESPONSÁVEIS
+        # DEPOIS DE CONFIRMAR:
+        # AGRIGRID COM DUPLO CLIQUE
         # ==================================================
 
-        if not responsaveis_confirmados:
+        if responsaveis_confirmados:
 
-            col_remover, col_salvar = st.columns(2)
+            js_duplo_clique = JsCode("""
+                function(params) {
+                    if (params.data) {
+                        params.api.deselectAll();
+                        params.node.setSelected(true);
+                    }
+                }
+            """)
+
+            gb = GridOptionsBuilder.from_dataframe(
+                df_responsaveis
+            )
+
+            gb.configure_default_column(
+                sortable=True,
+                filter=True,
+                resizable=True
+            )
+
+            gb.configure_column(
+                "Índice",
+                hide=True
+            )
+
+            gb.configure_selection(
+                selection_mode="single",
+                use_checkbox=False
+            )
+
+            grid_options = gb.build()
+
+            grid_options[
+                "suppressRowClickSelection"
+            ] = True
+
+            grid_options[
+                "onRowDoubleClicked"
+            ] = js_duplo_clique
+
+            resposta = AgGrid(
+                df_responsaveis,
+                gridOptions=grid_options,
+                height=220,
+                fit_columns_on_grid_load=True,
+                update_mode=(
+                    GridUpdateMode.SELECTION_CHANGED
+                ),
+                allow_unsafe_jscode=True,
+                key=(
+                    f"grid_responsaveis_obra_"
+                    f"{cadastro_id}"
+                )
+            )
+
+            selecionados = resposta.get(
+                "selected_rows",
+                []
+            )
+
+            if isinstance(
+                selecionados,
+                pd.DataFrame
+            ):
+                selecionados = (
+                    selecionados.to_dict(
+                        "records"
+                    )
+                )
+
+            if selecionados:
+
+                selecionado = selecionados[0]
+
+                st.session_state[
+                    "responsavel_temp_edicao_indice"
+                ] = int(
+                    selecionado["Índice"]
+                )
+
+                st.rerun()
+
+            st.caption(
+                "👆 Dê dois cliques em um responsável "
+                "para alterar os dados da ART."
+            )
+
+        # ==================================================
+        # ANTES DE CONFIRMAR:
+        # DATAFRAME NORMAL
+        # ==================================================
+
+        else:
+
+            st.dataframe(
+                df_responsaveis.drop(
+                    columns=["Índice"]
+                ),
+                use_container_width=True,
+                hide_index=True
+            )
+
+            col_remover, col_salvar = (
+                st.columns(2)
+            )
 
             # ==================================================
             # REMOVER ÚLTIMO
@@ -9459,13 +9860,14 @@ def incluir_obra():
 
                     st.rerun()
 
-    else:
+    elif (
+        not responsaveis_temp
+        and not responsaveis_confirmados
+    ):
 
-        if not responsaveis_confirmados:
-
-            st.info(
-                "Nenhum responsável adicionado à obra."
-            )
+        st.info(
+            "Nenhum responsável adicionado à obra."
+        )
 
     # ==================================================
     # SITUAÇÃO DA OBRA
@@ -9715,7 +10117,7 @@ def incluir_obra():
                 )
 
     # ==================================================
-    # PEGAR DADOS DA LOCALIZAÇÃO
+    # DADOS DA LOCALIZAÇÃO
     # ==================================================
 
     latitude = st.session_state[
@@ -9892,6 +10294,16 @@ def incluir_obra():
             )
             return
 
+        if st.session_state.get(
+            "responsavel_temp_edicao_indice"
+        ) is not None:
+
+            st.warning(
+                "⚠️ Finalize a alteração do responsável "
+                "antes de salvar a obra."
+            )
+            return
+
         if (
             latitude is None
             or
@@ -9905,10 +10317,6 @@ def incluir_obra():
 
         # ==================================================
         # PRIMEIRO RESPONSÁVEL
-        # ==================================================
-        #
-        # Mantém compatibilidade com os campos antigos
-        # existentes na tabela obras.
         # ==================================================
 
         primeiro_responsavel = (
@@ -9970,10 +10378,6 @@ def incluir_obra():
         # ==================================================
 
         try:
-
-            # ==================================================
-            # OBRA
-            # ==================================================
 
             cursor.execute("""
                 INSERT INTO obras (
@@ -10057,7 +10461,7 @@ def incluir_obra():
             ))
 
             # ==================================================
-            # ID DA OBRA
+            # ID DA NOVA OBRA
             # ==================================================
 
             obra_id_nova = cursor.lastrowid
@@ -10100,7 +10504,7 @@ def incluir_obra():
             conn.commit()
 
             # ==================================================
-            # MENSAGEM DE SUCESSO
+            # SUCESSO
             # ==================================================
 
             st.session_state[
@@ -10126,8 +10530,18 @@ def incluir_obra():
                 None
             )
 
+            st.session_state.pop(
+                "responsavel_temp_edicao_indice",
+                None
+            )
+
+            st.session_state.pop(
+                "responsavel_temp_alterado_sucesso",
+                None
+            )
+
             # ==================================================
-            # LIMPAR LOCALIZAÇÃO
+            # LIMPAR MAPA
             # ==================================================
 
             st.session_state.pop(
@@ -10159,7 +10573,7 @@ def incluir_obra():
             ] += 1
 
             # ==================================================
-            # VOLTAR PARA PRINCIPAL
+            # VOLTAR
             # ==================================================
 
             st.session_state[
