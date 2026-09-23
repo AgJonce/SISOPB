@@ -13765,34 +13765,32 @@ def dashboard():
         )
 
 def contabilidade():
-
     st.title("📚 Contabilidade")
 
     st.caption(
-        "Gestão orçamentária, financeira e contábil "
-        "das obras públicas."
+        "Gestão orçamentária, financeira e contábil das obras públicas."
     )
 
     st.divider()
 
-    # ==================================================
+    # =========================================================
     # CONTROLE DE TELA
-    # ==================================================
+    # =========================================================
 
     if "tela_contabilidade" not in st.session_state:
         st.session_state["tela_contabilidade"] = "Principal"
 
     tela = st.session_state["tela_contabilidade"]
 
-    # ==================================================
-    # PRINCIPAL
-    # ==================================================
+    # =========================================================
+    # TELA PRINCIPAL
+    # =========================================================
 
     if tela == "Principal":
 
-        # ==================================================
+        # =====================================================
         # MENSAGENS
-        # ==================================================
+        # =====================================================
 
         if st.session_state.pop(
             "empenho_cadastrado_sucesso",
@@ -13818,11 +13816,9 @@ def contabilidade():
                 "✅ Empenho excluído com sucesso!"
             )
 
-        # ==================================================
-        # RESUMO
-        # ==================================================
-
-        st.markdown("### 📊 Visão Geral")
+        # =====================================================
+        # RESUMO GERAL
+        # =====================================================
 
         cursor.execute("""
             SELECT
@@ -13836,500 +13832,540 @@ def contabilidade():
 
         resumo = cursor.fetchone()
 
-        quantidade = resumo[0] or 0
-        empenhado = resumo[1] or 0
-        anulado = resumo[2] or 0
-        liquidado = resumo[3] or 0
-        pago = resumo[4] or 0
+        quantidade_empenhos = resumo[0] or 0
+        total_empenhado = resumo[1] or 0
+        total_anulado = resumo[2] or 0
+        total_liquidado = resumo[3] or 0
+        total_pago = resumo[4] or 0
 
         empenho_liquido = (
-            empenhado - anulado
+            total_empenhado
+            - total_anulado
         )
 
         saldo_liquidar = (
-            empenho_liquido - liquidado
+            empenho_liquido
+            - total_liquidado
         )
 
-        saldo_pagar = (
-            liquidado - pago
+        valor_a_pagar = (
+            total_liquidado
+            - total_pago
         )
 
-        # ==================================================
-        # INDICADORES
-        # ==================================================
+        if empenho_liquido > 0:
+            percentual_pago = (
+                total_pago
+                / empenho_liquido
+            ) * 100
+        else:
+            percentual_pago = 0
 
-        col1, col2, col3 = st.columns(3)
+        # =====================================================
+        # PAINEL
+        # =====================================================
 
-        with col1:
-
-            st.metric(
-                "📄 Empenhos",
-                quantidade
-            )
-
-        with col2:
-
-            st.metric(
-                "💰 Empenhado",
-                f"R$ {empenhado:,.2f}"
-            )
-
-        with col3:
-
-            st.metric(
-                "↩️ Anulado",
-                f"R$ {anulado:,.2f}"
-            )
-
-        col4, col5, col6 = st.columns(3)
-
-        with col4:
-
-            st.metric(
-                "📋 Liquidado",
-                f"R$ {liquidado:,.2f}"
-            )
-
-        with col5:
-
-            st.metric(
-                "💳 Pago",
-                f"R$ {pago:,.2f}"
-            )
-
-        with col6:
-
-            st.metric(
-                "⏳ A Pagar",
-                f"R$ {saldo_pagar:,.2f}"
-            )
-
-        col7, col8 = st.columns(2)
-
-        with col7:
-
-            st.metric(
-                "🏦 Saldo a Liquidar",
-                f"R$ {saldo_liquidar:,.2f}"
-            )
-
-        with col8:
-
-            if empenho_liquido > 0:
-
-                percentual = (
-                    pago
-                    / empenho_liquido
-                ) * 100
-
-            else:
-
-                percentual = 0
-
-            st.metric(
-                "📈 Execução Financeira",
-                f"{percentual:.2f}%"
-            )
-
-        st.progress(
-            min(
-                max(
-                    percentual / 100,
-                    0
-                ),
-                1
-            )
-        )
-
-        st.divider()
-
-        # ==================================================
-        # AÇÕES
-        # ==================================================
-
-        st.markdown("### 🛠️ Gestão Contábil")
+        st.subheader("📊 Resumo Contábil")
 
         col1, col2, col3, col4 = st.columns(4)
 
         with col1:
+            st.metric(
+                "📄 Empenhos",
+                quantidade_empenhos
+            )
 
+        with col2:
+            st.metric(
+                "💵 Empenhado",
+                f"R$ {total_empenhado:,.2f}"
+            )
+
+        with col3:
+            st.metric(
+                "↩️ Anulado",
+                f"R$ {total_anulado:,.2f}"
+            )
+
+        with col4:
+            st.metric(
+                "💼 Empenho Líquido",
+                f"R$ {empenho_liquido:,.2f}"
+            )
+
+        col5, col6, col7, col8 = st.columns(4)
+
+        with col5:
+            st.metric(
+                "📋 Liquidado",
+                f"R$ {total_liquidado:,.2f}"
+            )
+
+        with col6:
+            st.metric(
+                "💳 Pago",
+                f"R$ {total_pago:,.2f}"
+            )
+
+        with col7:
+            st.metric(
+                "⏳ Saldo a Liquidar",
+                f"R$ {saldo_liquidar:,.2f}"
+            )
+
+        with col8:
+            st.metric(
+                "🏦 Liquidado a Pagar",
+                f"R$ {valor_a_pagar:,.2f}"
+            )
+
+        # =====================================================
+        # EXECUÇÃO FINANCEIRA
+        # =====================================================
+
+        st.markdown("#### 📈 Execução Financeira")
+
+        progresso = percentual_pago / 100
+
+        if progresso < 0:
+            progresso = 0
+
+        if progresso > 1:
+            progresso = 1
+
+        st.progress(
+            progresso,
+            text=(
+                f"{percentual_pago:.2f}% "
+                "do empenho líquido pago"
+            )
+        )
+
+        # =====================================================
+        # AÇÕES
+        # =====================================================
+
+        st.divider()
+
+        st.subheader("🛠️ Gestão Contábil")
+
+        col1, col2, col3, col4, col5 = st.columns(5)
+
+        # =====================================================
+        # INCLUIR
+        # =====================================================
+
+        with col1:
             if st.button(
-                "➕ Empenho",
+                "➕ Incluir",
                 use_container_width=True,
                 key="btn_contabilidade_incluir"
             ):
-
                 st.session_state[
                     "tela_contabilidade"
                 ] = "Incluir"
 
                 st.rerun()
 
-        with col2:
+        # =====================================================
+        # LOCALIZAR
+        # =====================================================
 
+        with col2:
             if st.button(
                 "🔎 Localizar",
                 use_container_width=True,
                 key="btn_contabilidade_localizar"
             ):
-
                 st.session_state[
                     "tela_contabilidade"
                 ] = "Localizar"
 
                 st.rerun()
 
-        with col3:
+        # =====================================================
+        # IMPRIMIR
+        # =====================================================
 
+        with col3:
             if st.button(
-                "📊 Gestão por Obra",
+                "🖨️ Imprimir",
+                use_container_width=True,
+                key="btn_contabilidade_imprimir"
+            ):
+                st.session_state[
+                    "tela_contabilidade"
+                ] = "Imprimir"
+
+                st.rerun()
+
+        # =====================================================
+        # EXCLUIR
+        # =====================================================
+
+        with col4:
+            if st.button(
+                "🗑️ Excluir",
+                use_container_width=True,
+                key="btn_contabilidade_excluir"
+            ):
+                st.session_state[
+                    "tela_contabilidade"
+                ] = "Excluir"
+
+                st.rerun()
+
+        # =====================================================
+        # GESTÃO
+        # =====================================================
+
+        with col5:
+            if st.button(
+                "📊 Gestão",
                 use_container_width=True,
                 key="btn_contabilidade_gestao"
             ):
-
                 st.session_state[
                     "tela_contabilidade"
                 ] = "Gestao"
 
                 st.rerun()
 
-        with col4:
-
-            if st.button(
-                "🖨️ Relatórios",
-                use_container_width=True,
-                key="btn_contabilidade_relatorio"
-            ):
-
-                st.session_state[
-                    "tela_contabilidade"
-                ] = "Relatorios"
-
-                st.rerun()
+        # =====================================================
+        # CONSULTA RÁPIDA
+        # =====================================================
 
         st.divider()
 
-        # ==================================================
-        # CONSULTA RÁPIDA
-        # ==================================================
+        st.subheader("🔎 Consulta Rápida")
 
-        st.markdown("### 🔍 Consulta Rápida")
+        # =====================================================
+        # BUSCAR OBRAS
+        # =====================================================
 
         cursor.execute("""
             SELECT
-                o.id,
-                o.obra,
-                o.contrato
-            FROM obras o
-            ORDER BY o.obra
+                id,
+                obra,
+                contrato
+            FROM obras
+            ORDER BY obra
         """)
 
         obras = cursor.fetchall()
 
-        if obras:
+        opcoes_obras = {
+            "Todas as obras": None
+        }
 
-            opcoes_obras = {
-                "Todas as obras": None
-            }
+        for obra_registro in obras:
 
-            for registro in obras:
+            descricao = obra_registro[1]
 
-                descricao = registro[1]
+            if obra_registro[2]:
+                descricao += (
+                    f" | Contrato: "
+                    f"{obra_registro[2]}"
+                )
 
-                if registro[2]:
+            opcoes_obras[
+                descricao
+            ] = obra_registro[0]
 
-                    descricao += (
-                        f" | Contrato {registro[2]}"
-                    )
+        # =====================================================
+        # FILTROS
+        # =====================================================
 
-                opcoes_obras[
-                    descricao
-                ] = registro[0]
+        col1, col2, col3 = st.columns(3)
 
-            obra_filtro = st.selectbox(
+        with col1:
+            filtro_obra = st.selectbox(
                 "🏗️ Obra",
-                list(opcoes_obras.keys()),
+                options=list(
+                    opcoes_obras.keys()
+                ),
                 key="contabilidade_filtro_obra"
             )
 
-            obra_id_filtro = (
-                opcoes_obras[
-                    obra_filtro
-                ]
+        with col2:
+            filtro_exercicio = st.number_input(
+                "📅 Exercício",
+                min_value=2000,
+                max_value=2100,
+                value=datetime.now().year,
+                step=1,
+                key="contabilidade_filtro_exercicio"
             )
 
-            col_filtro1, col_filtro2 = (
-                st.columns(2)
+        with col3:
+            filtro_situacao = st.selectbox(
+                "📌 Situação Financeira",
+                [
+                    "Todos",
+                    "Com saldo a liquidar",
+                    "Totalmente liquidado",
+                    "Totalmente pago"
+                ],
+                key="contabilidade_filtro_situacao"
             )
 
-            with col_filtro1:
+        obra_id_filtro = opcoes_obras[
+            filtro_obra
+        ]
 
-                exercicio_filtro = (
-                    st.number_input(
-                        "📅 Exercício",
-                        min_value=2000,
-                        max_value=2100,
-                        value=datetime.now().year,
-                        step=1,
-                        key=(
-                            "contabilidade_"
-                            "filtro_exercicio"
-                        )
-                    )
-                )
+        # =====================================================
+        # CONSULTA DOS EMPENHOS
+        # =====================================================
 
-            with col_filtro2:
+        consulta = """
+            SELECT
+                e.id,
+                e.numero_empenho,
+                e.ano_empenho,
+                e.data_empenho,
+                e.tipo_empenho,
+                o.obra,
+                o.contrato,
+                e.credor,
+                e.valor_empenhado,
+                e.valor_anulado,
+                e.valor_liquidado,
+                e.valor_pago,
+                e.situacao
+            FROM empenhos e
 
-                situacao_filtro = (
-                    st.selectbox(
-                        "📌 Situação",
-                        [
-                            "Todos",
-                            "Com saldo",
-                            "Totalmente liquidado",
-                            "Totalmente pago"
-                        ],
-                        key=(
-                            "contabilidade_"
-                            "filtro_situacao"
-                        )
-                    )
-                )
+            INNER JOIN obras o
+                ON o.id = e.obra_id
 
-            # ==================================================
-            # CONSULTAR
-            # ==================================================
+            WHERE e.ano_empenho = ?
+        """
 
-            parametros = [
-                exercicio_filtro
-            ]
+        parametros = [
+            filtro_exercicio
+        ]
 
-            consulta = """
-                SELECT
-                    e.numero_empenho,
-                    e.ano_empenho,
-                    o.obra,
-                    e.credor,
-                    e.tipo_empenho,
-                    e.valor_empenhado,
-                    e.valor_anulado,
-                    e.valor_liquidado,
-                    e.valor_pago
-                FROM empenhos e
-
-                INNER JOIN obras o
-                    ON o.id = e.obra_id
-
-                WHERE e.ano_empenho = ?
-            """
-
-            if obra_id_filtro is not None:
-
-                consulta += """
-                    AND e.obra_id = ?
-                """
-
-                parametros.append(
-                    obra_id_filtro
-                )
-
+        if obra_id_filtro is not None:
             consulta += """
-                ORDER BY
-                    e.data_empenho DESC,
-                    e.id DESC
+                AND e.obra_id = ?
             """
 
-            cursor.execute(
-                consulta,
-                parametros
+            parametros.append(
+                obra_id_filtro
             )
 
-            registros = cursor.fetchall()
+        if filtro_situacao == "Com saldo a liquidar":
+            consulta += """
+                AND (
+                    e.valor_empenhado
+                    - e.valor_anulado
+                    - e.valor_liquidado
+                ) > 0
+            """
+
+        elif filtro_situacao == "Totalmente liquidado":
+            consulta += """
+                AND (
+                    e.valor_empenhado
+                    - e.valor_anulado
+                ) > 0
+
+                AND e.valor_liquidado >= (
+                    e.valor_empenhado
+                    - e.valor_anulado
+                )
+            """
+
+        elif filtro_situacao == "Totalmente pago":
+            consulta += """
+                AND (
+                    e.valor_empenhado
+                    - e.valor_anulado
+                ) > 0
+
+                AND e.valor_pago >= (
+                    e.valor_empenhado
+                    - e.valor_anulado
+                )
+            """
+
+        consulta += """
+            ORDER BY
+                e.ano_empenho DESC,
+                e.numero_empenho DESC
+        """
+
+        cursor.execute(
+            consulta,
+            parametros
+        )
+
+        registros = cursor.fetchall()
+
+        # =====================================================
+        # RESULTADOS
+        # =====================================================
+
+        if registros:
 
             dados = []
 
             for registro in registros:
 
-                valor_empenhado = (
-                    registro[5] or 0
-                )
-
-                valor_anulado = (
-                    registro[6] or 0
-                )
-
-                valor_liquidado = (
-                    registro[7] or 0
-                )
-
-                valor_pago = (
+                empenhado = (
                     registro[8] or 0
                 )
 
-                valor_liquido = (
-                    valor_empenhado
-                    - valor_anulado
+                anulado = (
+                    registro[9] or 0
                 )
 
-                saldo_liquidar_item = (
-                    valor_liquido
-                    - valor_liquidado
+                liquidado = (
+                    registro[10] or 0
                 )
 
-                saldo_pagar_item = (
-                    valor_liquidado
-                    - valor_pago
+                pago = (
+                    registro[11] or 0
                 )
 
-                mostrar = True
+                liquido = (
+                    empenhado
+                    - anulado
+                )
 
-                if (
-                    situacao_filtro
-                    == "Com saldo"
-                ):
+                saldo = (
+                    liquido
+                    - liquidado
+                )
 
-                    mostrar = (
-                        saldo_liquidar_item > 0
-                        or
-                        saldo_pagar_item > 0
+                a_pagar = (
+                    liquidado
+                    - pago
+                )
+
+                dados.append({
+                    "Empenho": (
+                        f"{registro[1]}/"
+                        f"{registro[2]}"
+                    ),
+                    "Data": registro[3],
+                    "Obra": registro[5],
+                    "Contrato": (
+                        registro[6]
+                        or "Não informado"
+                    ),
+                    "Credor": registro[7],
+                    "Tipo": registro[4],
+                    "Empenhado": empenhado,
+                    "Anulado": anulado,
+                    "Líquido": liquido,
+                    "Liquidado": liquidado,
+                    "Pago": pago,
+                    "Saldo a Liquidar": saldo,
+                    "A Pagar": a_pagar,
+                    "Situação": (
+                        registro[12]
+                        or "Ativo"
                     )
+                })
 
-                elif (
-                    situacao_filtro
-                    == "Totalmente liquidado"
-                ):
-
-                    mostrar = (
-                        saldo_liquidar_item <= 0
-                        and
-                        valor_liquido > 0
-                    )
-
-                elif (
-                    situacao_filtro
-                    == "Totalmente pago"
-                ):
-
-                    mostrar = (
-                        saldo_pagar_item <= 0
-                        and
-                        valor_pago > 0
-                    )
-
-                if mostrar:
-
-                    dados.append({
-                        "Empenho": (
-                            f"{registro[0]}/"
-                            f"{registro[1]}"
-                        ),
-                        "Obra": registro[2],
-                        "Credor": (
-                            registro[3]
-                            or "Não informado"
-                        ),
-                        "Tipo": (
-                            registro[4]
-                            or "Não informado"
-                        ),
-                        "Empenhado": (
-                            valor_empenhado
-                        ),
-                        "Anulado": (
-                            valor_anulado
-                        ),
-                        "Liquidado": (
-                            valor_liquidado
-                        ),
-                        "Pago": (
-                            valor_pago
-                        ),
-                        "Saldo a Liquidar": (
-                            saldo_liquidar_item
-                        ),
-                        "A Pagar": (
-                            saldo_pagar_item
-                        )
-                    })
-
-            if dados:
-
-                df_contabilidade = (
-                    pd.DataFrame(dados)
-                )
-
-                st.dataframe(
-                    df_contabilidade,
-                    use_container_width=True,
-                    hide_index=True,
-                    column_config={
-                        "Empenhado":
-                            st.column_config.NumberColumn(
-                                "Empenhado",
-                                format="R$ %.2f"
-                            ),
-                        "Anulado":
-                            st.column_config.NumberColumn(
-                                "Anulado",
-                                format="R$ %.2f"
-                            ),
-                        "Liquidado":
-                            st.column_config.NumberColumn(
-                                "Liquidado",
-                                format="R$ %.2f"
-                            ),
-                        "Pago":
-                            st.column_config.NumberColumn(
-                                "Pago",
-                                format="R$ %.2f"
-                            ),
-                        "Saldo a Liquidar":
-                            st.column_config.NumberColumn(
-                                "Saldo a Liquidar",
-                                format="R$ %.2f"
-                            ),
-                        "A Pagar":
-                            st.column_config.NumberColumn(
-                                "A Pagar",
-                                format="R$ %.2f"
-                            )
-                    }
-                )
-
-            else:
-
-                st.info(
-                    "Nenhum empenho encontrado "
-                    "com os filtros selecionados."
-                )
-
-        else:
-
-            st.info(
-                "Nenhuma obra cadastrada."
+            df_contabilidade = pd.DataFrame(
+                dados
             )
 
-    # ==================================================
-    # INCLUIR EMPENHO
-    # ==================================================
+            st.dataframe(
+                df_contabilidade,
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "Empenhado": st.column_config.NumberColumn(
+                        "Empenhado",
+                        format="R$ %.2f"
+                    ),
+                    "Anulado": st.column_config.NumberColumn(
+                        "Anulado",
+                        format="R$ %.2f"
+                    ),
+                    "Líquido": st.column_config.NumberColumn(
+                        "Líquido",
+                        format="R$ %.2f"
+                    ),
+                    "Liquidado": st.column_config.NumberColumn(
+                        "Liquidado",
+                        format="R$ %.2f"
+                    ),
+                    "Pago": st.column_config.NumberColumn(
+                        "Pago",
+                        format="R$ %.2f"
+                    ),
+                    "Saldo a Liquidar": st.column_config.NumberColumn(
+                        "Saldo a Liquidar",
+                        format="R$ %.2f"
+                    ),
+                    "A Pagar": st.column_config.NumberColumn(
+                        "A Pagar",
+                        format="R$ %.2f"
+                    )
+                }
+            )
+
+        else:
+            st.info(
+                "Nenhum empenho encontrado "
+                "para os filtros selecionados."
+            )
+
+    # =========================================================
+    # INCLUIR
+    # =========================================================
 
     elif tela == "Incluir":
         incluir_empenho()
 
+    # =========================================================
+    # LOCALIZAR
+    # =========================================================
+
     elif tela == "Localizar":
         localizar_empenho()
+
+    # =========================================================
+    # ALTERAR
+    # =========================================================
 
     elif tela == "Alterar":
         alterar_empenho()
 
+    # =========================================================
+    # IMPRIMIR
+    # =========================================================
+
     elif tela == "Imprimir":
         imprimir_empenho()
+
+    # =========================================================
+    # EXCLUIR
+    # =========================================================
 
     elif tela == "Excluir":
         excluir_empenho()
 
+    # =========================================================
+    # GESTÃO
+    # =========================================================
+
     elif tela == "Gestao":
         gestao_empenhos()
+
+    # =========================================================
+    # SEGURANÇA
+    # =========================================================
+
+    else:
+        st.session_state[
+            "tela_contabilidade"
+        ] = "Principal"
+
+        st.rerun()
 
 def incluir_empenho():
 
