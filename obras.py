@@ -24478,6 +24478,1715 @@ def gestao_financeiro():
         st.info(
             "Nenhum empenho ativo encontrado."
         )
+def assistente_sisopb():
+
+    import re
+    import unicodedata
+
+    st.title("🤖 Assistente SISOPB")
+
+    st.caption(
+        "Consulte informações sobre obras, responsáveis, "
+        "prazos, medições, empenhos, liquidações e pagamentos."
+    )
+
+    st.divider()
+
+    # =========================================================
+    # FUNÇÕES AUXILIARES
+    # =========================================================
+
+    def normalizar_texto(texto):
+
+        if texto is None:
+            return ""
+
+        texto = str(texto).lower().strip()
+
+        texto = unicodedata.normalize(
+            "NFD",
+            texto
+        )
+
+        texto = "".join(
+            caractere
+            for caractere in texto
+            if unicodedata.category(caractere) != "Mn"
+        )
+
+        texto = re.sub(
+            r"[^a-z0-9\s]",
+            " ",
+            texto
+        )
+
+        texto = re.sub(
+            r"\s+",
+            " ",
+            texto
+        )
+
+        return texto.strip()
+
+    # =========================================================
+    # FORMATAR MOEDA
+    # =========================================================
+
+    def moeda(valor):
+
+        try:
+
+            valor = float(
+                valor or 0
+            )
+
+        except (
+            TypeError,
+            ValueError
+        ):
+
+            valor = 0.0
+
+        texto = (
+            f"{valor:,.2f}"
+        )
+
+        texto = (
+            texto
+            .replace(",", "X")
+            .replace(".", ",")
+            .replace("X", ".")
+        )
+
+        return f"R$ {texto}"
+
+    # =========================================================
+    # FORMATAR DATA
+    # =========================================================
+
+    def formatar_data(data_texto):
+
+        if not data_texto:
+
+            return "Não informada"
+
+        try:
+
+            data = datetime.strptime(
+                str(data_texto)[:10],
+                "%Y-%m-%d"
+            )
+
+            return data.strftime(
+                "%d/%m/%Y"
+            )
+
+        except (
+            TypeError,
+            ValueError
+        ):
+
+            return str(
+                data_texto
+            )
+
+    # =========================================================
+    # BUSCAR TODAS AS OBRAS
+    # =========================================================
+
+    def buscar_obras():
+
+        cursor.execute("""
+            SELECT
+                id,
+                obra,
+                contrato,
+                data_inicio,
+                data_entrega,
+                recurso,
+                valor_obra,
+                situacao,
+                prazo_dias
+            FROM obras
+            ORDER BY obra
+        """)
+
+        return cursor.fetchall()
+
+    # =========================================================
+    # LOCALIZAR OBRA NA PERGUNTA
+    # =========================================================
+
+    def localizar_obra(pergunta):
+
+        pergunta_normalizada = normalizar_texto(
+            pergunta
+        )
+
+        obras = buscar_obras()
+
+        melhor_obra = None
+        melhor_pontuacao = 0
+
+        palavras_ignoradas = {
+            "obra",
+            "da",
+            "de",
+            "do",
+            "das",
+            "dos",
+            "a",
+            "o",
+            "e",
+            "na",
+            "no",
+            "para",
+            "qual",
+            "quanto",
+            "quantos",
+            "quem",
+            "como",
+            "esta",
+            "estao",
+            "foi",
+            "ja",
+            "me",
+            "mostre",
+            "mostrar",
+            "quero",
+            "saber"
+        }
+
+        palavras_pergunta = set(
+            palavra
+            for palavra in pergunta_normalizada.split()
+            if palavra not in palavras_ignoradas
+        )
+
+        for registro in obras:
+
+            nome_obra = registro[1] or ""
+
+            nome_normalizado = normalizar_texto(
+                nome_obra
+            )
+
+            # ---------------------------------------------
+            # NOME COMPLETO ENCONTRADO
+            # ---------------------------------------------
+
+            if (
+                nome_normalizado
+                and nome_normalizado
+                in pergunta_normalizada
+            ):
+
+                return registro
+
+            palavras_obra = set(
+                palavra
+                for palavra in nome_normalizado.split()
+                if palavra not in palavras_ignoradas
+            )
+
+            if not palavras_obra:
+
+                continue
+
+            palavras_comuns = (
+                palavras_obra
+                & palavras_pergunta
+            )
+
+            pontuacao = len(
+                palavras_comuns
+            )
+
+            # ---------------------------------------------
+            # DÁ MAIS PESO PARA PALAVRAS GRANDES
+            # ---------------------------------------------
+
+            pontuacao += sum(
+                2
+                for palavra in palavras_comuns
+                if len(palavra) >= 5
+            )
+
+            if pontuacao > melhor_pontuacao:
+
+                melhor_pontuacao = pontuacao
+                melhor_obra = registro
+
+        if melhor_pontuacao >= 2:
+
+            return melhor_obra
+
+        return None
+
+    # =========================================================
+    # PROCURAR OBRAS PARECIDAS
+    # =========================================================
+
+    def procurar_obras_parecidas(pergunta):
+
+        pergunta_normalizada = normalizar_texto(
+            pergunta
+        )
+
+        palavras_ignoradas = {
+            "obra",
+            "da",
+            "de",
+            "do",
+            "das",
+            "dos",
+            "a",
+            "o",
+            "e",
+            "na",
+            "no",
+            "para",
+            "qual",
+            "quanto",
+            "quantos",
+            "quem",
+            "como",
+            "esta",
+            "estao",
+            "foi",
+            "ja",
+            "me",
+            "mostre",
+            "mostrar",
+            "quero",
+            "saber",
+            "responsavel",
+            "valor",
+            "gasto",
+            "pago",
+            "medido"
+        }
+
+        palavras = [
+            palavra
+            for palavra in pergunta_normalizada.split()
+            if (
+                palavra not in palavras_ignoradas
+                and len(palavra) >= 3
+            )
+        ]
+
+        resultados = []
+
+        for registro in buscar_obras():
+
+            nome_normalizado = normalizar_texto(
+                registro[1]
+            )
+
+            pontos = sum(
+                1
+                for palavra in palavras
+                if palavra in nome_normalizado
+            )
+
+            if pontos > 0:
+
+                resultados.append(
+                    (
+                        pontos,
+                        registro
+                    )
+                )
+
+        resultados.sort(
+            key=lambda x: x[0],
+            reverse=True
+        )
+
+        return [
+            registro
+            for _, registro in resultados[:5]
+        ]
+
+    # =========================================================
+    # RESPONSÁVEIS DA OBRA
+    # =========================================================
+
+    def resposta_responsavel(obra):
+
+        obra_id = obra[0]
+        nome_obra = obra[1]
+
+        cursor.execute("""
+            SELECT
+                r.nome,
+                ro.tipo_responsabilidade,
+                ro.tipo_vinculo,
+                ro.numero_art,
+                ro.tipo_art,
+                ro.data_inicio_art,
+                ro.data_final_art
+            FROM responsaveis_obra ro
+
+            INNER JOIN responsaveis r
+                ON r.id = ro.responsavel_id
+
+            WHERE ro.obra_id = ?
+
+            ORDER BY r.nome
+        """, (
+            obra_id,
+        ))
+
+        responsaveis = cursor.fetchall()
+
+        # ---------------------------------------------
+        # COMPATIBILIDADE COM OBRAS ANTIGAS
+        # ---------------------------------------------
+
+        if not responsaveis:
+
+            cursor.execute("""
+                SELECT
+                    responsavel,
+                    tipo_responsabilidade,
+                    tipo_vinculo,
+                    art,
+                    tipo_art,
+                    data_inicio_art,
+                    data_final_art
+                FROM obras
+                WHERE id = ?
+            """, (
+                obra_id,
+            ))
+
+            antigo = cursor.fetchone()
+
+            if (
+                antigo
+                and antigo[0]
+            ):
+
+                responsaveis = [
+                    antigo
+                ]
+
+        if not responsaveis:
+
+            return (
+                f"🏗️ **{nome_obra}**\n\n"
+                "Não encontrei responsável "
+                "vinculado a esta obra."
+            )
+
+        resposta = (
+            f"🏗️ **{nome_obra}**\n\n"
+            f"Encontrei {len(responsaveis)} "
+            f"responsável(is):\n\n"
+        )
+
+        for responsavel in responsaveis:
+
+            nome = responsavel[0] or "Não informado"
+            responsabilidade = responsavel[1] or "Não informada"
+            vinculo = responsavel[2] or "Não informado"
+            art = responsavel[3] or "Não informada"
+            tipo_art = responsavel[4] or "Não informado"
+
+            resposta += (
+                f"👷 **{nome}**\n\n"
+                f"• Responsabilidade: {responsabilidade}\n"
+                f"• Vínculo: {vinculo}\n"
+                f"• ART: {art}\n"
+                f"• Tipo da ART: {tipo_art}\n\n"
+            )
+
+        return resposta
+
+    # =========================================================
+    # SITUAÇÃO DA OBRA
+    # =========================================================
+
+    def resposta_situacao(obra):
+
+        nome_obra = obra[1]
+        data_inicio = obra[3]
+        data_entrega = obra[4]
+        situacao = obra[7] or "Não informada"
+
+        return (
+            f"🏗️ **{nome_obra}**\n\n"
+            f"🚧 Situação: **{situacao}**\n\n"
+            f"📅 Início: {formatar_data(data_inicio)}\n\n"
+            f"🏁 Previsão de entrega: "
+            f"{formatar_data(data_entrega)}"
+        )
+
+    # =========================================================
+    # PROGRESSO FINANCEIRO DA OBRA
+    # =========================================================
+
+    def resposta_percentual(obra):
+
+        obra_id = obra[0]
+        nome_obra = obra[1]
+
+        valor_obra = float(
+            obra[6] or 0
+        )
+
+        cursor.execute("""
+            SELECT
+                COALESCE(
+                    SUM(valor),
+                    0
+                )
+            FROM medicoes
+            WHERE obra_id = ?
+        """, (
+            obra_id,
+        ))
+
+        valor_medido = float(
+            cursor.fetchone()[0] or 0
+        )
+
+        if valor_obra > 0:
+
+            percentual_executado = (
+                valor_medido
+                / valor_obra
+            ) * 100
+
+        else:
+
+            percentual_executado = 0
+
+        percentual_faltante = max(
+            0,
+            100 - percentual_executado
+        )
+
+        saldo = max(
+            0,
+            valor_obra - valor_medido
+        )
+
+        return (
+            f"🏗️ **{nome_obra}**\n\n"
+            f"💰 Valor da obra: "
+            f"**{moeda(valor_obra)}**\n\n"
+            f"📏 Total medido: "
+            f"**{moeda(valor_medido)}**\n\n"
+            f"📊 Execução financeira medida: "
+            f"**{percentual_executado:.2f}%**\n\n"
+            f"⏳ Percentual financeiro restante: "
+            f"**{percentual_faltante:.2f}%**\n\n"
+            f"💵 Valor ainda não medido: "
+            f"**{moeda(saldo)}**\n\n"
+            "ℹ️ Esse percentual é financeiro, calculado "
+            "pelas medições registradas no SISOPB."
+        )
+
+    # =========================================================
+    # VALORES FINANCEIROS DA OBRA
+    # =========================================================
+
+    def resposta_financeira_obra(obra):
+
+        obra_id = obra[0]
+        nome_obra = obra[1]
+
+        valor_obra = float(
+            obra[6] or 0
+        )
+
+        # ---------------------------------------------
+        # MEDIÇÕES
+        # ---------------------------------------------
+
+        cursor.execute("""
+            SELECT
+                COALESCE(
+                    SUM(valor),
+                    0
+                )
+            FROM medicoes
+            WHERE obra_id = ?
+        """, (
+            obra_id,
+        ))
+
+        total_medido = float(
+            cursor.fetchone()[0] or 0
+        )
+
+        # ---------------------------------------------
+        # EMPENHOS
+        # ---------------------------------------------
+
+        cursor.execute("""
+            SELECT
+                COALESCE(
+                    SUM(
+                        valor_empenhado
+                        - valor_anulado
+                    ),
+                    0
+                )
+            FROM empenhos
+            WHERE obra_id = ?
+              AND COALESCE(
+                    situacao,
+                    'Ativo'
+                  ) <> 'Anulado'
+        """, (
+            obra_id,
+        ))
+
+        total_empenhado = float(
+            cursor.fetchone()[0] or 0
+        )
+
+        # ---------------------------------------------
+        # LIQUIDAÇÕES
+        # ---------------------------------------------
+
+        cursor.execute("""
+            SELECT
+                COALESCE(
+                    SUM(valor_liquidado),
+                    0
+                )
+            FROM liquidacoes
+            WHERE obra_id = ?
+              AND COALESCE(
+                    situacao,
+                    'Ativa'
+                  ) <> 'Cancelada'
+        """, (
+            obra_id,
+        ))
+
+        total_liquidado = float(
+            cursor.fetchone()[0] or 0
+        )
+
+        # ---------------------------------------------
+        # PAGAMENTOS
+        # ---------------------------------------------
+
+        cursor.execute("""
+            SELECT
+                COALESCE(
+                    SUM(valor_pago),
+                    0
+                )
+            FROM pagamentos
+            WHERE obra_id = ?
+              AND COALESCE(
+                    situacao,
+                    'Ativo'
+                  ) <> 'Cancelado'
+        """, (
+            obra_id,
+        ))
+
+        total_pago = float(
+            cursor.fetchone()[0] or 0
+        )
+
+        saldo_contrato = (
+            valor_obra
+            - total_pago
+        )
+
+        liquidado_pagar = max(
+            0,
+            total_liquidado
+            - total_pago
+        )
+
+        empenhado_pendente = max(
+            0,
+            total_empenhado
+            - total_pago
+        )
+
+        return (
+            f"🏗️ **{nome_obra}**\n\n"
+            f"💰 Valor contratado: "
+            f"**{moeda(valor_obra)}**\n\n"
+            f"📋 Empenhado líquido: "
+            f"**{moeda(total_empenhado)}**\n\n"
+            f"📏 Medido: "
+            f"**{moeda(total_medido)}**\n\n"
+            f"🧾 Liquidado: "
+            f"**{moeda(total_liquidado)}**\n\n"
+            f"💳 Efetivamente pago: "
+            f"**{moeda(total_pago)}**\n\n"
+            f"⏳ Liquidado a pagar: "
+            f"**{moeda(liquidado_pagar)}**\n\n"
+            f"📌 Empenhado ainda não pago: "
+            f"**{moeda(empenhado_pendente)}**\n\n"
+            f"💵 Valor do contrato menos pagamentos: "
+            f"**{moeda(saldo_contrato)}**"
+        )
+
+    # =========================================================
+    # EMPENHOS DA OBRA
+    # =========================================================
+
+    def resposta_empenhos_obra(obra):
+
+        obra_id = obra[0]
+        nome_obra = obra[1]
+
+        cursor.execute("""
+            SELECT
+                e.id,
+                e.numero_empenho,
+                e.ano_empenho,
+                e.credor,
+                e.valor_empenhado,
+                e.valor_anulado,
+                e.situacao,
+
+                COALESCE(
+                    (
+                        SELECT SUM(
+                            l.valor_liquidado
+                        )
+                        FROM liquidacoes l
+                        WHERE l.empenho_id = e.id
+                          AND COALESCE(
+                                l.situacao,
+                                'Ativa'
+                              ) <> 'Cancelada'
+                    ),
+                    0
+                ),
+
+                COALESCE(
+                    (
+                        SELECT SUM(
+                            p.valor_pago
+                        )
+                        FROM pagamentos p
+                        WHERE p.empenho_id = e.id
+                          AND COALESCE(
+                                p.situacao,
+                                'Ativo'
+                              ) <> 'Cancelado'
+                    ),
+                    0
+                )
+
+            FROM empenhos e
+
+            WHERE e.obra_id = ?
+              AND COALESCE(
+                    e.situacao,
+                    'Ativo'
+                  ) <> 'Anulado'
+
+            ORDER BY
+                e.ano_empenho DESC,
+                e.numero_empenho
+        """, (
+            obra_id,
+        ))
+
+        empenhos = cursor.fetchall()
+
+        if not empenhos:
+
+            return (
+                f"🏗️ **{nome_obra}**\n\n"
+                "Não encontrei empenhos ativos "
+                "para esta obra."
+            )
+
+        resposta = (
+            f"🏗️ **{nome_obra}**\n\n"
+            "💰 **Empenhos da obra:**\n\n"
+        )
+
+        for empenho in empenhos:
+
+            numero = empenho[1]
+            ano = empenho[2]
+            credor = empenho[3] or "Não informado"
+
+            empenhado = float(
+                empenho[4] or 0
+            )
+
+            anulado = float(
+                empenho[5] or 0
+            )
+
+            liquidado = float(
+                empenho[7] or 0
+            )
+
+            pago = float(
+                empenho[8] or 0
+            )
+
+            liquido = (
+                empenhado
+                - anulado
+            )
+
+            liquidado_pagar = max(
+                0,
+                liquidado - pago
+            )
+
+            saldo_empenho = max(
+                0,
+                liquido - pago
+            )
+
+            resposta += (
+                f"📄 **{numero}/{ano}**\n"
+                f"Credor: {credor}\n"
+                f"Empenhado líquido: {moeda(liquido)}\n"
+                f"Liquidado: {moeda(liquidado)}\n"
+                f"Pago: {moeda(pago)}\n"
+                f"Liquidado a pagar: "
+                f"{moeda(liquidado_pagar)}\n"
+                f"Saldo ainda não pago: "
+                f"{moeda(saldo_empenho)}\n\n"
+            )
+
+        return resposta
+
+    # =========================================================
+    # EMPENHOS A PAGAR DO SISTEMA
+    # =========================================================
+
+    def resposta_empenhos_pagar():
+
+        cursor.execute("""
+            SELECT
+                e.id,
+                e.numero_empenho,
+                e.ano_empenho,
+                e.credor,
+                o.obra,
+
+                e.valor_empenhado,
+                e.valor_anulado,
+
+                COALESCE(
+                    (
+                        SELECT SUM(
+                            l.valor_liquidado
+                        )
+                        FROM liquidacoes l
+                        WHERE l.empenho_id = e.id
+                          AND COALESCE(
+                                l.situacao,
+                                'Ativa'
+                              ) <> 'Cancelada'
+                    ),
+                    0
+                ) AS liquidado,
+
+                COALESCE(
+                    (
+                        SELECT SUM(
+                            p.valor_pago
+                        )
+                        FROM pagamentos p
+                        WHERE p.empenho_id = e.id
+                          AND COALESCE(
+                                p.situacao,
+                                'Ativo'
+                              ) <> 'Cancelado'
+                    ),
+                    0
+                ) AS pago
+
+            FROM empenhos e
+
+            INNER JOIN obras o
+                ON o.id = e.obra_id
+
+            WHERE COALESCE(
+                e.situacao,
+                'Ativo'
+            ) <> 'Anulado'
+
+            ORDER BY
+                e.ano_empenho DESC,
+                e.numero_empenho
+        """)
+
+        registros = cursor.fetchall()
+
+        pendentes = []
+
+        total_liquidado_pagar = 0
+        total_empenhado_pendente = 0
+
+        for registro in registros:
+
+            empenhado = float(
+                registro[5] or 0
+            )
+
+            anulado = float(
+                registro[6] or 0
+            )
+
+            liquidado = float(
+                registro[7] or 0
+            )
+
+            pago = float(
+                registro[8] or 0
+            )
+
+            liquido = (
+                empenhado
+                - anulado
+            )
+
+            liquidado_pagar = max(
+                0,
+                liquidado - pago
+            )
+
+            empenhado_pendente = max(
+                0,
+                liquido - pago
+            )
+
+            if empenhado_pendente > 0.009:
+
+                pendentes.append(
+                    (
+                        registro,
+                        liquidado_pagar,
+                        empenhado_pendente
+                    )
+                )
+
+                total_liquidado_pagar += (
+                    liquidado_pagar
+                )
+
+                total_empenhado_pendente += (
+                    empenhado_pendente
+                )
+
+        if not pendentes:
+
+            return (
+                "✅ Não encontrei empenhos "
+                "com saldo pendente de pagamento."
+            )
+
+        resposta = (
+            f"💰 Encontrei **{len(pendentes)} "
+            f"empenho(s) com saldo ainda não pago**.\n\n"
+            f"🧾 Total liquidado a pagar: "
+            f"**{moeda(total_liquidado_pagar)}**\n\n"
+            f"📋 Total empenhado ainda não pago: "
+            f"**{moeda(total_empenhado_pendente)}**\n\n"
+        )
+
+        for (
+            registro,
+            liquidado_pagar,
+            empenhado_pendente
+        ) in pendentes[:15]:
+
+            numero = registro[1]
+            ano = registro[2]
+            credor = registro[3] or "Não informado"
+            obra = registro[4]
+
+            resposta += (
+                f"📄 **{numero}/{ano}** — {obra}\n"
+                f"🏢 {credor}\n"
+                f"🧾 Liquidado a pagar: "
+                f"{moeda(liquidado_pagar)}\n"
+                f"💵 Saldo empenhado não pago: "
+                f"{moeda(empenhado_pendente)}\n\n"
+            )
+
+        if len(pendentes) > 15:
+
+            resposta += (
+                f"_Mostrando os primeiros 15 de "
+                f"{len(pendentes)} empenhos._"
+            )
+
+        return resposta
+
+    # =========================================================
+    # OBRAS PRÓXIMAS DO VENCIMENTO
+    # =========================================================
+
+    def resposta_obras_vencendo(dias=30):
+
+        hoje = datetime.now().date()
+
+        limite = (
+            hoje
+            + timedelta(
+                days=dias
+            )
+        )
+
+        cursor.execute("""
+            SELECT
+                id,
+                obra,
+                data_entrega,
+                situacao,
+                valor_obra
+            FROM obras
+            WHERE data_entrega IS NOT NULL
+              AND TRIM(data_entrega) <> ''
+              AND (
+                    situacao IS NULL
+                    OR situacao <>
+                    '7 – Concluído e recebido definitivamente'
+                  )
+            ORDER BY data_entrega
+        """)
+
+        registros = cursor.fetchall()
+
+        vencendo = []
+
+        for registro in registros:
+
+            try:
+
+                data_entrega = datetime.strptime(
+                    str(registro[2])[:10],
+                    "%Y-%m-%d"
+                ).date()
+
+            except (
+                TypeError,
+                ValueError
+            ):
+
+                continue
+
+            if (
+                hoje
+                <= data_entrega
+                <= limite
+            ):
+
+                dias_restantes = (
+                    data_entrega
+                    - hoje
+                ).days
+
+                vencendo.append(
+                    (
+                        registro,
+                        dias_restantes
+                    )
+                )
+
+        if not vencendo:
+
+            return (
+                f"✅ Não encontrei obras com prazo "
+                f"de entrega nos próximos "
+                f"**{dias} dias**."
+            )
+
+        resposta = (
+            f"⏰ Existem **{len(vencendo)} obra(s)** "
+            f"com prazo de entrega nos próximos "
+            f"**{dias} dias**:\n\n"
+        )
+
+        for registro, dias_restantes in vencendo:
+
+            resposta += (
+                f"🏗️ **{registro[1]}**\n"
+                f"📅 Entrega: "
+                f"{formatar_data(registro[2])}\n"
+                f"⏳ Faltam: "
+                f"**{dias_restantes} dias**\n"
+                f"🚧 Situação: "
+                f"{registro[3] or 'Não informada'}\n\n"
+            )
+
+        return resposta
+
+    # =========================================================
+    # OBRAS ATRASADAS
+    # =========================================================
+
+    def resposta_obras_atrasadas():
+
+        hoje = datetime.now().date()
+
+        cursor.execute("""
+            SELECT
+                obra,
+                data_entrega,
+                situacao,
+                valor_obra
+            FROM obras
+            WHERE data_entrega IS NOT NULL
+              AND TRIM(data_entrega) <> ''
+              AND (
+                    situacao IS NULL
+                    OR situacao <>
+                    '7 – Concluído e recebido definitivamente'
+                  )
+            ORDER BY data_entrega
+        """)
+
+        registros = cursor.fetchall()
+
+        atrasadas = []
+
+        for registro in registros:
+
+            try:
+
+                data_entrega = datetime.strptime(
+                    str(registro[1])[:10],
+                    "%Y-%m-%d"
+                ).date()
+
+            except (
+                TypeError,
+                ValueError
+            ):
+
+                continue
+
+            if data_entrega < hoje:
+
+                dias_atraso = (
+                    hoje
+                    - data_entrega
+                ).days
+
+                atrasadas.append(
+                    (
+                        registro,
+                        dias_atraso
+                    )
+                )
+
+        if not atrasadas:
+
+            return (
+                "✅ Não encontrei obras "
+                "com prazo de entrega vencido."
+            )
+
+        resposta = (
+            f"⚠️ Existem **{len(atrasadas)} obra(s) "
+            f"com prazo vencido**:\n\n"
+        )
+
+        for registro, dias_atraso in atrasadas:
+
+            resposta += (
+                f"🏗️ **{registro[0]}**\n"
+                f"📅 Entrega prevista: "
+                f"{formatar_data(registro[1])}\n"
+                f"⏰ Atraso: "
+                f"**{dias_atraso} dias**\n"
+                f"🚧 Situação: "
+                f"{registro[2] or 'Não informada'}\n\n"
+            )
+
+        return resposta
+
+    # =========================================================
+    # OBRAS PARALISADAS
+    # =========================================================
+
+    def resposta_obras_paralisadas():
+
+        cursor.execute("""
+            SELECT
+                obra,
+                motivo_paralisacao,
+                data_entrega
+            FROM obras
+            WHERE situacao =
+                '4 – Paralisado'
+            ORDER BY obra
+        """)
+
+        registros = cursor.fetchall()
+
+        if not registros:
+
+            return (
+                "✅ Não existem obras "
+                "marcadas como paralisadas."
+            )
+
+        resposta = (
+            f"🚧 Existem **{len(registros)} "
+            f"obra(s) paralisada(s)**:\n\n"
+        )
+
+        for registro in registros:
+
+            resposta += (
+                f"🏗️ **{registro[0]}**\n"
+                f"📝 Motivo: "
+                f"{registro[1] or 'Não informado'}\n"
+                f"📅 Entrega prevista: "
+                f"{formatar_data(registro[2])}\n\n"
+            )
+
+        return resposta
+
+    # =========================================================
+    # RESUMO DA OBRA
+    # =========================================================
+
+    def resposta_resumo_obra(obra):
+
+        obra_id = obra[0]
+        nome_obra = obra[1]
+        contrato = obra[2] or "Não informado"
+        data_inicio = obra[3]
+        data_entrega = obra[4]
+        recurso = obra[5] or "Não informado"
+        valor_obra = float(
+            obra[6] or 0
+        )
+        situacao = obra[7] or "Não informada"
+
+        cursor.execute("""
+            SELECT
+                COALESCE(
+                    SUM(valor),
+                    0
+                )
+            FROM medicoes
+            WHERE obra_id = ?
+        """, (
+            obra_id,
+        ))
+
+        medido = float(
+            cursor.fetchone()[0] or 0
+        )
+
+        cursor.execute("""
+            SELECT
+                COALESCE(
+                    SUM(valor_pago),
+                    0
+                )
+            FROM pagamentos
+            WHERE obra_id = ?
+              AND COALESCE(
+                    situacao,
+                    'Ativo'
+                  ) <> 'Cancelado'
+        """, (
+            obra_id,
+        ))
+
+        pago = float(
+            cursor.fetchone()[0] or 0
+        )
+
+        if valor_obra > 0:
+
+            percentual = (
+                medido
+                / valor_obra
+            ) * 100
+
+        else:
+
+            percentual = 0
+
+        return (
+            f"🏗️ **{nome_obra}**\n\n"
+            f"📄 Contrato: {contrato}\n\n"
+            f"🚧 Situação: **{situacao}**\n\n"
+            f"🏦 Recurso: {recurso}\n\n"
+            f"📅 Início: "
+            f"{formatar_data(data_inicio)}\n\n"
+            f"🏁 Entrega prevista: "
+            f"{formatar_data(data_entrega)}\n\n"
+            f"💰 Valor da obra: "
+            f"**{moeda(valor_obra)}**\n\n"
+            f"📏 Total medido: "
+            f"**{moeda(medido)}**\n\n"
+            f"📊 Execução financeira medida: "
+            f"**{percentual:.2f}%**\n\n"
+            f"💳 Total pago: "
+            f"**{moeda(pago)}**"
+        )
+
+    # =========================================================
+    # INTERPRETAR PERGUNTA
+    # =========================================================
+
+    def interpretar_pergunta(pergunta):
+
+        texto = normalizar_texto(
+            pergunta
+        )
+
+        # ---------------------------------------------
+        # SAUDAÇÕES
+        # ---------------------------------------------
+
+        if texto in {
+            "oi",
+            "ola",
+            "bom dia",
+            "boa tarde",
+            "boa noite",
+            "e ai"
+        }:
+
+            return (
+                "Olá! 👋 Sou o **Assistente SISOPB**.\n\n"
+                "Você pode me perguntar sobre obras, "
+                "responsáveis, prazos, medições, empenhos, "
+                "liquidações e pagamentos."
+            )
+
+        # ---------------------------------------------
+        # OBRAS ATRASADAS
+        # ---------------------------------------------
+
+        if (
+            "atrasad" in texto
+            or "prazo vencido" in texto
+            or "obras vencidas" in texto
+        ):
+
+            return resposta_obras_atrasadas()
+
+        # ---------------------------------------------
+        # OBRAS PARALISADAS
+        # ---------------------------------------------
+
+        if (
+            "paralisad" in texto
+            and (
+                "quais" in texto
+                or "quant" in texto
+                or "obras" in texto
+            )
+        ):
+
+            return resposta_obras_paralisadas()
+
+        # ---------------------------------------------
+        # OBRAS PARA VENCER
+        # ---------------------------------------------
+
+        if (
+            "vencer" in texto
+            or "vencem" in texto
+            or "vence" in texto
+            or "proximas do prazo" in texto
+            or "proximas da entrega" in texto
+        ):
+
+            dias = 30
+
+            numeros = re.findall(
+                r"\b(\d+)\b",
+                texto
+            )
+
+            if numeros:
+
+                numero_informado = int(
+                    numeros[0]
+                )
+
+                if (
+                    numero_informado > 0
+                    and numero_informado <= 3650
+                ):
+
+                    dias = numero_informado
+
+            return resposta_obras_vencendo(
+                dias
+            )
+
+        # ---------------------------------------------
+        # EMPENHOS GERAIS A PAGAR
+        # ---------------------------------------------
+
+        if (
+            "empenho" in texto
+            and (
+                "pagar" in texto
+                or "pagamento" in texto
+                or "pendente" in texto
+                or "falta pagar" in texto
+            )
+        ):
+
+            obra = localizar_obra(
+                pergunta
+            )
+
+            if obra:
+
+                return resposta_empenhos_obra(
+                    obra
+                )
+
+            return resposta_empenhos_pagar()
+
+        # ---------------------------------------------
+        # TENTAR IDENTIFICAR OBRA
+        # ---------------------------------------------
+
+        obra = localizar_obra(
+            pergunta
+        )
+
+        # ---------------------------------------------
+        # PERGUNTA PRECISA DE OBRA
+        # ---------------------------------------------
+
+        termos_obra = [
+            "responsavel",
+            "art",
+            "percent",
+            "falta",
+            "gasto",
+            "gastou",
+            "pago",
+            "pagou",
+            "valor",
+            "medido",
+            "medicao",
+            "situacao",
+            "status",
+            "empenho",
+            "resumo",
+            "entrega",
+            "prazo"
+        ]
+
+        precisa_obra = any(
+            termo in texto
+            for termo in termos_obra
+        )
+
+        if (
+            precisa_obra
+            and not obra
+        ):
+
+            parecidas = procurar_obras_parecidas(
+                pergunta
+            )
+
+            if parecidas:
+
+                nomes = "\n".join(
+                    f"• {registro[1]}"
+                    for registro in parecidas
+                )
+
+                return (
+                    "🔎 Não consegui identificar com certeza "
+                    "qual obra você quis dizer.\n\n"
+                    "Encontrei estas possibilidades:\n\n"
+                    f"{nomes}\n\n"
+                    "Digite o nome da obra na pergunta."
+                )
+
+            return (
+                "🔎 Não consegui identificar a obra "
+                "na sua pergunta.\n\n"
+                "Tente, por exemplo:\n\n"
+                "**Quem é o responsável da obra "
+                "Creche Menino Jesus?**"
+            )
+
+        # ---------------------------------------------
+        # RESPONSÁVEL
+        # ---------------------------------------------
+
+        if obra and (
+            "responsavel" in texto
+            or "responsaveis" in texto
+            or "fiscal" in texto
+            or "art" in texto
+        ):
+
+            return resposta_responsavel(
+                obra
+            )
+
+        # ---------------------------------------------
+        # EMPENHOS DA OBRA
+        # ---------------------------------------------
+
+        if obra and (
+            "empenho" in texto
+            or "empenhos" in texto
+        ):
+
+            return resposta_empenhos_obra(
+                obra
+            )
+
+        # ---------------------------------------------
+        # PERCENTUAL / QUANTO FALTA
+        # ---------------------------------------------
+
+        if obra and (
+            "porcent" in texto
+            or "percent" in texto
+            or "quanto falta" in texto
+            or "falta na obra" in texto
+            or "executad" in texto
+            or "andamento" in texto
+        ):
+
+            return resposta_percentual(
+                obra
+            )
+
+        # ---------------------------------------------
+        # GASTO / PAGO / FINANCEIRO
+        # ---------------------------------------------
+
+        if obra and (
+            "gasto" in texto
+            or "gastou" in texto
+            or "pago" in texto
+            or "pagou" in texto
+            or "financeir" in texto
+            or "liquidado" in texto
+            or "quanto custou" in texto
+        ):
+
+            return resposta_financeira_obra(
+                obra
+            )
+
+        # ---------------------------------------------
+        # SITUAÇÃO
+        # ---------------------------------------------
+
+        if obra and (
+            "situacao" in texto
+            or "status" in texto
+            or "como esta" in texto
+            or "entrega" in texto
+            or "prazo" in texto
+        ):
+
+            return resposta_situacao(
+                obra
+            )
+
+        # ---------------------------------------------
+        # VALOR
+        # ---------------------------------------------
+
+        if obra and (
+            "valor" in texto
+            or "contrato" in texto
+            or "quanto custa" in texto
+        ):
+
+            return (
+                f"🏗️ **{obra[1]}**\n\n"
+                f"💰 Valor da obra: "
+                f"**{moeda(obra[6])}**\n\n"
+                f"📄 Contrato: "
+                f"{obra[2] or 'Não informado'}"
+            )
+
+        # ---------------------------------------------
+        # RESUMO
+        # ---------------------------------------------
+
+        if obra:
+
+            return resposta_resumo_obra(
+                obra
+            )
+
+        # ---------------------------------------------
+        # AJUDA
+        # ---------------------------------------------
+
+        return (
+            "🤖 Ainda não consegui entender essa pergunta.\n\n"
+            "Você pode perguntar coisas como:\n\n"
+            "• Quantas obras estão para vencer?\n"
+            "• Quais obras vencem nos próximos 60 dias?\n"
+            "• Quais obras estão atrasadas?\n"
+            "• Quais obras estão paralisadas?\n"
+            "• Quem é o responsável da obra Creche Menino Jesus?\n"
+            "• Quanto falta na obra Creche Menino Jesus?\n"
+            "• Quanto foi gasto na obra Creche Menino Jesus?\n"
+            "• Quais os empenhos da obra Creche Menino Jesus?\n"
+            "• Quais empenhos estão para pagar?\n"
+            "• Qual a situação da obra Creche Menino Jesus?\n"
+            "• Me dê um resumo da obra Creche Menino Jesus."
+        )
+
+    # =========================================================
+    # HISTÓRICO DO CHAT
+    # =========================================================
+
+    if (
+        "historico_assistente_sisopb"
+        not in st.session_state
+    ):
+
+        st.session_state[
+            "historico_assistente_sisopb"
+        ] = []
+
+    # =========================================================
+    # BOTÃO LIMPAR
+    # =========================================================
+
+    col1, col2 = st.columns(
+        [
+            4,
+            1
+        ]
+    )
+
+    with col2:
+
+        if st.button(
+            "🗑️ Limpar",
+            use_container_width=True,
+            key="limpar_chat_sisopb"
+        ):
+
+            st.session_state[
+                "historico_assistente_sisopb"
+            ] = []
+
+            st.rerun()
+
+    # =========================================================
+    # MENSAGEM INICIAL
+    # =========================================================
+
+    if not st.session_state[
+        "historico_assistente_sisopb"
+    ]:
+
+        with st.chat_message(
+            "assistant"
+        ):
+
+            st.markdown(
+                "Olá! 👋 Eu sou o **Assistente SISOPB**.\n\n"
+                "Posso consultar as informações cadastradas "
+                "no sistema.\n\n"
+                "Experimente perguntar:\n\n"
+                "**Quem é o responsável da obra "
+                "Creche Menino Jesus?**"
+            )
+
+    # =========================================================
+    # EXIBIR HISTÓRICO
+    # =========================================================
+
+    for mensagem in st.session_state[
+        "historico_assistente_sisopb"
+    ]:
+
+        with st.chat_message(
+            mensagem["papel"]
+        ):
+
+            st.markdown(
+                mensagem["conteudo"]
+            )
+
+    # =========================================================
+    # CAMPO DE PERGUNTA
+    # =========================================================
+
+    pergunta = st.chat_input(
+        "💬 Pergunte alguma coisa sobre o SISOPB..."
+    )
+
+    # =========================================================
+    # RESPONDER
+    # =========================================================
+
+    if pergunta:
+
+        st.session_state[
+            "historico_assistente_sisopb"
+        ].append({
+            "papel": "user",
+            "conteudo": pergunta
+        })
+
+        with st.chat_message(
+            "user"
+        ):
+
+            st.markdown(
+                pergunta
+            )
+
+        try:
+
+            resposta = interpretar_pergunta(
+                pergunta
+            )
+
+        except Exception as erro:
+
+            resposta = (
+                "❌ Não consegui realizar essa consulta.\n\n"
+                f"**Detalhes:** {erro}"
+            )
+
+        st.session_state[
+            "historico_assistente_sisopb"
+        ].append({
+            "papel": "assistant",
+            "conteudo": resposta
+        })
+
+        with st.chat_message(
+            "assistant"
+        ):
+
+            st.markdown(
+                resposta
+            )
+
 def main():
 
     st.set_page_config(
@@ -24531,6 +26240,7 @@ def main():
             "💰 Financeiro",
             "📚 Contabilidade",
             "📏 Medições",
+			"🤖 Assistente SISOPB",
             "👤 Cadastrar Usuário"
         ]
 
@@ -24651,7 +26361,11 @@ def main():
 
         cadastrar_usuario()
 
-    elif escolha == "🔓 Logout":
+    elif escolha == "🤖 Assistente SISOPB":
+
+        assistente_sisopb()
+	
+	elif escolha == "🔓 Logout":
 
         # ======================================
         # LIMPAR LOGIN
