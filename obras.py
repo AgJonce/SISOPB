@@ -20990,8 +20990,53 @@ def incluir_liquidacao():
         col1, col2 = st.columns(2)
 
         with col1:
-            numero_liquidacao = st.text_input(
-                "🔢 Número da Liquidação *"
+
+            # =====================================================
+            # NÚMERO AUTOMÁTICO DA LIQUIDAÇÃO
+            # =====================================================
+
+            ano_liquidacao = data_liquidacao.year
+
+            cursor.execute("""
+                SELECT numero_liquidacao
+                FROM liquidacoes
+                WHERE substr(data_liquidacao, 1, 4) = ?
+            """, (
+                str(ano_liquidacao),
+            ))
+
+            numeros_existentes = cursor.fetchall()
+
+            numeros_utilizados = set()
+
+            for registro in numeros_existentes:
+
+                try:
+                    numeros_utilizados.add(
+                        int(str(registro[0]).strip())
+                    )
+
+                except (TypeError, ValueError):
+                    pass
+
+            numero_sequencial = 1
+
+            while numero_sequencial in numeros_utilizados:
+                numero_sequencial += 1
+
+            numero_liquidacao = (
+                f"{numero_sequencial:06d}"
+            )
+
+            st.text_input(
+                "🔢 Número da Liquidação",
+                value=numero_liquidacao,
+                disabled=True,
+                key=(
+                    f"numero_liquidacao_auto_"
+                    f"{empenho_id}_"
+                    f"{ano_liquidacao}"
+                )
             )
 
         with col2:
