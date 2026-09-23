@@ -21114,7 +21114,6 @@ def incluir_liquidacao():
                     f"{ano_liquidacao}"
                 )
             )
-
         with col2:
             data_liquidacao = st.date_input(
                 "📅 Data da Liquidação *",
