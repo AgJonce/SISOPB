@@ -685,11 +685,19 @@ def testar_conexao_supabase():
         st.error("❌ Não foi possível conectar ao Supabase.")
         st.exception(erro)
 
-def main ():
-    st.set_page_config(page_title="Sistemas de Obras Públicas ", page_icon="🏗️", layout="wide")
-    st.title("🏗️SISOPB")
+def main():
 
-	testar_conexao_supabase()
+    st.set_page_config(
+        page_title="Sistemas de Obras Públicas",
+        page_icon="🏗️",
+        layout="wide"
+    )
+
+    st.title(
+        "🏗️ SISOPB - Sistema Integrado de Obras Públicas"
+    )
+
+    testar_conexao_supabase()
 
     st.markdown("---")
 
