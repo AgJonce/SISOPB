@@ -1,4 +1,5 @@
 import os
+import psycopg2
 import plotly.express as px
 import plotly.graph_objects as go
 import sqlite3
@@ -653,10 +654,43 @@ cursor.execute("""
 """)
 
 conn.commit()
+def testar_conexao_supabase():
+    try:
+        conn_teste = psycopg2.connect(
+            host=st.secrets["postgres"]["host"],
+            port=st.secrets["postgres"]["port"],
+            dbname=st.secrets["postgres"]["dbname"],
+            user=st.secrets["postgres"]["user"],
+            password=st.secrets["postgres"]["password"],
+            sslmode="require"
+        )
+
+        cursor_teste = conn_teste.cursor()
+
+        cursor_teste.execute(
+            "SELECT COUNT(*) FROM usuarios"
+        )
+
+        quantidade = cursor_teste.fetchone()[0]
+
+        cursor_teste.close()
+        conn_teste.close()
+
+        st.success(
+            f"✅ Supabase conectado com sucesso! "
+            f"Usuários encontrados: {quantidade}"
+        )
+
+    except Exception as erro:
+        st.error("❌ Não foi possível conectar ao Supabase.")
+        st.exception(erro)
 
 def main ():
     st.set_page_config(page_title="Sistemas de Obras Públicas ", page_icon="🏗️", layout="wide")
     st.title("🏗️SISOPB")
+
+	testar_conexao_supabase()
+
     st.markdown("---")
 
     if "usuario_logado" not in st.session_state:
