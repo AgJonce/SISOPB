@@ -12,3 +12,4 @@ cryptography
 reportlab
 Plotly
 streamlit-aggrid
+psycopg2-binary
