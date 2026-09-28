@@ -324,8 +324,6 @@ def main():
         "🏗️ SISOPB - Sistema Integrado de Obras Públicas"
     )
 
-    testar_conexao_supabase()
-
     st.markdown("---")
 
     if "usuario_logado" not in st.session_state:
